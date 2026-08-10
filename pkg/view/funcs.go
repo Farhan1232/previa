@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"previa/internal/assets"
-	"previa/internal/data"
-	"previa/internal/models"
+	"previa/pkg/assets"
+	"previa/pkg/data"
+	"previa/pkg/models"
 )
 
 // Funcs is the template function map available to every template.

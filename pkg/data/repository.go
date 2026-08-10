@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"previa/internal/models"
+	"previa/pkg/models"
 )
 
 // SortOrder controls result ordering.

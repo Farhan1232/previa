@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"previa/internal/config"
-	"previa/internal/data"
-	"previa/internal/models"
-	"previa/internal/view"
+	"previa/pkg/config"
+	"previa/pkg/data"
+	"previa/pkg/models"
+	"previa/pkg/view"
 )
 
 // Handler bundles the dependencies every route needs.

@@ -12,11 +12,11 @@ import (
 	"os"
 	"time"
 
-	"previa/internal/assets"
-	"previa/internal/config"
-	"previa/internal/data"
-	"previa/internal/handlers"
-	"previa/internal/view"
+	"previa/pkg/assets"
+	"previa/pkg/config"
+	"previa/pkg/data"
+	"previa/pkg/handlers"
+	"previa/pkg/view"
 	"previa/web"
 )
 

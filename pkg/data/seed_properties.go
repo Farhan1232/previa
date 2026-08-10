@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"previa/internal/models"
+	"previa/pkg/models"
 )
 
 // propertySeed is a compact description of one listing. buildProperties()

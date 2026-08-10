@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"previa/internal/assets"
-	"previa/internal/models"
+	"previa/pkg/assets"
+	"previa/pkg/models"
 )
 
 // Mock is the in-memory implementation of every repository interface. It is

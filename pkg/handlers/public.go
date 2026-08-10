@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"previa/internal/data"
-	"previa/internal/models"
+	"previa/pkg/data"
+	"previa/pkg/models"
 )
 
 // HomeData is the homepage payload.

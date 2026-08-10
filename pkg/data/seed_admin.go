@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"previa/internal/models"
+	"previa/pkg/models"
 )
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"previa/internal/models"
+	"previa/pkg/models"
 )
 
 // AdminData is the payload shared by the administration screens.

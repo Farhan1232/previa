@@ -12,7 +12,7 @@
 //
 // Regenerate after adding or removing images:
 //
-//	go run ./internal/assets/cmd/genmanifest
+//	go run ./pkg/assets/cmd/genmanifest
 package assets
 
 import "strings"

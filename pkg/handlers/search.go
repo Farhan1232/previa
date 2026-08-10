@@ -5,9 +5,9 @@ import (
 	"html/template"
 	"net/http"
 
-	"previa/internal/data"
-	"previa/internal/models"
-	"previa/internal/view"
+	"previa/pkg/data"
+	"previa/pkg/models"
+	"previa/pkg/view"
 )
 
 // mapPoint is the marker payload handed to the client map component.

@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"sync"
 
-	"previa/internal/app"
-	"previa/internal/config"
+	"previa/pkg/app"
+	"previa/pkg/config"
 )
 
 var (

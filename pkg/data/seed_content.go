@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"previa/internal/models"
+	"previa/pkg/models"
 )
 
 // ---------------------------------------------------------------------------

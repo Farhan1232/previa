@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"previa/internal/app"
-	"previa/internal/config"
+	"previa/pkg/app"
+	"previa/pkg/config"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"html/template"
 	"net/http"
 
-	"previa/internal/models"
+	"previa/pkg/models"
 )
 
 // PropertyDetailData is the detail-page payload.

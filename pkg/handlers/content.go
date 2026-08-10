@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"previa/internal/models"
+	"previa/pkg/models"
 )
 
 // ListData is a generic listing payload for the index pages.

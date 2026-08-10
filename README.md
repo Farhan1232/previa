@@ -39,8 +39,9 @@ go build -o previa ./cmd/previa
 ./previa
 ```
 
-The binary needs `web/` next to it, or point `PREVIA_TEMPLATE_DIR` and
-`PREVIA_STATIC_DIR` elsewhere.
+Templates are compiled into the binary with `go:embed`, so it runs from
+anywhere. Only the static assets are read from disk — point
+`PREVIA_STATIC_DIR` at them if you run the binary outside the repo.
 
 ### Environment variables
 
@@ -52,7 +53,7 @@ The binary needs `web/` next to it, or point `PREVIA_TEMPLATE_DIR` and
 | `PREVIA_MAPS_API_KEY` | *(empty)* | Google Maps JavaScript API key |
 | `PREVIA_DEFAULT_COUNTRY` | `EE` | Market shown before a visitor chooses |
 | `PREVIA_TEMPLATE_DIR` | `web/templates` | Template root |
-| `PREVIA_STATIC_DIR` | `web/static` | Static asset root |
+| `PREVIA_STATIC_DIR` | `public/static` | Static asset root |
 
 **No secret is committed.** The Maps key is read from the environment only, and
 never rendered into a template or stored in the data layer.
@@ -78,12 +79,13 @@ web/
     partials/               header, footer, account nav, admin nav
     components/             logo, icons, cards, filters, map, results
     pages/                  one file per route (+ account/, admin/, auth/)
+public/
   static/
     css/                    tokens → base → components → layout → pages
     js/previa.js            Alpine factories + the little glue that needs JS
     vendor/                 pinned HTMX and Alpine (no CDN)
-    fonts/                  self-hosted Inter + Playfair Display (woff2)
-    img/                    generated placeholder imagery
+    fonts/                  self-hosted DM Serif Display + Manrope (woff2)
+    img/                    photography + generated WebP variants
 docs/                       reference audit, backend integration points
 ```
 
@@ -134,7 +136,7 @@ No Lorem Ipsum anywhere.
 
 ### Photography
 
-`web/static/img/` holds **182 real photographs**, downloaded from Unsplash and
+`public/static/img/` holds **182 real photographs**, downloaded from Unsplash and
 stored locally (nothing is hotlinked at runtime):
 
 | Set | Count | Subject |
@@ -163,32 +165,35 @@ in the templates changes: they consume `models.Image{URL, Alt, Width, Height}`.
 
 ## Design system
 
-### Tokens — `web/static/css/tokens.css`
+### Tokens — `public/static/css/tokens.css`
 
 Every colour, size, space, radius, shadow and duration is a custom property.
 Components never hardcode a raw value.
 
 | Role | Light | Dark |
 | --- | --- | --- |
-| Primary navy | `#102A43` | inverts to `#E8EDF3` for buttons |
-| Secondary slate | `#486581` | `#93A7BC` |
-| Gold accent | `#C99A3D` | `#D8AC55` |
-| Page background | `#F7F5F0` | `#0B1620` |
-| Surface | `#FFFFFF` | `#122333` |
-| Text | `#17212B` | `#F2F4F7` |
-| Border | `#E4E7EC` | `#2D4153` |
+| Primary navy | `#0C2D48` | inverts to `#E9EFF3` for buttons |
+| Interactive teal | `#2F6F68` | `#5A9D94` |
+| Gold accent | `#C39A5B` | `#D1AA68` |
+| Page background | `#F6F3EE` | `#081722` |
+| Surface | `#FFFFFF` | `#102635` |
+| Text | `#172B3A` | `#E8EDF1` |
+| Border | `#DDE3E7` | `#294353` |
 
-Roughly 60% warm off-white / white, 30% navy and slate, 10% gold. Gold is
-restricted to featured badges, premium packages, selected states and small
-accents — never large fills or long text.
+Roughly 60% warm off-white / white, 30% navy and neutrals, 10% accent. Teal
+carries selected and interactive states; gold is restricted to featured
+badges, premium packages and small accents — never large fills or long text.
 
 ### Typography
 
-- **Playfair Display** — marketing and page headings only
-- **Inter** — everything else: navigation, body, prices, forms, tables, admin
+- **DM Serif Display** — marketing and page headings only
+- **Manrope** — everything else: navigation, body, prices, forms, tables, admin
 
 Both self-hosted as latin/latin-ext `woff2` subsets (SIL Open Font License).
 No runtime dependency on Google Fonts. Sizes are fluid via `clamp()`.
+
+DM Serif Display ships a single weight, so serif headings are always 400 —
+requesting a bold would make the browser synthesise one.
 
 ### Spacing and layout
 
@@ -222,7 +227,7 @@ it executes, so `previa.js` (component factories) and the focus/collapse plugins
 must be loaded *before* it. Getting this wrong makes every `x-data` expression
 silently resolve against `window`.
 
-**Plain JavaScript** is confined to `web/static/js/previa.js` and used only
+**Plain JavaScript** is confined to `public/static/js/previa.js` and used only
 where nothing else fits: theme persistence, focus and scroll bookkeeping around
 overlays, geolocation, and the Google Maps integration with its offline
 fallback.
@@ -342,6 +347,27 @@ Deliberately **not** implemented in this milestone:
   work and returns a fixed "simulation only" response.
 
 `/admin` has **no access control** and must be gated before deployment.
+
+---
+
+## Deployment
+
+The application runs two ways from the same wiring in `internal/app`:
+
+- **`cmd/previa`** — a long-lived HTTP server.
+- **`api/index.go`** — a Vercel serverless function. Vercel serves everything
+  in `public/` from its CDN and `vercel.json` rewrites only what the filesystem
+  does not resolve, so static assets never invoke the function.
+
+Templates are embedded with `go:embed`, and the image manifest
+(`internal/assets`) is generated Go source rather than a directory scan,
+because a serverless bundle ships the binary without the repository beside it.
+
+After adding or regenerating imagery, refresh the manifest:
+
+```bash
+go run ./internal/assets/cmd/genmanifest
+```
 
 ---
 

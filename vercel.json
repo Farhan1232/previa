@@ -1,17 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/index.go": {
-      "memory": 512,
-      "maxDuration": 10
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/api/index"
-    }
+
+  "//": [
+    "Everything under public/ is served straight from the CDN. Vercel resolves",
+    "the filesystem before applying rewrites, so /static/* and /api/index hit",
+    "real files and only unmatched paths fall through to the Go function."
   ],
+
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+
   "headers": [
     {
       "source": "/static/fonts/(.*)",
@@ -27,7 +26,7 @@
       ]
     },
     {
-      "source": "/static/(css|js|vendor)/(.*)",
+      "source": "/static/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]

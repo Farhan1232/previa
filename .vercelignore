@@ -1,5 +1,3 @@
-# Not needed by the build or the runtime
+# Not needed by the Vercel build or runtime
 docs/
 .git/
-*.md
-!README.md

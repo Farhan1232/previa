@@ -1,0 +1,67 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{ template "account-head" dict "Title" "Saved searches"
+   "Lede" "Your stored filters, and how often we tell you about new matches." }}
+
+<div class="container section">
+  <div class="shell">
+    {{ template "account-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ if $d.Saved }}
+      <div class="stack">
+        {{ range $d.Saved }}
+        <article class="card">
+          <div class="card__body">
+            <div class="row" style="gap:var(--sp-4);align-items:flex-start">
+              <span class="stat__icon" style="flex:none">{{ template "icon" "search" }}</span>
+
+              <div style="flex:1;min-width:0">
+                <div class="row row--tight">
+                  <h2 class="card__title" style="font-size:var(--fs-base)">
+                    <a href="/search?{{ .Query }}">{{ .Name }}</a>
+                  </h2>
+                  {{ if .NewMatches }}
+                  <span class="badge badge--featured numeric">{{ .NewMatches }} new</span>
+                  {{ end }}
+                </div>
+                <p class="text-sm muted" style="margin-top:4px">{{ .Summary }}</p>
+                <p class="text-xs subtle" style="margin-top:var(--sp-2)">
+                  {{ .ResultCount }} matches · saved {{ timeAgo .CreatedAt }}
+                </p>
+              </div>
+
+              <div class="stack stack--sm" style="flex:none;align-items:flex-end">
+                <label class="switch">
+                  <input type="checkbox" {{ if .AlertsOn }}checked{{ end }}
+                         x-data @change="previaToast($event.target.checked ? 'Alerts on for this search.' : 'Alerts paused.', 'success')">
+                  <span class="switch__track"><span class="switch__thumb"></span></span>
+                  <span class="text-xs muted">Alerts</span>
+                </label>
+                <span class="text-xs subtle">{{ .Frequency }}</span>
+              </div>
+
+              <div class="row row--tight" style="flex:none">
+                <a class="btn btn--secondary btn--sm" href="/search?{{ .Query }}">Run search</a>
+                <button type="button" class="btn btn--quiet btn--sm" x-data
+                        @click="previaToast('Saved search removed in this demonstration view.', 'success')"
+                        aria-label="Delete saved search {{ .Name }}">
+                  {{ template "icon" "trash" }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+        {{ end }}
+      </div>
+      {{ else }}
+        {{ template "empty-state" dict "Icon" "search"
+           "Title" "No saved searches"
+           "Text" "Run a search, then choose Save this search. We'll alert you the moment something matching goes live."
+           "ActionHref" "/search" "ActionLabel" "Start searching" }}
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

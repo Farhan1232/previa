@@ -1,0 +1,64 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Brokers" "Lede" "Verify brokers and manage their promoted placement." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Broker</th><th>Agency</th><th>Country</th><th>Listings</th>
+                <th>Rating</th><th>Promoted</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Brokers }}
+            <tr>
+              <td>
+                <div class="mini-row">
+                  <img class="avatar avatar--sm" src="{{ .Photo }}" alt="" width="32" height="32" loading="lazy">
+                  <div class="mini-row__text">
+                    <a class="strong" href="/broker/{{ .Slug }}">{{ .Name }}</a>
+                    <p class="text-xs muted">{{ .Title }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="text-sm">{{ .AgencyName }}</td>
+              <td class="text-sm">{{ .CountryCode }} · {{ .City }}</td>
+              <td class="numeric">{{ .ActiveListings }}</td>
+              <td class="numeric">{{ .Rating }} ({{ .Reviews }})</td>
+              <td>
+                <label class="switch">
+                  <input type="checkbox" {{ if .IsPromoted }}checked{{ end }}
+                         hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                  <span class="switch__track"><span class="switch__thumb"></span></span>
+                  <span class="visually-hidden">Promote {{ .Name }}</span>
+                </label>
+              </td>
+              <td>
+                <div class="table__actions">
+                  <a class="btn btn--quiet btn--sm" href="/broker/{{ .Slug }}"
+                     aria-label="View {{ .Name }}">{{ template "icon" "eye" }}</a>
+                  <button class="btn btn--quiet btn--sm" aria-label="Edit {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "edit" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

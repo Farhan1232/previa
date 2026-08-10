@@ -1,0 +1,81 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Listing packages" "Lede" "Pricing tiers offered to sellers and agencies." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Package</th><th>Price</th><th>Duration</th><th>Photos</th>
+                <th>Bumps</th><th>Flags</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Packages }}
+            <tr>
+              <td>
+                <span class="strong">{{ .Name }}</span>
+                <p class="text-xs muted">{{ .Tagline }}</p>
+              </td>
+              <td class="numeric nowrap">{{ money .Price }}</td>
+              <td class="numeric">{{ .DurationDays }} days</td>
+              <td class="numeric">{{ .PhotoLimit }}</td>
+              <td class="numeric">{{ .BumpCount }}</td>
+              <td>
+                {{ if .IsPopular }}<span class="badge badge--info">Popular</span>{{ end }}
+                {{ if .IsPremium }}<span class="badge badge--featured">Premium</span>{{ end }}
+              </td>
+              <td>
+                <div class="table__actions">
+                  <button class="btn btn--quiet btn--sm" aria-label="Edit {{ .Name }} package"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "edit" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Edit package — Standard</h2></div>
+        <div class="card__body">
+          <form class="grid grid--2" style="gap:var(--sp-4)"
+                hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+            <div class="field">
+              <label class="field__label" for="pk-name">Name</label>
+              <input class="input" id="pk-name" value="Standard">
+            </div>
+            <div class="field">
+              <label class="field__label" for="pk-price">Price (EUR)</label>
+              <input class="input" id="pk-price" type="number" value="39">
+            </div>
+            <div class="field">
+              <label class="field__label" for="pk-days">Duration (days)</label>
+              <input class="input" id="pk-days" type="number" value="60">
+            </div>
+            <div class="field">
+              <label class="field__label" for="pk-photos">Photo limit</label>
+              <input class="input" id="pk-photos" type="number" value="25">
+            </div>
+            <div style="grid-column:1/-1">
+              <button class="btn btn--primary" type="submit">Save package</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

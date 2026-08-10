@@ -1,0 +1,91 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Translation strings"
+   "Lede" "Settings → Options → Strings. Empty values fall back to the English source string on the public site." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="row row--between">
+        <div class="row row--tight">
+          <label class="field__label" for="st-lang" style="margin:0">Language</label>
+          <select class="select" id="st-lang" style="min-height:40px;width:auto"
+                  onchange="window.location='/admin/strings?lang=' + this.value">
+            {{ range $d.Languages }}
+            {{ if not .IsDefault }}
+            <option value="{{ .Code }}" {{ if eq .Code $d.Lang }}selected{{ end }}>
+              {{ .Name }} — {{ percent .Progress }}
+            </option>
+            {{ end }}
+            {{ end }}
+          </select>
+        </div>
+        <span class="input-icon">
+          {{ template "icon" "search" }}
+          <input class="input" type="search" placeholder="Filter by key or text"
+                 style="min-height:40px;width:260px">
+        </span>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:190px">Key</th>
+              <th style="width:120px">Group</th>
+              <th>English (source)</th>
+              <th>Translation</th>
+              <th style="width:110px">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ range $d.Strings }}
+            <tr {{ if .IsMissing }}class="is-missing"{{ end }}>
+              <td><code class="text-xs">{{ .Key }}</code></td>
+              <td><span class="badge badge--outline">{{ .Group }}</span></td>
+              <td class="text-sm muted">{{ .English }}</td>
+              <td>
+                <input class="input" style="min-height:38px" value="{{ .Value }}"
+                       placeholder="{{ .English }}"
+                       aria-label="Translation for {{ .Key }}"
+                       hx-post="/admin/mock-action" hx-trigger="change"
+                       hx-target="#admin-result" hx-swap="innerHTML">
+              </td>
+              <td>
+                {{ if .IsMissing }}
+                <span class="badge badge--warning">Falls back</span>
+                {{ else }}
+                <span class="badge badge--success">Translated</span>
+                {{ end }}
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="row">
+        <button class="btn btn--primary" hx-post="/admin/mock-action"
+                hx-target="#admin-result" hx-swap="innerHTML">Save all changes</button>
+        <button class="btn btn--secondary" hx-post="/admin/mock-action"
+                hx-target="#admin-result" hx-swap="innerHTML">
+          {{ template "icon" "download" }} Export as CSV
+        </button>
+        <button class="btn btn--quiet" hx-post="/admin/mock-action"
+                hx-target="#admin-result" hx-swap="innerHTML">
+          {{ template "icon" "upload" }} Import
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

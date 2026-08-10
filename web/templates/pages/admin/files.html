@@ -1,0 +1,87 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "File manager" "Lede" "Browse the deployment directory." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="alert alert--error">
+        {{ template "icon" "shield" }}
+        <div>
+          <p class="alert__title">Read-only mockup — the real filesystem is never touched</p>
+          <p>
+            This listing is synthetic. Upload, rename, edit and delete are
+            disabled at the handler level in this build, so nothing on disk can
+            be changed from here.
+          </p>
+        </div>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="row row--between">
+        <nav aria-label="Directory path">
+          <ol class="breadcrumbs">
+            <li><a href="/admin/files">{{ template "icon" "folder" }} previa</a></li>
+          </ol>
+        </nav>
+        <div class="row row--tight">
+          <button class="btn btn--quiet btn--sm" hx-post="/admin/mock-action"
+                  hx-target="#admin-result" hx-swap="innerHTML">
+            {{ template "icon" "upload" }} Upload
+          </button>
+          <button class="btn btn--quiet btn--sm" hx-post="/admin/mock-action"
+                  hx-target="#admin-result" hx-swap="innerHTML">
+            {{ template "icon" "plus" }} New folder
+          </button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th style="width:36px"></th><th>Name</th><th>Size</th>
+                <th>Permissions</th><th>Owner</th><th>Modified</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Files }}
+            <tr>
+              <td>
+                <span style="color:var(--text-subtle)">
+                  {{ if .IsDir }}{{ template "icon" "folder" }}{{ else }}{{ template "icon" "file" }}{{ end }}
+                </span>
+              </td>
+              <td class="strong">{{ .Name }}</td>
+              <td class="numeric nowrap">{{ .Size }}</td>
+              <td><code class="text-xs">{{ .Perms }}</code></td>
+              <td class="text-sm muted">{{ .Owner }}</td>
+              <td class="text-sm muted nowrap">{{ dateLong .Modified }}</td>
+              <td>
+                <div class="table__actions">
+                  <button class="btn btn--quiet btn--sm" aria-label="Download {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "download" }}
+                  </button>
+                  <button class="btn btn--quiet btn--sm" aria-label="Delete {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-vals='{"action":"delete-file"}'
+                          hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "trash" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

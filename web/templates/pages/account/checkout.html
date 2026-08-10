@@ -1,0 +1,237 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $p := $d.Package }}
+
+<div class="container container--narrow section">
+  <nav aria-label="Breadcrumb" style="margin-bottom:var(--sp-5)">
+    <ol class="breadcrumbs">
+      <li><a href="/pricing">Packages</a> {{ template "icon" "chevron-right" }}</li>
+      <li aria-current="page">Checkout</li>
+    </ol>
+  </nav>
+
+  {{/* ---------- processing ---------- */}}
+  {{ if eq $d.State "processing" }}
+    <div class="card">
+      <div class="card__body" style="text-align:center;padding:var(--sp-11) var(--sp-6)">
+        <span class="spinner" style="width:36px;height:36px;border-width:3px"></span>
+        <h1 class="display display--h3" style="margin-top:var(--sp-5)">Processing your payment</h1>
+        <p class="muted">Don't close this window — this usually takes a few seconds.</p>
+      </div>
+    </div>
+
+  {{/* ---------- success ---------- */}}
+  {{ else if eq $d.State "success" }}
+    <div class="card">
+      <div class="card__body" style="text-align:center;padding:var(--sp-10) var(--sp-6)">
+        <span class="empty__icon" style="background:var(--success-bg);color:var(--success)">
+          {{ template "icon" "check-circle" }}
+        </span>
+        <h1 class="display display--h2" style="margin-top:var(--sp-5)">Payment successful</h1>
+        <p class="lede" style="margin-inline:auto;text-align:center">
+          Your {{ $p.Name }} package is active. Your listing is live and will
+          stay online for {{ $p.DurationDays }} days.
+        </p>
+
+        <div class="receipt">
+          <dl class="kv">
+            <dt>Package</dt><dd>{{ $p.Name }}</dd>
+            <dt>Duration</dt><dd>{{ $p.DurationDays }} days</dd>
+            <dt>Payment method</dt><dd>{{ methodLabel $d.Method }}</dd>
+            <dt>Invoice</dt><dd class="numeric">PRV-2026-0419</dd>
+            <dt>Total paid</dt><dd class="numeric strong">{{ money $p.Price }}</dd>
+          </dl>
+        </div>
+
+        <div class="row" style="justify-content:center;margin-top:var(--sp-6)">
+          <a class="btn btn--primary" href="/my-listings">View my listings</a>
+          <a class="btn btn--secondary" href="/billing">Download invoice</a>
+        </div>
+      </div>
+    </div>
+
+  {{/* ---------- failed ---------- */}}
+  {{ else if eq $d.State "failed" }}
+    <div class="card">
+      <div class="card__body" style="text-align:center;padding:var(--sp-10) var(--sp-6)">
+        <span class="empty__icon" style="background:var(--error-bg);color:var(--error)">
+          {{ template "icon" "alert" }}
+        </span>
+        <h1 class="display display--h2" style="margin-top:var(--sp-5)">Payment failed</h1>
+        <p class="lede" style="margin-inline:auto;text-align:center">
+          Your bank declined the transaction. Nothing has been charged, and your
+          listing is saved as a draft.
+        </p>
+        <div class="alert alert--error" style="text-align:left;margin-top:var(--sp-5)">
+          {{ template "icon" "alert" }}
+          <div>
+            <p class="alert__title">Reason given: insufficient funds</p>
+            <p>Try a different payment method, or contact your bank and try again.</p>
+          </div>
+        </div>
+        <div class="row" style="justify-content:center;margin-top:var(--sp-6)">
+          <a class="btn btn--primary" href="/checkout?package={{ $p.ID }}">Try again</a>
+          <a class="btn btn--secondary" href="/drafts">Go to drafts</a>
+        </div>
+      </div>
+    </div>
+
+  {{/* ---------- cancelled ---------- */}}
+  {{ else if eq $d.State "cancelled" }}
+    <div class="card">
+      <div class="card__body" style="text-align:center;padding:var(--sp-10) var(--sp-6)">
+        <span class="empty__icon">{{ template "icon" "info" }}</span>
+        <h1 class="display display--h2" style="margin-top:var(--sp-5)">Payment cancelled</h1>
+        <p class="lede" style="margin-inline:auto;text-align:center">
+          You cancelled before the payment completed. Nothing has been charged
+          and your listing is safe as a draft.
+        </p>
+        <div class="row" style="justify-content:center;margin-top:var(--sp-6)">
+          <a class="btn btn--primary" href="/checkout?package={{ $p.ID }}">Return to checkout</a>
+          <a class="btn btn--secondary" href="/pricing">Choose another package</a>
+        </div>
+      </div>
+    </div>
+
+  {{/* ---------- selection ---------- */}}
+  {{ else }}
+    <h1 class="display display--h2" style="margin-bottom:var(--sp-6)">Checkout</h1>
+
+    <div class="alert alert--info" style="margin-bottom:var(--sp-6)">
+      {{ template "icon" "info" }}
+      <p>
+        Demonstration checkout. No payment provider is contacted and no card
+        details are collected. Choosing Paysera shows the failure state and
+        Cancel shows the cancelled state, so every outcome can be reviewed.
+      </p>
+    </div>
+
+    <div class="checkout-grid">
+      <form class="stack stack--lg" action="/checkout/process" method="post">
+        <input type="hidden" name="package" value="{{ $p.ID }}">
+
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">1. Your package</h2></div>
+          <div class="card__body stack">
+            {{ range $d.Packages }}
+            <label class="option-row">
+              <input type="radio" name="package" value="{{ .ID }}" {{ if eq .ID $p.ID }}checked{{ end }}>
+              <span style="flex:1">
+                <span class="row row--between">
+                  <span class="strong">{{ .Name }}</span>
+                  <span class="strong numeric">{{ money .Price }}</span>
+                </span>
+                <span class="text-sm muted">{{ .Tagline }} · {{ .DurationDays }} days</span>
+              </span>
+            </label>
+            {{ end }}
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">2. Payment method</h2></div>
+          <div class="card__body stack">
+            <label class="option-row">
+              <input type="radio" name="method" value="stripe" checked>
+              <span style="flex:1">
+                <span class="strong">{{ template "icon" "card" }} Card</span>
+                <span class="text-sm muted">Visa, Mastercard or American Express, processed by Stripe.</span>
+              </span>
+            </label>
+            <label class="option-row">
+              <input type="radio" name="method" value="paypal">
+              <span style="flex:1">
+                <span class="strong">{{ template "icon" "globe" }} PayPal</span>
+                <span class="text-sm muted">You'll be redirected to PayPal to approve the payment.</span>
+              </span>
+            </label>
+            <label class="option-row">
+              <input type="radio" name="method" value="paysera">
+              <span style="flex:1">
+                <span class="strong">{{ template "icon" "building" }} Paysera bank link</span>
+                <span class="text-sm muted">Pay directly from an Estonian, Latvian or Lithuanian bank account.</span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">3. Billing details</h2></div>
+          <div class="card__body">
+            <div class="grid grid--2" style="gap:var(--sp-4)">
+              <div class="field">
+                <label class="field__label" for="ck-name">Full name</label>
+                <input class="input" id="ck-name" name="billing_name" type="text" value="{{ .User.Name }}">
+              </div>
+              <div class="field">
+                <label class="field__label" for="ck-email">Email for the invoice</label>
+                <input class="input" id="ck-email" name="billing_email" type="email" value="{{ .User.Email }}">
+              </div>
+              <div class="field">
+                <label class="field__label" for="ck-country">Billing country</label>
+                <select class="select" id="ck-country" name="billing_country">
+                  {{ range .Countries }}
+                  <option {{ if eq .Code $.User.CountryCode }}selected{{ end }}>{{ .Name }}</option>
+                  {{ end }}
+                </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="ck-vat">VAT number</label>
+                <input class="input" id="ck-vat" name="vat" type="text" placeholder="Optional">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <label class="check">
+          <input type="checkbox" name="terms" required>
+          <span class="check__text">
+            I accept the <a href="/terms" class="strong">terms of service</a> and
+            agree that my listing goes live once payment completes.
+          </span>
+        </label>
+
+        <div class="row row--tight">
+          <button class="btn btn--primary btn--lg" type="submit">
+            Pay {{ money $p.Price }}
+          </button>
+          <button class="btn btn--ghost" type="submit" name="method" value="cancel">
+            Cancel
+          </button>
+        </div>
+      </form>
+
+      <aside>
+        <div class="card checkout-summary">
+          <div class="card__header"><h2 class="card__title">Order summary</h2></div>
+          <div class="card__body stack">
+            <div class="row row--between">
+              <span>{{ $p.Name }} package</span>
+              <span class="numeric">{{ money $p.Price }}</span>
+            </div>
+            <div class="row row--between text-sm muted">
+              <span>{{ $p.DurationDays }} days online</span>
+              <span>Included</span>
+            </div>
+            <div class="row row--between text-sm muted">
+              <span>Up to {{ $p.PhotoLimit }} photos</span>
+              <span>Included</span>
+            </div>
+            <div class="row row--between text-sm muted">
+              <span>VAT (22%)</span>
+              <span class="numeric">Added at payment</span>
+            </div>
+            <div class="row row--between checkout-total">
+              <span class="strong">Total</span>
+              <span class="strong numeric">{{ money $p.Price }}</span>
+            </div>
+            <p class="text-xs muted">
+              One-off payment. Nothing renews automatically.
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  {{ end }}
+</div>
+{{ end }}

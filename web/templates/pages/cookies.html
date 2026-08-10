@@ -1,0 +1,91 @@
+{{ define "content" }}
+<div class="page-head">
+  <div class="container container--narrow">
+    <div class="page-head__inner">
+      <h1 class="page-head__title">Cookie preferences</h1>
+      <p class="lede">
+        Choose which cookies Previa may use. Essential cookies keep you signed
+        in and remember your country and theme, so they cannot be switched off.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="container container--narrow section">
+  <div class="card"
+       x-data="{ analytics: true, marketing: false, saved: false }">
+    <div class="card__body stack stack--lg">
+
+      <div class="cookie-row">
+        <div>
+          <p class="strong">Essential</p>
+          <p class="text-sm muted">
+            Sign-in, security, your selected country, language and theme.
+            Required for the site to work.
+          </p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" checked disabled>
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+          <span class="visually-hidden">Essential cookies are always on</span>
+        </label>
+      </div>
+
+      <div class="cookie-row">
+        <div>
+          <p class="strong">Analytics</p>
+          <p class="text-sm muted">
+            Aggregate statistics about which pages and searches are used, so we
+            can improve them. Never used to identify you.
+          </p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" x-model="analytics">
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+          <span class="visually-hidden">Analytics cookies</span>
+        </label>
+      </div>
+
+      <div class="cookie-row">
+        <div>
+          <p class="strong">Marketing</p>
+          <p class="text-sm muted">
+            Measures how the advertising placements on Previa perform for our
+            sponsors.
+          </p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" x-model="marketing">
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+          <span class="visually-hidden">Marketing cookies</span>
+        </label>
+      </div>
+
+      <div x-show="saved" x-cloak class="alert alert--success" role="status">
+        {{ template "icon" "check-circle" }}
+        <p>Your cookie preferences have been saved to this browser.</p>
+      </div>
+
+      <div class="row">
+        <button type="button" class="btn btn--primary"
+                @click="saved = true; previaToast('Cookie preferences saved.', 'success')">
+          Save preferences
+        </button>
+        <button type="button" class="btn btn--secondary"
+                @click="analytics = true; marketing = true; saved = true">
+          Accept all
+        </button>
+        <button type="button" class="btn btn--ghost"
+                @click="analytics = false; marketing = false; saved = true">
+          Reject optional
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-sm muted" style="margin-top:var(--sp-6)">
+    See the <a href="/privacy" class="strong">privacy policy</a> for the full
+    list of cookies and their retention periods.
+  </p>
+</div>
+{{ end }}

@@ -1,0 +1,161 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $v := $d.Development }}
+
+<div class="container" style="padding-top:var(--sp-5)">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumbs">
+      <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+      <li><a href="/developments">Developments</a> {{ template "icon" "chevron-right" }}</li>
+      <li aria-current="page">{{ $v.Name }}</li>
+    </ol>
+  </nav>
+</div>
+
+<section class="container" style="padding-top:var(--sp-5)">
+  <div class="gallery">
+    <div class="gallery__main">
+      <img src="{{ $v.Cover.URL }}" alt="{{ $v.Name }}" width="1400" height="900" fetchpriority="high">
+    </div>
+    {{ if gt (len $v.Images) 2 }}
+    <div class="gallery__side">
+      <span class="gallery__thumb"><img src="{{ (index $v.Images 1).URL }}" alt="" loading="lazy"></span>
+      <span class="gallery__thumb"><img src="{{ (index $v.Images 2).URL }}" alt="" loading="lazy"></span>
+    </div>
+    {{ end }}
+  </div>
+</section>
+
+<div class="container" style="padding:var(--sp-8) 0 var(--sp-11)">
+  <div class="detail-layout">
+    <div class="stack stack--lg">
+      <header class="stack">
+        <div class="row row--tight">
+          {{ if not $v.IsCompleted }}
+          <span class="badge badge--featured">Completing {{ $v.CompletionQuarter }}</span>
+          {{ else }}
+          <span class="badge badge--success">Completed</span>
+          {{ end }}
+          <span class="badge badge--outline">Energy class {{ $v.EnergyRating }}</span>
+          <span class="badge badge--neutral numeric">{{ $v.AvailableUnits }} available</span>
+        </div>
+        <h1 class="display display--h2">{{ $v.Name }}</h1>
+        <p class="pcard__location" style="font-size:var(--fs-base)">
+          {{ template "icon" "map-pin" }} <span>{{ $v.Address }}</span>
+        </p>
+        <p class="text-sm muted">Developed by {{ $v.Developer }}</p>
+        <p class="detail-price numeric">From {{ money $v.PriceFrom }}</p>
+      </header>
+
+      <div class="fact-grid">
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "area" }} Unit sizes</span>
+          <span class="fact__value numeric">{{ area $v.AreaFrom }} – {{ area $v.AreaTo }}</span>
+        </div>
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "building" }} Total units</span>
+          <span class="fact__value numeric">{{ $v.TotalUnits }}</span>
+        </div>
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "layers" }} Floors</span>
+          <span class="fact__value numeric">{{ $v.Floors }}</span>
+        </div>
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "calendar" }} Completion</span>
+          <span class="fact__value">{{ $v.CompletionQuarter }}</span>
+        </div>
+      </div>
+
+      <section class="stack">
+        <h2 class="display display--h3">About the development</h2>
+        <div class="prose"><p>{{ $v.Description }}</p></div>
+      </section>
+
+      <section class="stack">
+        <h2 class="display display--h3">What's included</h2>
+        <ul class="feature-list">
+          {{ range $v.Features }}<li>{{ template "icon" "check" }} {{ .Label }}</li>{{ end }}
+        </ul>
+      </section>
+
+      {{ if $d.Units }}
+      <section class="stack">
+        <h2 class="display display--h3">Available units</h2>
+        <div class="grid grid--3">
+          {{ range $d.Units }}{{ template "property-card" dict "Property" . "Variant" "compact" }}{{ end }}
+        </div>
+      </section>
+      {{ end }}
+
+      <section class="stack" id="location">
+        <h2 class="display display--h3">Location</h2>
+        <div class="detail-map" x-data="previaMap({{ $d.DevMap }})">
+          {{ template "map-surface" . }}
+        </div>
+      </section>
+    </div>
+
+    <aside class="detail-aside">
+      <div class="card">
+        <div class="card__header"><h2 class="card__title">Register your interest</h2></div>
+        <div class="card__body">
+          <form class="stack" hx-post="/contact-broker" hx-target="#dev-result" hx-swap="innerHTML">
+            <div class="field">
+              <label class="field__label" for="d-name">Your name <span class="req">*</span></label>
+              <input class="input" id="d-name" name="name" type="text" required autocomplete="name">
+            </div>
+            <div class="field">
+              <label class="field__label" for="d-email">Email <span class="req">*</span></label>
+              <input class="input" id="d-email" name="email" type="email" required autocomplete="email">
+            </div>
+            <div class="field">
+              <label class="field__label" for="d-size">Unit size you're after</label>
+              <select class="select" id="d-size" name="size">
+                <option>Any size</option>
+                <option>1 bedroom</option>
+                <option>2 bedrooms</option>
+                <option>3 bedrooms</option>
+                <option>4+ bedrooms</option>
+              </select>
+            </div>
+            <label class="check">
+              <input type="checkbox" name="consent" required>
+              <span class="check__text">
+                I agree to the <a href="/privacy" class="strong">privacy policy</a>.
+              </span>
+            </label>
+            <button class="btn btn--primary btn--block" type="submit">Request the brochure</button>
+          </form>
+          <div id="dev-result"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title">Availability</h2></div>
+        <div class="card__body stack stack--sm">
+          <div class="row row--between text-sm">
+            <span class="muted">Sold</span>
+            <span class="numeric strong">{{ sub $v.TotalUnits $v.AvailableUnits }} of {{ $v.TotalUnits }}</span>
+          </div>
+          <div class="progress">
+            <div class="progress__bar progress__bar--gold"
+                 style="width:{{ percent (pctOf (sub $v.TotalUnits $v.AvailableUnits) $v.TotalUnits) }}"></div>
+          </div>
+          <p class="text-xs muted">{{ $v.AvailableUnits }} units remain available from the developer.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  {{ if $d.Similar }}
+  <section style="margin-top:var(--sp-12)">
+    <div class="section__head">
+      <div class="section__head-text"><h2 class="section__title">Other developments nearby</h2></div>
+    </div>
+    <div class="grid grid--3">
+      {{ range $d.Similar }}{{ template "development-card" . }}{{ end }}
+    </div>
+  </section>
+  {{ end }}
+</div>
+{{ end }}

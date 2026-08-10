@@ -1,0 +1,130 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $s := $d.Stats }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Dashboard" "Lede" "Platform activity across every Previa market." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="stat-grid">
+        {{ range $s.Tiles }}
+        <div class="stat">
+          <div class="stat__head">
+            <span class="stat__label">{{ .Label }}</span>
+            <span class="stat__icon">{{ template "icon" .Icon }}</span>
+          </div>
+          <p class="stat__value numeric">{{ .Value }}</p>
+          <p class="stat__foot">
+            <span class="stat__delta stat__delta--{{ .Trend }}">
+              {{ if eq .Trend "up" }}▲{{ else if eq .Trend "down" }}▼{{ else }}—{{ end }} {{ .Delta }}
+            </span>
+            {{ .Hint }}
+          </p>
+        </div>
+        {{ end }}
+      </div>
+
+      <div class="grid grid--2">
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">New users per month</h2></div>
+          <div class="card__body">
+            <div class="bars">
+              {{ range $s.SignupsByMonth }}
+              <div class="bars__col">
+                <span class="text-xs muted numeric">{{ number .Value }}</span>
+                <div class="bars__bar" style="height:{{ pctOfF .Value $d.MaxSignups }}%"></div>
+                <span class="bars__label">{{ .Label }}</span>
+              </div>
+              {{ end }}
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">Revenue per month</h2></div>
+          <div class="card__body">
+            <div class="bars">
+              {{ range $s.RevenueByMonth }}
+              <div class="bars__col">
+                <span class="text-xs muted numeric">€{{ number .Value }}</span>
+                <div class="bars__bar bars__bar--gold" style="height:{{ pctOfF .Value $d.MaxRevenue }}%"></div>
+                <span class="bars__label">{{ .Label }}</span>
+              </div>
+              {{ end }}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid grid--2">
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">Listings by type</h2></div>
+          <div class="card__body">
+            <div class="legend">
+              {{ range $s.ListingsByType }}
+              <div class="legend__row">
+                <span class="legend__swatch" style="background:{{ .Color }}"></span>
+                <span style="min-width:110px">{{ .Label }}</span>
+                <span class="legend__bar">
+                  <span class="legend__fill" style="width:{{ pctOf .Value $d.TypeTotal }}%;background:{{ .Color }}"></span>
+                </span>
+                <span class="legend__value numeric">{{ .Value }}</span>
+              </div>
+              {{ end }}
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__header">
+            <h2 class="card__title">Recent activity</h2>
+            <span class="text-xs muted">Audit log</span>
+          </div>
+          <div class="card__body">
+            <div class="activity">
+              {{ range $s.RecentActivity }}
+              <div class="activity__row">
+                <span class="activity__icon activity__icon--{{ .Kind }}">
+                  {{ if eq .Kind "approve" }}{{ template "icon" "check" }}
+                  {{ else if eq .Kind "reject" }}{{ template "icon" "close" }}
+                  {{ else if eq .Kind "delete" }}{{ template "icon" "trash" }}
+                  {{ else if eq .Kind "login" }}{{ template "icon" "user" }}
+                  {{ else }}{{ template "icon" "edit" }}{{ end }}
+                </span>
+                <div class="activity__text">
+                  <span class="strong">{{ .Actor }}</span> {{ .Action }}
+                  <span class="muted">{{ .Target }}</span>
+                </div>
+                <span class="activity__time">{{ timeAgo .At }}</span>
+              </div>
+              {{ end }}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card__header">
+          <h2 class="card__title">Waiting for moderation</h2>
+          <a class="btn btn--primary btn--sm" href="/admin/listings?status=pending">
+            Review {{ $s.PendingCount }} listings
+          </a>
+        </div>
+        <div class="card__body">
+          <p class="text-sm muted">
+            {{ $s.PendingCount }} listings are awaiting approval. The oldest has
+            been waiting 6 hours.
+          </p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

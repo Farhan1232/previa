@@ -1,0 +1,41 @@
+{{ define "content" }}
+<div class="container container--narrow">
+  <div class="error-page">
+    <p class="error-page__code" aria-hidden="true">404</p>
+    <h1 class="display display--h1">We couldn't find that page</h1>
+    <p class="lede" style="text-align:center;margin-inline:auto">
+      The link may be out of date, or the listing may have been sold, rented or
+      taken down. Here are some places to pick up the search.
+    </p>
+
+    <div class="row" style="justify-content:center;margin-top:var(--sp-3)">
+      <a class="btn btn--primary" href="/search">{{ template "icon" "search" }} Search properties</a>
+      <a class="btn btn--secondary" href="/">Back to homepage</a>
+    </div>
+
+    <div class="grid grid--3" style="margin-top:var(--sp-10);text-align:left;width:100%">
+      <a class="card error-card" href="/search?deal=sale">
+        <div class="card__body">
+          <span class="trust-item__icon">{{ template "icon" "home" }}</span>
+          <p class="strong" style="margin-top:var(--sp-3)">Property for sale</p>
+          <p class="text-sm muted">Browse everything currently on the market.</p>
+        </div>
+      </a>
+      <a class="card error-card" href="/search?deal=rent">
+        <div class="card__body">
+          <span class="trust-item__icon">{{ template "icon" "key" }}</span>
+          <p class="strong" style="margin-top:var(--sp-3)">Property to rent</p>
+          <p class="text-sm muted">Long-term rentals across eight markets.</p>
+        </div>
+      </a>
+      <a class="card error-card" href="/brokers">
+        <div class="card__body">
+          <span class="trust-item__icon">{{ template "icon" "users" }}</span>
+          <p class="strong" style="margin-top:var(--sp-3)">Find a broker</p>
+          <p class="text-sm muted">Verified professionals in your city.</p>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+{{ end }}

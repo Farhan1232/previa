@@ -1,0 +1,83 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="page-head">
+  <div class="container container--narrow">
+    <div class="page-head__inner">
+      <h1 class="page-head__title">{{ $d.Heading }}</h1>
+      <p class="text-sm muted">Last updated {{ $d.Updated }}</p>
+    </div>
+  </div>
+</div>
+
+<div class="container container--narrow section">
+  <div class="alert alert--info" style="margin-bottom:var(--sp-8)">
+    {{ template "icon" "info" }}
+    <div>
+      <p class="alert__title">Placeholder document</p>
+      <p>
+        This is structural placeholder copy for the frontend milestone. The
+        final {{ $d.Heading | printf "%s" }} will be supplied by Previa's legal
+        counsel before launch.
+      </p>
+    </div>
+  </div>
+
+  <div class="legal-layout">
+    <nav class="toc" aria-label="On this page">
+      <p class="overline" style="margin-bottom:var(--sp-2)">On this page</p>
+      {{ if eq $d.Kind "privacy" }}
+        <a href="#s1">1. What we collect</a>
+        <a href="#s2">2. How we use it</a>
+        <a href="#s3">3. Cookies</a>
+        <a href="#s4">4. Sharing with brokers</a>
+        <a href="#s5">5. Your rights</a>
+        <a href="#s6">6. Retention</a>
+        <a href="#s7">7. Contact</a>
+      {{ else }}
+        <a href="#s1">1. Using Previa</a>
+        <a href="#s2">2. Accounts</a>
+        <a href="#s3">3. Listing content</a>
+        <a href="#s4">4. Packages and payment</a>
+        <a href="#s5">5. Prohibited use</a>
+        <a href="#s6">6. Liability</a>
+        <a href="#s7">7. Governing law</a>
+      {{ end }}
+    </nav>
+
+    <div class="prose">
+      {{ if eq $d.Kind "privacy" }}
+        <h2 id="s1" class="display display--h3">1. What we collect</h2>
+        <p>Account details you provide, listings you publish, searches you save, and standard technical data such as your IP address and browser type.</p>
+        <h2 id="s2" class="display display--h3">2. How we use it</h2>
+        <p>To operate your account, show relevant listings, send the alerts you ask for, process package payments, and prevent fraudulent or abusive use of the platform.</p>
+        <h2 id="s3" class="display display--h3">3. Cookies</h2>
+        <p>Previa sets cookies for sign-in, your selected country, your theme preference and aggregate analytics. You can change your choices at any time on the <a href="/cookies">cookie preferences</a> page.</p>
+        <h2 id="s4" class="display display--h3">4. Sharing with brokers</h2>
+        <p>When you send an enquiry, the details you enter are passed to the broker or seller for that listing so they can reply. We do not sell personal data.</p>
+        <h2 id="s5" class="display display--h3">5. Your rights</h2>
+        <p>Under the GDPR you may request access to, correction of, or deletion of your personal data, and you may object to processing or request portability.</p>
+        <h2 id="s6" class="display display--h3">6. Retention</h2>
+        <p>Account data is kept while your account is open. Expired listings are retained for statistical purposes and removed on request.</p>
+        <h2 id="s7" class="display display--h3">7. Contact</h2>
+        <p>Data protection enquiries go to <a href="mailto:privacy@previa.estate">privacy@previa.estate</a>.</p>
+      {{ else }}
+        <h2 id="s1" class="display display--h3">1. Using Previa</h2>
+        <p>Previa is a marketplace connecting buyers and renters with brokers, agencies and private sellers. Previa is not a party to any transaction and does not act as an agent for either side.</p>
+        <h2 id="s2" class="display display--h3">2. Accounts</h2>
+        <p>You are responsible for keeping your credentials secure and for all activity under your account. Accounts may not be shared or transferred.</p>
+        <h2 id="s3" class="display display--h3">3. Listing content</h2>
+        <p>You warrant that you have the right to advertise each property you publish, that the details are accurate, and that all photographs are yours to use.</p>
+        <h2 id="s4" class="display display--h3">4. Packages and payment</h2>
+        <p>Listing packages are prepaid for a fixed term and do not renew automatically. Prices exclude VAT, which is applied according to your billing country.</p>
+        <h2 id="s5" class="display display--h3">5. Prohibited use</h2>
+        <p>Duplicate listings, misleading pricing, scraping, and any attempt to circumvent access controls are not permitted and may result in removal.</p>
+        <h2 id="s6" class="display display--h3">6. Liability</h2>
+        <p>Listing information is supplied by sellers and brokers. Previa takes reasonable care but does not warrant its accuracy, and you should verify details before committing.</p>
+        <h2 id="s7" class="display display--h3">7. Governing law</h2>
+        <p>These terms are governed by Estonian law, with disputes subject to the courts of Estonia.</p>
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

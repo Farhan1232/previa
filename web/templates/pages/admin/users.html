@@ -1,0 +1,79 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Users" "Lede" "Accounts registered on Previa." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="row row--between">
+        <div class="tabs" role="tablist" aria-label="User roles">
+          <a class="tab is-active" href="/admin/users">All <span class="tab__count numeric">{{ len $d.Users }}</span></a>
+          <a class="tab" href="/admin/users?role=user">Buyers &amp; sellers</a>
+          <a class="tab" href="/admin/users?role=broker">Brokers</a>
+          <a class="tab" href="/admin/users?role=admin">Administrators</a>
+        </div>
+        <span class="input-icon">
+          {{ template "icon" "search" }}
+          <input class="input" type="search" placeholder="Search by name or email"
+                 style="min-height:40px;width:240px">
+        </span>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>User</th><th>Role</th><th>Country</th><th>Verified</th><th>Member since</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Users }}
+            <tr>
+              <td>
+                <div class="mini-row">
+                  <span class="avatar avatar--sm">{{ initials .Name }}</span>
+                  <div class="mini-row__text">
+                    <span class="strong">{{ .Name }}</span>
+                    <p class="text-xs muted">{{ .Email }}</p>
+                  </div>
+                </div>
+              </td>
+              <td>
+                {{ if eq .Role "admin" }}<span class="badge badge--error">Admin</span>
+                {{ else if eq .Role "broker" }}<span class="badge badge--info">Broker</span>
+                {{ else }}<span class="badge badge--neutral">User</span>{{ end }}
+              </td>
+              <td class="text-sm">{{ .CountryCode }}</td>
+              <td>
+                {{ if .IsVerified }}<span class="badge badge--success">{{ template "icon" "check" }} Verified</span>
+                {{ else }}<span class="badge badge--warning">Pending</span>{{ end }}
+              </td>
+              <td class="text-sm muted nowrap">{{ date .MemberSince }}</td>
+              <td>
+                <div class="table__actions">
+                  <button class="btn btn--quiet btn--sm" aria-label="Edit {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "edit" }}
+                  </button>
+                  <button class="btn btn--quiet btn--sm" aria-label="Suspend {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "lock" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

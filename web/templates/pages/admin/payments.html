@@ -1,0 +1,80 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Payments" "Lede" "Package sales across Stripe, PayPal and Paysera." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat__head"><span class="stat__label">Revenue (30 days)</span>
+            <span class="stat__icon">{{ template "icon" "card" }}</span></div>
+          <p class="stat__value numeric">€42 180</p>
+          <p class="stat__foot"><span class="stat__delta stat__delta--up">▲ 11.4%</span> vs. previous period</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head"><span class="stat__label">Transactions</span>
+            <span class="stat__icon">{{ template "icon" "layers" }}</span></div>
+          <p class="stat__value numeric">618</p>
+          <p class="stat__foot">Average €68.25</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head"><span class="stat__label">Failed</span>
+            <span class="stat__icon">{{ template "icon" "alert" }}</span></div>
+          <p class="stat__value numeric">14</p>
+          <p class="stat__foot">2.3% of attempts</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head"><span class="stat__label">Refunded</span>
+            <span class="stat__icon">{{ template "icon" "refresh" }}</span></div>
+          <p class="stat__value numeric">€418</p>
+          <p class="stat__foot">6 refunds this period</p>
+        </div>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Invoice</th><th>Package</th><th>Property</th><th>Method</th>
+                <th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Payments }}
+            <tr>
+              <td class="numeric nowrap">{{ .InvoiceNo }}</td>
+              <td>{{ .PackageName }}</td>
+              <td class="text-sm muted">{{ truncate 32 .PropertyTitle }}</td>
+              <td class="text-sm">{{ methodLabel .Method }}</td>
+              <td class="numeric nowrap">{{ money .Amount }}</td>
+              <td><span class="badge badge--{{ paymentTone .Status }}">{{ .Status }}</span></td>
+              <td class="text-sm muted nowrap">{{ date .CreatedAt }}</td>
+              <td>
+                <div class="table__actions">
+                  <button class="btn btn--quiet btn--sm" aria-label="Download invoice {{ .InvoiceNo }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "download" }}
+                  </button>
+                  <button class="btn btn--quiet btn--sm" aria-label="Refund {{ .InvoiceNo }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "refresh" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

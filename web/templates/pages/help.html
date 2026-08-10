@@ -1,0 +1,102 @@
+{{ define "content" }}
+<div class="page-head">
+  <div class="container">
+    <div class="page-head__inner">
+      <h1 class="page-head__title">Help and contact</h1>
+      <p class="lede">
+        Search the help topics below, or send us a message and we'll come back
+        to you within one working day.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <div class="detail-layout">
+    <div class="stack stack--lg">
+
+      <section class="stack">
+        <h2 class="display display--h3">Popular topics</h2>
+        <div class="grid grid--2">
+          {{ $topics := list
+             "Publishing your first listing"
+             "Editing or removing a listing"
+             "Packages, invoices and refunds"
+             "Saved searches and alerts"
+             "Reporting a listing or a user"
+             "Account security and two-factor login" }}
+          {{ range $topics }}
+          <a class="help-tile" href="#contact">
+            <span class="help-tile__icon">{{ template "icon" "info" }}</span>
+            <span>{{ . }}</span>
+            {{ template "icon" "chevron-right" }}
+          </a>
+          {{ end }}
+        </div>
+      </section>
+
+      <section class="stack" id="contact">
+        <h2 class="display display--h3">Send us a message</h2>
+        <div class="card">
+          <div class="card__body">
+            <form class="stack" hx-post="/contact-broker" hx-target="#help-result" hx-swap="innerHTML">
+              <div class="grid grid--2" style="gap:var(--sp-4)">
+                <div class="field">
+                  <label class="field__label" for="h-name">Your name <span class="req">*</span></label>
+                  <input class="input" id="h-name" name="name" type="text" required autocomplete="name">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="h-email">Email <span class="req">*</span></label>
+                  <input class="input" id="h-email" name="email" type="email" required autocomplete="email">
+                </div>
+              </div>
+              <div class="field">
+                <label class="field__label" for="h-topic">What is this about?</label>
+                <select class="select" id="h-topic" name="topic">
+                  <option>A listing I published</option>
+                  <option>A listing I'm interested in</option>
+                  <option>Payments and invoices</option>
+                  <option>My account</option>
+                  <option>Advertising on Previa</option>
+                  <option>Something else</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="h-msg">Message <span class="req">*</span></label>
+                <textarea class="textarea" id="h-msg" name="message" rows="6" required
+                          placeholder="Tell us what you need help with."></textarea>
+              </div>
+              <button class="btn btn--primary" type="submit" style="align-self:flex-start">
+                Send message
+              </button>
+            </form>
+            <div id="help-result"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="detail-aside">
+      <div class="card">
+        <div class="card__header"><h2 class="card__title">Contact details</h2></div>
+        <div class="card__body stack stack--sm">
+          <p class="text-sm"><a href="mailto:hello@previa.estate">hello@previa.estate</a></p>
+          <p class="text-sm muted">Monday to Friday, 9:00–17:00 CET</p>
+          <p class="text-sm muted">Typical reply time: under one working day.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title">For brokers and agencies</h2></div>
+        <div class="card__body stack stack--sm">
+          <p class="text-sm muted">
+            Agency accounts get a named contact and a direct line. See the
+            Agency package for details.
+          </p>
+          <a class="btn btn--quiet btn--sm btn--block" href="/pricing#agency">Agency package</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+{{ end }}

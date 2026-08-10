@@ -1,0 +1,149 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{ template "account-head" dict "Title" (printf "Welcome back, %s" .User.Name)
+   "Lede" "Everything you're selling, saving and searching, in one place." }}
+
+<div class="container section">
+  <div class="shell">
+    {{ template "account-nav" . }}
+
+    <div class="stack stack--lg">
+
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat__head">
+            <span class="stat__label">Active listings</span>
+            <span class="stat__icon">{{ template "icon" "home" }}</span>
+          </div>
+          <p class="stat__value numeric">{{ index $d.Counts "active" }}</p>
+          <p class="stat__foot"><span class="stat__delta stat__delta--up">▲ 214 views</span> this week</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head">
+            <span class="stat__label">Saved properties</span>
+            <span class="stat__icon">{{ template "icon" "heart" }}</span>
+          </div>
+          <p class="stat__value numeric">{{ index $d.Counts "favourites" }}</p>
+          <p class="stat__foot">1 has dropped in price</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head">
+            <span class="stat__label">Saved searches</span>
+            <span class="stat__icon">{{ template "icon" "search" }}</span>
+          </div>
+          <p class="stat__value numeric">{{ index $d.Counts "saved" }}</p>
+          <p class="stat__foot">11 new matches waiting</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head">
+            <span class="stat__label">Drafts</span>
+            <span class="stat__icon">{{ template "icon" "file" }}</span>
+          </div>
+          <p class="stat__value numeric">{{ index $d.Counts "drafts" }}</p>
+          <p class="stat__foot">Oldest started 5 days ago</p>
+        </div>
+      </div>
+
+      {{ if $d.Drafts }}
+      <div class="alert alert--warning">
+        {{ template "icon" "alert-triangle" }}
+        <div>
+          <p class="alert__title">You have {{ pluralize (len $d.Drafts) "unfinished listing" "unfinished listings" }}</p>
+          <p>Pick up where you left off — everything you typed has been saved.
+             <a href="/drafts" class="strong">Continue a draft</a>.</p>
+        </div>
+      </div>
+      {{ end }}
+
+      <section class="card">
+        <div class="card__header">
+          <h2 class="card__title">Your listings</h2>
+          <a class="section__link" href="/my-listings">Manage all {{ template "icon" "arrow-right" }}</a>
+        </div>
+        <div class="card__body">
+          {{ if $d.Listings }}
+          <div class="stack">
+            {{ range $d.Listings }}
+            <div class="mini-row">
+              <img class="mini-row__img" src="{{ (.PrimaryImage).URL }}" alt="" width="80" height="60" loading="lazy">
+              <div class="mini-row__text">
+                <a class="strong" href="{{ propertyURL . }}">{{ .Title }}</a>
+                <p class="text-xs muted">{{ .City }} · {{ money .Price }}</p>
+              </div>
+              <span class="badge badge--{{ statusTone .Status }}">{{ statusLabel .Status }}</span>
+              <span class="text-xs muted numeric">{{ .Views }} views</span>
+            </div>
+            {{ end }}
+          </div>
+          {{ else }}
+            {{ template "empty-state" dict "Icon" "home" "Title" "No listings yet"
+               "Text" "Publish your first property and it will appear here."
+               "ActionHref" "/add-listing" "ActionLabel" "Add listing" }}
+          {{ end }}
+        </div>
+      </section>
+
+      <div class="grid grid--2">
+        <section class="card">
+          <div class="card__header">
+            <h2 class="card__title">Recent notifications</h2>
+            <a class="section__link" href="/notifications">All {{ template "icon" "arrow-right" }}</a>
+          </div>
+          <div class="card__body">
+            <div class="activity">
+              {{ range $d.Notifications }}
+              <div class="activity__row">
+                <span class="activity__icon">{{ template "icon" .Icon }}</span>
+                <div class="activity__text">
+                  <a class="strong" href="{{ .Link }}">{{ .Title }}</a>
+                  <p class="text-xs muted clamp-2">{{ .Body }}</p>
+                </div>
+                <span class="activity__time">{{ timeAgo .CreatedAt }}</span>
+              </div>
+              {{ end }}
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__header">
+            <h2 class="card__title">Saved searches</h2>
+            <a class="section__link" href="/saved-searches">All {{ template "icon" "arrow-right" }}</a>
+          </div>
+          <div class="card__body">
+            <div class="stack">
+              {{ range $d.Saved }}
+              <div class="mini-row">
+                <span class="stat__icon">{{ template "icon" "search" }}</span>
+                <div class="mini-row__text">
+                  <a class="strong" href="/search?{{ .Query }}">{{ .Name }}</a>
+                  <p class="text-xs muted">{{ .Summary }}</p>
+                </div>
+                {{ if .NewMatches }}
+                <span class="badge badge--featured numeric">{{ .NewMatches }} new</span>
+                {{ end }}
+              </div>
+              {{ end }}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {{ if $d.Favourites }}
+      <section class="stack">
+        <div class="section__head" style="margin-bottom:var(--sp-4)">
+          <div class="section__head-text"><h2 class="section__title">Recently saved</h2></div>
+          <a class="section__link" href="/favourites">All favourites {{ template "icon" "arrow-right" }}</a>
+        </div>
+        <div class="grid grid--3">
+          {{ range $d.Favourites }}
+            {{ template "property-card" dict "Property" . "Variant" "compact" "Favourite" true }}
+          {{ end }}
+        </div>
+      </section>
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

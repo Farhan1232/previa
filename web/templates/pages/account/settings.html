@@ -1,0 +1,230 @@
+{{ define "content" }}
+{{ template "account-head" dict "Title" "Profile and settings"
+   "Lede" "Your details, preferences and account security." }}
+
+<div class="container section">
+  <div class="shell">
+    {{ template "account-nav" . }}
+
+    <div class="stack stack--lg" x-data="{ tab: 'profile' }">
+      <div class="tabs" role="tablist" aria-label="Settings sections">
+        <button class="tab" :class="{ 'is-active': tab === 'profile' }" @click="tab = 'profile'"
+                role="tab" :aria-selected="tab === 'profile'">Profile</button>
+        <button class="tab" :class="{ 'is-active': tab === 'preferences' }" @click="tab = 'preferences'"
+                role="tab" :aria-selected="tab === 'preferences'">Preferences</button>
+        <button class="tab" :class="{ 'is-active': tab === 'security' }" @click="tab = 'security'"
+                role="tab" :aria-selected="tab === 'security'">Security</button>
+        <button class="tab" :class="{ 'is-active': tab === 'danger' }" @click="tab = 'danger'"
+                role="tab" :aria-selected="tab === 'danger'">Account</button>
+      </div>
+
+      {{/* Profile */}}
+      <div x-show="tab === 'profile'">
+        <div class="card">
+          <div class="card__header"><h2 class="card__title">Your details</h2></div>
+          <div class="card__body">
+            <form class="stack" @submit.prevent="previaToast('Profile saved.', 'success')">
+              <div class="row" style="gap:var(--sp-4);margin-bottom:var(--sp-2)">
+                <span class="avatar avatar--xl">{{ initials .User.Name }}</span>
+                <div class="stack stack--sm">
+                  <button type="button" class="btn btn--secondary btn--sm"
+                          @click="previaToast('Photo uploads are mocked in this build.', 'warning')">
+                    {{ template "icon" "upload" }} Upload photo
+                  </button>
+                  <p class="text-xs muted">JPEG or PNG, at least 400×400.</p>
+                </div>
+              </div>
+
+              <div class="grid grid--2" style="gap:var(--sp-4)">
+                <div class="field">
+                  <label class="field__label" for="p-name">Full name</label>
+                  <input class="input" id="p-name" type="text" value="{{ .User.Name }}">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="p-email">Email</label>
+                  <input class="input" id="p-email" type="email" value="{{ .User.Email }}">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="p-phone">Phone</label>
+                  <input class="input" id="p-phone" type="tel" value="{{ .User.Phone }}">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="p-country">Country</label>
+                  <select class="select" id="p-country">
+                    {{ range .Countries }}
+                    <option {{ if eq .Code $.User.CountryCode }}selected{{ end }}>{{ .Name }}</option>
+                    {{ end }}
+                  </select>
+                </div>
+              </div>
+
+              <button class="btn btn--primary" type="submit" style="align-self:flex-start">
+                Save changes
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {{/* Preferences */}}
+      <div x-show="tab === 'preferences'" x-cloak>
+        <div class="card">
+          <div class="card__header"><h2 class="card__title">Preferences</h2></div>
+          <div class="card__body stack stack--lg">
+            <div class="grid grid--2" style="gap:var(--sp-4)">
+              <div class="field">
+                <label class="field__label" for="p-lang">Language</label>
+                <select class="select" id="p-lang">
+                  {{ range .Languages }}{{ if .IsEnabled }}
+                  <option {{ if eq .Code $.Lang }}selected{{ end }}>{{ .NativeName }}</option>
+                  {{ end }}{{ end }}
+                </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="p-currency">Preferred currency</label>
+                <select class="select" id="p-currency">
+                  <option>EUR — Euro</option><option>CZK — Czech koruna</option><option>GBP — Pound sterling</option>
+                </select>
+              </div>
+            </div>
+
+            <fieldset style="border:0;padding:0;margin:0">
+              <legend class="field__label" style="margin-bottom:var(--sp-3)">Email me about</legend>
+              <label class="check"><input type="checkbox" checked>
+                <span class="check__text">New matches for my saved searches</span></label>
+              <label class="check"><input type="checkbox" checked>
+                <span class="check__text">Replies from brokers and sellers</span></label>
+              <label class="check"><input type="checkbox" checked>
+                <span class="check__text">Price changes on properties I've saved</span></label>
+              <label class="check"><input type="checkbox">
+                <span class="check__text">Market reports and Previa news</span></label>
+            </fieldset>
+
+            <div class="cookie-row">
+              <div>
+                <p class="strong">Dark theme</p>
+                <p class="text-sm muted">Also available from the moon icon in the header.</p>
+              </div>
+              <label class="switch" x-data>
+                <input type="checkbox" :checked="$store.theme.value === 'dark'" @change="$store.theme.toggle()">
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+                <span class="visually-hidden">Toggle dark theme</span>
+              </label>
+            </div>
+
+            <button class="btn btn--primary" style="align-self:flex-start" x-data
+                    @click="previaToast('Preferences saved.', 'success')">Save preferences</button>
+          </div>
+        </div>
+      </div>
+
+      {{/* Security */}}
+      <div x-show="tab === 'security'" x-cloak>
+        <div class="stack">
+          <div class="card">
+            <div class="card__header"><h2 class="card__title">Change password</h2></div>
+            <div class="card__body">
+              <form class="stack" style="max-width:420px"
+                    @submit.prevent="previaToast('Password updated.', 'success')">
+                <div class="field">
+                  <label class="field__label" for="s-current">Current password</label>
+                  <input class="input" id="s-current" type="password" autocomplete="current-password">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="s-new">New password</label>
+                  <input class="input" id="s-new" type="password" autocomplete="new-password">
+                  <span class="field__hint">At least 8 characters, with a capital letter.</span>
+                </div>
+                <button class="btn btn--primary" type="submit" style="align-self:flex-start">
+                  Update password
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__header"><h2 class="card__title">Two-factor authentication</h2></div>
+            <div class="card__body">
+              <div class="cookie-row">
+                <div>
+                  <p class="strong">Authenticator app</p>
+                  <p class="text-sm muted">Require a six-digit code in addition to your password.</p>
+                </div>
+                <label class="switch" x-data>
+                  <input type="checkbox" @change="previaToast('Two-factor setup is mocked in this build.', 'warning')">
+                  <span class="switch__track"><span class="switch__thumb"></span></span>
+                  <span class="visually-hidden">Enable two-factor authentication</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__header"><h2 class="card__title">Active sessions</h2></div>
+            <div class="card__body">
+              <div class="table-wrap">
+                <table class="table">
+                  <thead><tr><th>Device</th><th>Location</th><th>Last active</th><th></th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>Chrome on Linux <span class="badge badge--success">This device</span></td>
+                      <td>Tallinn, Estonia</td>
+                      <td class="text-sm muted">Just now</td>
+                      <td></td>
+                    </tr>
+                    <tr>
+                      <td>Safari on iPhone</td>
+                      <td>Tallinn, Estonia</td>
+                      <td class="text-sm muted">2 days ago</td>
+                      <td class="table__actions">
+                        <button class="btn btn--quiet btn--sm" x-data
+                                @click="previaToast('Session revoked.', 'success')">Sign out</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {{/* Account */}}
+      <div x-show="tab === 'danger'" x-cloak>
+        <div class="card danger-zone" x-data="{ confirm: false }">
+          <div class="card__header"><h2 class="card__title">Delete your account</h2></div>
+          <div class="card__body stack">
+            <p class="text-sm muted">
+              Deleting your account removes your profile, saved searches and
+              favourites. Published listings are taken offline. This cannot be undone.
+            </p>
+            <button type="button" class="btn btn--danger" style="align-self:flex-start"
+                    @click="confirm = true">Delete account</button>
+          </div>
+
+          <template x-if="confirm">
+            <div class="modal-backdrop" @click.self="confirm = false" @keydown.escape.window="confirm = false">
+              <div class="modal modal--sm" role="dialog" aria-modal="true" x-trap.noscroll="confirm"
+                   aria-labelledby="da-title">
+                <div class="modal__header">
+                  <h2 class="modal__title" id="da-title">Delete your account?</h2>
+                </div>
+                <div class="modal__body">
+                  <p>This is a demonstration build — nothing will actually be deleted.</p>
+                </div>
+                <div class="modal__footer">
+                  <button class="btn btn--secondary" @click="confirm = false">Cancel</button>
+                  <button class="btn btn--danger"
+                          @click="confirm = false; previaToast('Simulation only — no account was deleted.', 'warning')">
+                    Delete account
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

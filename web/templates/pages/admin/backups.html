@@ -1,0 +1,198 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Backups"
+   "Lede" "Website and database backup history, retention and destinations." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg" x-data="{ restoring: null }">
+      {{ template "admin-demo-notice" }}
+
+      <div class="alert alert--error">
+        {{ template "icon" "alert-triangle" }}
+        <div>
+          <p class="alert__title">No backup or restore is performed by this build</p>
+          <p>
+            The history below is sample data. Create, download, delete and
+            restore are frontend demonstrations only — the real operations land
+            with the production backend.
+          </p>
+        </div>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="grid grid--2">
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">Retention</h2></div>
+          <div class="card__body">
+            <form class="stack" hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+              <div class="field">
+                <label class="field__label" for="bk-local">Keep locally</label>
+                <select class="select" id="bk-local">
+                  <option>Last 7 backups</option><option selected>Last 14 backups</option>
+                  <option>Last 30 backups</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="bk-drive">Keep on Google Drive</label>
+                <select class="select" id="bk-drive">
+                  <option>Last 30 backups</option><option selected>Last 90 backups</option>
+                  <option>Keep everything</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="bk-sched">Schedule</label>
+                <select class="select" id="bk-sched">
+                  <option selected>Daily at 02:00</option><option>Twice daily</option><option>Weekly</option>
+                </select>
+              </div>
+              <button class="btn btn--primary" type="submit" style="align-self:flex-start">Save retention</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">Google Drive</h2></div>
+          <div class="card__body stack">
+            <div class="row row--between">
+              <div>
+                <p class="strong">Connection status</p>
+                <p class="text-sm muted">backups@previa.estate</p>
+              </div>
+              <span class="badge badge--success">{{ template "icon" "check" }} Connected</span>
+            </div>
+            <div class="row row--between">
+              <div>
+                <p class="strong">Storage used</p>
+                <p class="text-sm muted">86.4 GB of 200 GB</p>
+              </div>
+            </div>
+            <div class="progress"><div class="progress__bar" style="width:43%"></div></div>
+            <div class="row row--tight">
+              <button class="btn btn--secondary btn--sm" hx-post="/admin/mock-action"
+                      hx-target="#admin-result" hx-swap="innerHTML">Reconnect</button>
+              <button class="btn btn--quiet btn--sm" hx-post="/admin/mock-action"
+                      hx-target="#admin-result" hx-swap="innerHTML">Disconnect</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card__header">
+          <h2 class="card__title">Backup history</h2>
+          <div class="row row--tight">
+            <button class="btn btn--secondary btn--sm"
+                    hx-post="/admin/mock-action" hx-vals='{"action":"backup"}'
+                    hx-target="#admin-result" hx-swap="innerHTML">
+              {{ template "icon" "database" }} Back up database
+            </button>
+            <button class="btn btn--primary btn--sm"
+                    hx-post="/admin/mock-action" hx-vals='{"action":"backup"}'
+                    hx-target="#admin-result" hx-swap="innerHTML">
+              {{ template "icon" "cloud" }} Back up website
+            </button>
+          </div>
+        </div>
+        <div class="card__body" style="padding:0">
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table class="table">
+              <thead>
+                <tr><th>Backup</th><th>Type</th><th>Size</th><th>Destination</th>
+                    <th>Status</th><th>Created</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {{ range $d.Backups }}
+                <tr>
+                  <td><code class="text-xs">{{ .Name }}</code></td>
+                  <td>
+                    {{ if eq .Kind "mysql" }}<span class="badge badge--info">Database</span>
+                    {{ else }}<span class="badge badge--neutral">Website</span>{{ end }}
+                  </td>
+                  <td class="numeric nowrap">{{ .Size }}</td>
+                  <td>
+                    {{ if eq .Destination "gdrive" }}
+                    <span class="badge badge--outline">{{ template "icon" "cloud" }} Drive</span>
+                    {{ else }}
+                    <span class="badge badge--outline">{{ template "icon" "folder" }} Local</span>
+                    {{ end }}
+                  </td>
+                  <td>
+                    {{ if eq .Status "complete" }}<span class="badge badge--success">Complete</span>
+                    {{ else if eq .Status "failed" }}<span class="badge badge--error">Failed</span>
+                    {{ else }}<span class="badge badge--warning">Running</span>{{ end }}
+                  </td>
+                  <td class="text-sm muted nowrap">{{ dateLong .CreatedAt }}</td>
+                  <td>
+                    <div class="table__actions">
+                      <button class="btn btn--quiet btn--sm" aria-label="Download {{ .Name }}"
+                              hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                        {{ template "icon" "download" }}
+                      </button>
+                      <button type="button" class="btn btn--quiet btn--sm" @click="restoring = '{{ .Name }}'"
+                              aria-label="Restore {{ .Name }}">
+                        {{ template "icon" "refresh" }}
+                      </button>
+                      <button class="btn btn--quiet btn--sm" aria-label="Delete {{ .Name }}"
+                              hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                        {{ template "icon" "trash" }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {{/* Restore is the most destructive action in the panel, so it asks twice. */}}
+      <template x-if="restoring">
+        <div class="modal-backdrop" @click.self="restoring = null" @keydown.escape.window="restoring = null">
+          <div class="modal" role="dialog" aria-modal="true" x-trap.noscroll="restoring"
+               aria-labelledby="rs-title">
+            <div class="modal__header">
+              <h2 class="modal__title" id="rs-title">Restore this backup?</h2>
+              <button type="button" class="icon-btn" @click="restoring = null"
+                      aria-label="Close">{{ template "icon" "close" }}</button>
+            </div>
+            <div class="modal__body stack">
+              <div class="alert alert--error">
+                {{ template "icon" "alert-triangle" }}
+                <div>
+                  <p class="alert__title">This would overwrite live data</p>
+                  <p>
+                    Restoring <strong x-text="restoring"></strong> replaces the current
+                    database and files. In production this cannot be undone without
+                    another backup.
+                  </p>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field__label" for="rs-confirm">
+                  Type <code>RESTORE</code> to confirm
+                </label>
+                <input class="input" id="rs-confirm" placeholder="RESTORE">
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--secondary" @click="restoring = null">Cancel</button>
+              <button type="button" class="btn btn--danger"
+                      @click="previaToast('Simulation only — no backup was restored.', 'warning'); restoring = null">
+                Restore backup
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

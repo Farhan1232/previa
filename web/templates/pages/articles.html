@@ -1,0 +1,43 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="page-head">
+  <div class="container">
+    <div class="page-head__inner">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">Articles</li>
+        </ol>
+      </nav>
+      <h1 class="page-head__title">Property advice and market news</h1>
+      <p class="lede">
+        Practical guidance on buying, selling, renting, investing and renovating —
+        written by brokers who work these markets every day.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <div class="tabs" role="tablist" aria-label="Article categories" style="margin-bottom:var(--sp-7)">
+    <a class="tab {{ if not $d.Category }}is-active{{ end }}" href="/articles">All articles</a>
+    {{ range $d.Categories }}
+    <a class="tab {{ if eq . $d.Category }}is-active{{ end }}" href="/articles?category={{ . }}">{{ . }}</a>
+    {{ end }}
+  </div>
+
+  {{ if $d.Articles }}
+  <div class="grid grid--3">
+    {{ range $d.Articles }}{{ template "article-card" . }}{{ end }}
+  </div>
+  {{ else }}
+    {{ template "empty-state" dict
+       "Icon" "file"
+       "Title" "Nothing published in this category yet"
+       "Text" "We publish new guides every week. Browse all articles in the meantime."
+       "ActionHref" "/articles"
+       "ActionLabel" "All articles" }}
+  {{ end }}
+</div>
+{{ end }}

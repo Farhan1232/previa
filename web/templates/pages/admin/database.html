@@ -1,0 +1,107 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "MySQL manager" "Lead" "" "Lede" "Schema overview for the production database." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="alert alert--error">
+        {{ template "icon" "database" }}
+        <div>
+          <p class="alert__title">No database connection exists in this build</p>
+          <p>
+            The tables below are sample metadata describing the intended schema.
+            No connection is opened and no query — read or write — is executed.
+          </p>
+        </div>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat__head"><span class="stat__label">Tables</span>
+            <span class="stat__icon">{{ template "icon" "database" }}</span></div>
+          <p class="stat__value numeric">{{ len $d.Tables }}</p>
+          <p class="stat__foot">All InnoDB, utf8mb4</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head"><span class="stat__label">Total size</span>
+            <span class="stat__icon">{{ template "icon" "layers" }}</span></div>
+          <p class="stat__value numeric">407 MB</p>
+          <p class="stat__foot">Including indexes</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head"><span class="stat__label">Largest table</span>
+            <span class="stat__icon">{{ template "icon" "chart" }}</span></div>
+          <p class="stat__value" style="font-size:var(--fs-h4)">properties</p>
+          <p class="stat__foot numeric">218.4 MB · 1 486 rows</p>
+        </div>
+        <div class="stat">
+          <div class="stat__head"><span class="stat__label">Engine version</span>
+            <span class="stat__icon">{{ template "icon" "settings" }}</span></div>
+          <p class="stat__value" style="font-size:var(--fs-h4)">MySQL 8.4</p>
+          <p class="stat__foot">Planned for production</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Table</th><th>Engine</th><th>Rows</th><th>Size</th>
+                <th>Collation</th><th>Updated</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Tables }}
+            <tr>
+              <td><code class="strong">{{ .Name }}</code></td>
+              <td class="text-sm">{{ .Engine }}</td>
+              <td class="numeric">{{ .Rows }}</td>
+              <td class="numeric nowrap">{{ .Size }}</td>
+              <td class="text-xs muted">{{ .Collation }}</td>
+              <td class="text-sm muted nowrap">{{ dateLong .UpdatedAt }}</td>
+              <td>
+                <div class="table__actions">
+                  <button class="btn btn--quiet btn--sm" aria-label="Browse {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "eye" }}
+                  </button>
+                  <button class="btn btn--quiet btn--sm" aria-label="Optimize {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-vals='{"action":"optimize"}'
+                          hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "refresh" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+
+      <section class="card danger-zone">
+        <div class="card__header"><h2 class="card__title">SQL console</h2></div>
+        <div class="card__body stack">
+          <p class="text-sm muted">
+            Disabled in this build. In production this would be restricted to
+            read-only queries and fully audited.
+          </p>
+          <div class="field">
+            <label class="field__label" for="sql">Query</label>
+            <textarea class="textarea" id="sql" rows="4" disabled
+                      placeholder="SELECT id, title, city FROM properties WHERE status = 'active' LIMIT 20;"></textarea>
+          </div>
+          <button class="btn btn--primary" disabled>Run query</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

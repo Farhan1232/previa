@@ -1,0 +1,174 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $s := $d.System }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Cache and restart" "Lede" "Runtime status and maintenance controls." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg" x-data="{ confirm: null }">
+      {{ template "admin-demo-notice" }}
+
+      <div id="admin-result"></div>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Running build</h2></div>
+        <div class="card__body">
+          <dl class="kv">
+            <dt>Binary built</dt>
+            <dd>
+              {{/* Hovering the timestamp shows the full build time, as the client asked. */}}
+              <span class="has-tooltip" tabindex="0"
+                    title="Binary compiled at {{ dateLong $s.BinaryBuiltAt }}">
+                {{ dateLong $s.BinaryBuiltAt }}
+                <span class="text-xs subtle">({{ timeAgo $s.BinaryBuiltAt }})</span>
+              </span>
+            </dd>
+            <dt>Version</dt><dd class="numeric">{{ $s.Version }}</dd>
+            <dt>Go version</dt><dd class="numeric">{{ $s.GoVersion }}</dd>
+            <dt>Environment</dt><dd><span class="badge badge--warning">{{ $s.Environment }}</span></dd>
+            <dt>Uptime</dt><dd class="numeric">{{ $s.Uptime }}</dd>
+            <dt>Memory</dt><dd class="numeric">{{ $s.MemoryUsage }}</dd>
+          </dl>
+        </div>
+      </section>
+
+      <div class="grid grid--2">
+        <section class="card">
+          <div class="card__header"><h2 class="card__title">Cache</h2></div>
+          <div class="card__body stack">
+            <dl class="kv">
+              <dt>Entries</dt><dd class="numeric">{{ $s.CacheEntries }}</dd>
+              <dt>Size</dt><dd class="numeric">{{ $s.CacheSize }}</dd>
+            </dl>
+            <p class="text-sm muted">
+              Clearing the cache forces templates, translations and rendered
+              fragments to be rebuilt on the next request.
+            </p>
+            <button type="button" class="btn btn--secondary" style="align-self:flex-start"
+                    @click="confirm = 'cache'">
+              {{ template "icon" "refresh" }} Clear cache
+            </button>
+          </div>
+        </section>
+
+        <section class="card danger-zone">
+          <div class="card__header"><h2 class="card__title">Web application</h2></div>
+          <div class="card__body stack">
+            <p class="text-sm muted">
+              Restarting reloads the compiled binary. Active requests are drained
+              first, and the site is briefly unavailable.
+            </p>
+            <div class="alert alert--warning">
+              {{ template "icon" "alert-triangle" }}
+              <p>In this build the restart button is a simulation and does not
+                 stop or start any process.</p>
+            </div>
+            <button type="button" class="btn btn--danger" style="align-self:flex-start"
+                    @click="confirm = 'restart'">
+              {{ template "icon" "power" }} Restart web application
+            </button>
+          </div>
+        </section>
+      </div>
+
+      {{/*
+        Shared confirmation dialog for both maintenance actions.
+
+        This modal stays in the DOM (x-show, not x-if) so HTMX wires up the
+        confirm buttons at page load, and each button carries a static hx-vals.
+        Closing is driven by htmx:afterRequest rather than the click handler —
+        removing the element in the same click would destroy it before the
+        request was ever sent.
+      */}}
+      <div class="modal-backdrop" x-show="confirm" x-cloak
+           @click.self="confirm = null" @keydown.escape.window="confirm = null"
+           @htmx:after-request="confirm = null">
+        <div class="modal modal--sm" role="dialog" aria-modal="true" x-trap.noscroll="confirm"
+             aria-labelledby="sys-title">
+          <div class="modal__header">
+            <h2 class="modal__title" id="sys-title"
+                x-text="confirm === 'restart' ? 'Restart the web application?' : 'Clear the cache?'">
+              Confirm action
+            </h2>
+            <button type="button" class="icon-btn" @click="confirm = null"
+                    aria-label="Close">{{ template "icon" "close" }}</button>
+          </div>
+          <div class="modal__body">
+            <p x-show="confirm === 'restart'">
+              The site will be unavailable for a few seconds while the binary
+              reloads. Anyone mid-request will see an error.
+            </p>
+            <p x-show="confirm === 'cache'">
+              {{ $s.CacheEntries }} entries will be dropped. The first requests
+              afterwards will be slower while the cache refills.
+            </p>
+            <p class="text-xs subtle" style="margin-top:var(--sp-3)">
+              This build performs no real action either way.
+            </p>
+          </div>
+          <div class="modal__footer">
+            <button type="button" class="btn btn--secondary" @click="confirm = null">Cancel</button>
+
+            <button type="button" class="btn btn--danger" x-show="confirm === 'restart'"
+                    hx-post="/admin/mock-action" hx-vals='{"action":"restart"}'
+                    hx-target="#admin-result" hx-swap="innerHTML">
+              Restart now
+            </button>
+
+            <button type="button" class="btn btn--primary" x-show="confirm === 'cache'"
+                    hx-post="/admin/mock-action" hx-vals='{"action":"cache"}'
+                    hx-target="#admin-result" hx-swap="innerHTML">
+              Clear cache
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Recent system events</h2></div>
+        <div class="card__body">
+          <div class="activity">
+            <div class="activity__row">
+              <span class="activity__icon activity__icon--create">{{ template "icon" "power" }}</span>
+              <div class="activity__text">Application started — build {{ $s.Version }}</div>
+              <span class="activity__time">{{ timeAgo $s.BinaryBuiltAt }}</span>
+            </div>
+            <div class="activity__row">
+              <span class="activity__icon activity__icon--approve">{{ template "icon" "refresh" }}</span>
+              <div class="activity__text">Cache cleared by admin.previa</div>
+              <span class="activity__time">2 days ago</span>
+            </div>
+            <div class="activity__row">
+              <span class="activity__icon">{{ template "icon" "cloud" }}</span>
+              <div class="activity__text">Nightly backup completed</div>
+              <span class="activity__time">20 hours ago</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}
+
+
+{{/*
+  HTMX fragment returned by every mock admin action. The handler performs no
+  work; this is purely the feedback state.
+*/}}
+{{ define "mock-result" }}
+<div class="alert alert--{{ if eq .Tone "success" }}success{{ else if eq .Tone "warning" }}warning{{ else }}info{{ end }}"
+     role="status" style="margin-bottom:var(--sp-4)">
+  {{ if eq .Tone "success" }}{{ template "icon" "check-circle" }}
+  {{ else }}{{ template "icon" "alert-triangle" }}{{ end }}
+  <div>
+    <p class="alert__title">Demonstration only</p>
+    <p>{{ .Text }}</p>
+  </div>
+</div>
+{{ end }}

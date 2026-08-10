@@ -1,0 +1,91 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{ template "account-head" dict "Title" "Draft listings"
+   "Lede" "Listings you started but haven't published. Everything you typed is saved." }}
+
+<div class="container section">
+  <div class="shell">
+    {{ template "account-nav" . }}
+
+    <div class="stack stack--lg" x-data="{ confirming: null }">
+      {{ if $d.Drafts }}
+      <div class="stack">
+        {{ range $d.Drafts }}
+        <article class="card draft-row">
+          <div class="card__body">
+            <div class="row" style="gap:var(--sp-4);align-items:flex-start">
+              {{ if .CoverImage }}
+              <img class="draft-row__img" src="{{ .CoverImage }}" alt="" width="120" height="90" loading="lazy">
+              {{ else }}
+              <span class="draft-row__img draft-row__img--empty">{{ template "icon" "camera" }}</span>
+              {{ end }}
+
+              <div style="flex:1;min-width:0">
+                <div class="row row--tight">
+                  <span class="badge badge--neutral">{{ dealLabel .Deal }}</span>
+                  <span class="badge badge--outline">{{ typeLabel .Type }}</span>
+                  {{ if .City }}<span class="text-xs muted">{{ .City }}</span>{{ end }}
+                </div>
+                <h2 class="card__title" style="margin:var(--sp-2) 0">{{ .Title }}</h2>
+                <p class="text-xs muted">
+                  Step {{ .Step }} of {{ .TotalSteps }} · last saved {{ timeAgo .UpdatedAt }}
+                </p>
+
+                <div class="row" style="gap:var(--sp-3);margin-top:var(--sp-3)">
+                  <div class="progress" style="flex:1;max-width:280px">
+                    <div class="progress__bar" style="width:{{ .Completion }}%"></div>
+                  </div>
+                  <span class="text-xs muted numeric">{{ percent .Completion }} complete</span>
+                </div>
+              </div>
+
+              <div class="row row--tight" style="flex:none">
+                <a class="btn btn--primary btn--sm" href="/add-listing?step={{ .Step }}">Continue</a>
+                <button type="button" class="btn btn--quiet btn--sm"
+                        @click="confirming = '{{ .ID }}'"
+                        aria-label="Delete draft {{ .Title }}">
+                  {{ template "icon" "trash" }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </article>
+        {{ end }}
+      </div>
+
+      {{/* Deletion always asks first — drafts represent real typing effort. */}}
+      <template x-if="confirming">
+        <div class="modal-backdrop" @click.self="confirming = null" @keydown.escape.window="confirming = null">
+          <div class="modal modal--sm" role="dialog" aria-modal="true" aria-labelledby="del-title"
+               x-trap.noscroll="confirming">
+            <div class="modal__header">
+              <h2 class="modal__title" id="del-title">Delete this draft?</h2>
+              <button type="button" class="icon-btn" @click="confirming = null"
+                      aria-label="Close">{{ template "icon" "close" }}</button>
+            </div>
+            <div class="modal__body">
+              <p>Everything you've entered for this listing will be removed. This
+                 can't be undone.</p>
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--secondary" @click="confirming = null">Keep draft</button>
+              <button type="button" class="btn btn--danger"
+                      @click="previaToast('Draft deleted in this demonstration view.', 'success'); confirming = null">
+                Delete draft
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      {{ else }}
+        {{ template "empty-state" dict "Icon" "file"
+           "Title" "No drafts"
+           "Text" "When you start a listing and leave before publishing, it will wait for you here."
+           "ActionHref" "/add-listing" "ActionLabel" "Start a listing" }}
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

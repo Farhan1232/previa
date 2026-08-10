@@ -1,0 +1,56 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="page-head">
+  <div class="container">
+    <div class="page-head__inner">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li><a href="/brokers">Brokers</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">Agencies</li>
+        </ol>
+      </nav>
+      <h1 class="page-head__title">Real-estate agencies</h1>
+      <p class="lede">
+        The agencies listing property on Previa, with their teams, coverage and
+        active portfolios.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <div class="grid grid--2">
+    {{ range $d.Agencies }}
+    <article class="card agency-card">
+      <div class="card__body">
+        <div class="row row--between" style="align-items:flex-start">
+          <div>
+            <h2 class="card__title">
+              <a href="/agency/{{ .Slug }}">{{ .Name }}</a>
+            </h2>
+            <p class="text-sm muted" style="margin-top:4px">
+              {{ template "icon" "map-pin" }} {{ .City }} · Founded {{ .Founded }}
+            </p>
+          </div>
+          {{ if .IsVerified }}
+          <span class="badge badge--success">{{ template "icon" "check" }} Verified</span>
+          {{ end }}
+        </div>
+
+        <p class="text-sm muted clamp-3" style="margin:var(--sp-4) 0">{{ .Description }}</p>
+
+        <div class="row row--tight text-sm" style="border-top:1px solid var(--border);padding-top:var(--sp-4)">
+          <span class="numeric"><strong>{{ .BrokerCount }}</strong> brokers</span>
+          <span aria-hidden="true">·</span>
+          <span class="numeric"><strong>{{ .ListingCount }}</strong> listings</span>
+          <span class="spacer"></span>
+          <a class="btn btn--secondary btn--sm" href="/agency/{{ .Slug }}">View agency</a>
+        </div>
+      </div>
+    </article>
+    {{ end }}
+  </div>
+</div>
+{{ end }}

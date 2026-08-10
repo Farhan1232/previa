@@ -1,0 +1,123 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Restricted countries"
+   "Lede" "Markets where Previa does not display map data or listings." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg" x-data="{ removing: null }">
+      {{ template "admin-demo-notice" }}
+
+      <div class="alert alert--info">
+        {{ template "icon" "info" }}
+        <div>
+          <p class="alert__title">How a restriction behaves</p>
+          <p>
+            Adding a country code hides its listings from search, removes it from
+            the country selector, and replaces the map with an explanatory state
+            for anyone who reaches it by URL. Nothing is hardcoded in the
+            application — every entry in this table is administrator-managed and
+            can be removed here.
+          </p>
+        </div>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Add a restriction</h2></div>
+        <div class="card__body">
+          <form class="filter-row" hx-post="/admin/mock-action"
+                hx-target="#admin-result" hx-swap="innerHTML">
+            <div class="field">
+              <label class="field__label" for="rc-code">Country code <span class="req">*</span></label>
+              <input class="input" id="rc-code" maxlength="2" placeholder="e.g. XX"
+                     style="text-transform:uppercase">
+              <span class="field__hint">ISO 3166-1 alpha-2.</span>
+            </div>
+            <div class="field">
+              <label class="field__label" for="rc-name">Country name</label>
+              <input class="input" id="rc-name" placeholder="e.g. Example Country">
+            </div>
+            <div class="field">
+              <label class="field__label" for="rc-reason">Reason</label>
+              <input class="input" id="rc-reason" placeholder="Shown in the admin log only">
+            </div>
+            <button class="btn btn--primary" type="submit">Add restriction</button>
+          </form>
+        </div>
+      </section>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Code</th><th>Country</th><th>Reason</th><th>Added by</th><th>Added</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Restricted }}
+            <tr>
+              <td><span class="badge badge--error">{{ .Code }}</span></td>
+              <td class="strong">{{ .Name }}</td>
+              <td class="text-sm muted">{{ .Reason }}</td>
+              <td class="text-sm">{{ .AddedBy }}</td>
+              <td class="text-sm muted nowrap">{{ date .AddedAt }}</td>
+              <td>
+                <div class="table__actions">
+                  <button type="button" class="btn btn--quiet btn--sm" @click="removing = '{{ .Code }}'"
+                          aria-label="Remove restriction on {{ .Name }}">
+                    {{ template "icon" "trash" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+
+      <template x-if="removing">
+        <div class="modal-backdrop" @click.self="removing = null" @keydown.escape.window="removing = null">
+          <div class="modal modal--sm" role="dialog" aria-modal="true" x-trap.noscroll="removing"
+               aria-labelledby="rm-title">
+            <div class="modal__header">
+              <h2 class="modal__title" id="rm-title">Remove this restriction?</h2>
+              <button type="button" class="icon-btn" @click="removing = null"
+                      aria-label="Close">{{ template "icon" "close" }}</button>
+            </div>
+            <div class="modal__body">
+              <p>
+                Listings and map coverage for <strong x-text="removing"></strong> will
+                become visible to the public again. Make sure this is intended.
+              </p>
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--secondary" @click="removing = null">Cancel</button>
+              <button type="button" class="btn btn--danger"
+                      @click="previaToast('Simulation only — no restriction was changed.', 'warning'); removing = null">
+                Remove restriction
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Public preview</h2></div>
+        <div class="card__body">
+          <p class="text-sm muted" style="margin-bottom:var(--sp-4)">
+            This is what a visitor sees when they reach a restricted market.
+          </p>
+          <div class="detail-map" style="height:280px">
+            {{ template "map-restricted" }}
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

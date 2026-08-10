@@ -1,0 +1,112 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{ template "account-head" dict "Title" "Billing and payments"
+   "Lede" "Your invoices, payment methods and billing details." }}
+
+<div class="container section">
+  <div class="shell">
+    {{ template "account-nav" . }}
+
+    <div class="stack stack--lg">
+
+      <div class="grid grid--2">
+        <div class="card">
+          <div class="card__header"><h2 class="card__title">Payment methods</h2></div>
+          <div class="card__body stack">
+            <div class="pay-method">
+              <span class="pay-method__icon">{{ template "icon" "card" }}</span>
+              <div style="flex:1">
+                <p class="strong">Visa ending 4242</p>
+                <p class="text-xs muted">Expires 09 / 2028</p>
+              </div>
+              <span class="badge badge--success">Default</span>
+            </div>
+            <div class="pay-method">
+              <span class="pay-method__icon">{{ template "icon" "globe" }}</span>
+              <div style="flex:1">
+                <p class="strong">PayPal</p>
+                <p class="text-xs muted">{{ .User.Email }}</p>
+              </div>
+            </div>
+            <button class="btn btn--secondary btn--sm" style="align-self:flex-start" x-data
+                    @click="previaToast('Adding a payment method is mocked in this build.', 'warning')">
+              {{ template "icon" "plus" }} Add payment method
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card__header"><h2 class="card__title">Billing details</h2></div>
+          <div class="card__body">
+            <form class="stack" @submit.prevent="previaToast('Billing details saved.', 'success')">
+              <div class="field">
+                <label class="field__label" for="b-name">Billed to</label>
+                <input class="input" id="b-name" type="text" value="{{ .User.Name }}">
+              </div>
+              <div class="field">
+                <label class="field__label" for="b-addr">Address</label>
+                <input class="input" id="b-addr" type="text" value="Pikk 42, 10133 Tallinn">
+              </div>
+              <div class="grid grid--2" style="gap:var(--sp-3)">
+                <div class="field">
+                  <label class="field__label" for="b-country">Country</label>
+                  <select class="select" id="b-country">
+                    {{ range .Countries }}
+                    <option {{ if eq .Code $.User.CountryCode }}selected{{ end }}>{{ .Name }}</option>
+                    {{ end }}
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="b-vat">VAT number</label>
+                  <input class="input" id="b-vat" type="text" placeholder="Optional">
+                </div>
+              </div>
+              <button class="btn btn--primary" type="submit" style="align-self:flex-start">Save details</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <section class="card">
+        <div class="card__header">
+          <h2 class="card__title">Payment history</h2>
+          <a class="section__link" href="/pricing">Buy a package {{ template "icon" "arrow-right" }}</a>
+        </div>
+        <div class="card__body" style="padding:0">
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Invoice</th><th>Package</th><th>Property</th>
+                  <th>Method</th><th>Amount</th><th>Status</th><th>Date</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ range $d.Payments }}
+                <tr>
+                  <td class="numeric nowrap">{{ .InvoiceNo }}</td>
+                  <td>{{ .PackageName }}</td>
+                  <td class="text-sm muted">{{ truncate 34 .PropertyTitle }}</td>
+                  <td class="text-sm">{{ methodLabel .Method }}</td>
+                  <td class="numeric nowrap">{{ money .Amount }}</td>
+                  <td><span class="badge badge--{{ paymentTone .Status }}">{{ .Status }}</span></td>
+                  <td class="text-sm muted nowrap">{{ date .CreatedAt }}</td>
+                  <td class="table__actions">
+                    <button class="btn btn--quiet btn--sm" x-data
+                            @click="previaToast('Invoice PDF generation is mocked in this build.', 'warning')"
+                            aria-label="Download invoice {{ .InvoiceNo }}">
+                      {{ template "icon" "download" }}
+                    </button>
+                  </td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+{{ end }}

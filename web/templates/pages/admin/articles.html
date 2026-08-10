@@ -1,0 +1,69 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Articles" "Lede" "Editorial content and market news." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="row row--between">
+        <p class="results-count"><strong class="numeric">{{ len $d.Articles }}</strong> published</p>
+        <button class="btn btn--primary btn--sm" hx-post="/admin/mock-action"
+                hx-target="#admin-result" hx-swap="innerHTML">
+          {{ template "icon" "plus" }} New article
+        </button>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Article</th><th>Category</th><th>Author</th><th>Read time</th>
+                <th>Featured</th><th>Published</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Articles }}
+            <tr>
+              <td>
+                <div class="mini-row">
+                  <img class="mini-row__img" src="{{ .Cover.URL }}" alt="" width="72" height="54" loading="lazy">
+                  <div class="mini-row__text">
+                    <a class="strong" href="/article/{{ .Slug }}">{{ truncate 46 .Title }}</a>
+                    <p class="text-xs muted">/article/{{ .Slug }}</p>
+                  </div>
+                </div>
+              </td>
+              <td><span class="badge badge--outline">{{ .Category }}</span></td>
+              <td class="text-sm">{{ .Author }}</td>
+              <td class="numeric">{{ .ReadMinutes }} min</td>
+              <td>
+                {{ if .IsFeatured }}<span class="badge badge--featured">Featured</span>
+                {{ else }}<span class="text-xs subtle">—</span>{{ end }}
+              </td>
+              <td class="text-sm muted nowrap">{{ date .PublishedAt }}</td>
+              <td>
+                <div class="table__actions">
+                  <a class="btn btn--quiet btn--sm" href="/article/{{ .Slug }}"
+                     aria-label="View {{ .Title }}">{{ template "icon" "eye" }}</a>
+                  <button class="btn btn--quiet btn--sm" aria-label="Edit {{ .Title }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "edit" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

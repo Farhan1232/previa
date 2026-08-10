@@ -1,0 +1,96 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Languages"
+   "Lede" "English is the default and the fallback. Where a translation is missing, the English string is shown." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="alert alert--info">
+        {{ template "icon" "info" }}
+        <div>
+          <p class="alert__title">URL structure</p>
+          <p>
+            Enabled languages are served under a path prefix — <code>/en/</code>,
+            <code>/de/</code>, <code>/es/</code> — with hreflang tags emitted for
+            each. Disabling a language removes its prefix and its hreflang entry.
+          </p>
+        </div>
+      </div>
+
+      <div class="row row--between">
+        <p class="results-count"><strong class="numeric">{{ len $d.Languages }}</strong> languages configured</p>
+        <button class="btn btn--primary btn--sm" hx-post="/admin/mock-action"
+                hx-target="#admin-result" hx-swap="innerHTML">
+          {{ template "icon" "plus" }} Add language
+        </button>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Language</th><th>Code</th><th>Progress</th><th>Missing</th>
+                <th>Enabled</th><th>Updated</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Languages }}
+            <tr>
+              <td>
+                
+                <span class="strong">{{ .Name }}</span>
+                <span class="text-xs muted">{{ .NativeName }}</span>
+                {{ if .IsDefault }}<span class="badge badge--info">Default</span>{{ end }}
+              </td>
+              <td class="numeric">/{{ .Code }}/</td>
+              <td style="min-width:180px">
+                <div class="row row--tight">
+                  <span class="legend__bar" style="flex:1">
+                    <span class="legend__fill"
+                          style="width:{{ .Progress }}%;background:{{ if eq .Progress 100 }}var(--success){{ else if gt .Progress 80 }}var(--gold){{ else }}var(--warning){{ end }}"></span>
+                  </span>
+                  <span class="text-xs numeric" style="min-width:38px">{{ percent .Progress }}</span>
+                </div>
+              </td>
+              <td>
+                {{ if .Missing }}
+                <a class="badge badge--warning" href="/admin/strings?lang={{ .Code }}">
+                  {{ .Missing }} missing
+                </a>
+                {{ else }}
+                <span class="badge badge--success">Complete</span>
+                {{ end }}
+              </td>
+              <td>
+                <label class="switch">
+                  <input type="checkbox" {{ if .IsEnabled }}checked{{ end }} {{ if .IsDefault }}disabled{{ end }}
+                         hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                  <span class="switch__track"><span class="switch__thumb"></span></span>
+                  <span class="visually-hidden">Enable {{ .Name }}</span>
+                </label>
+              </td>
+              <td class="text-sm muted nowrap">{{ date .UpdatedAt }}</td>
+              <td>
+                <div class="table__actions">
+                  <a class="btn btn--quiet btn--sm" href="/admin/strings?lang={{ .Code }}">
+                    {{ template "icon" "edit" }} Strings
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

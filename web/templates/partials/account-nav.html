@@ -1,0 +1,77 @@
+{{/* Shared side navigation for the signed-in account area. */}}
+{{ define "account-nav" }}
+{{ $s := .Data.Section }}
+{{ $c := .Data.Counts }}
+<nav class="side-nav" aria-label="Account">
+  <div class="side-nav__group">
+    <p class="side-nav__label">Overview</p>
+    <a class="side-nav__link" href="/dashboard" {{ if eq $s "dashboard" }}aria-current="page"{{ end }}>
+      {{ template "icon" "grid" }} Dashboard
+    </a>
+    <a class="side-nav__link" href="/notifications" {{ if eq $s "notifications" }}aria-current="page"{{ end }}>
+      {{ template "icon" "bell" }} Notifications
+      {{ if .UnreadCount }}<span class="side-nav__badge">{{ .UnreadCount }}</span>{{ end }}
+    </a>
+  </div>
+
+  <div class="side-nav__group">
+    <p class="side-nav__label">Selling</p>
+    <a class="side-nav__link" href="/my-listings" {{ if eq $s "listings" }}aria-current="page"{{ end }}>
+      {{ template "icon" "home" }} My listings
+      {{ if index $c "all" }}<span class="side-nav__badge">{{ index $c "all" }}</span>{{ end }}
+    </a>
+    <a class="side-nav__link" href="/drafts" {{ if eq $s "drafts" }}aria-current="page"{{ end }}>
+      {{ template "icon" "file" }} Drafts
+      {{ if index $c "drafts" }}<span class="side-nav__badge">{{ index $c "drafts" }}</span>{{ end }}
+    </a>
+    <a class="side-nav__link" href="/add-listing">
+      {{ template "icon" "plus" }} Add listing
+    </a>
+  </div>
+
+  <div class="side-nav__group">
+    <p class="side-nav__label">Buying</p>
+    <a class="side-nav__link" href="/favourites" {{ if eq $s "favourites" }}aria-current="page"{{ end }}>
+      {{ template "icon" "heart" }} Favourites
+      {{ if index $c "favourites" }}<span class="side-nav__badge">{{ index $c "favourites" }}</span>{{ end }}
+    </a>
+    <a class="side-nav__link" href="/saved-searches" {{ if eq $s "saved" }}aria-current="page"{{ end }}>
+      {{ template "icon" "search" }} Saved searches
+      {{ if index $c "saved" }}<span class="side-nav__badge">{{ index $c "saved" }}</span>{{ end }}
+    </a>
+  </div>
+
+  <div class="side-nav__group">
+    <p class="side-nav__label">Account</p>
+    <a class="side-nav__link" href="/settings" {{ if eq $s "settings" }}aria-current="page"{{ end }}>
+      {{ template "icon" "settings" }} Profile and settings
+    </a>
+    <a class="side-nav__link" href="/billing" {{ if eq $s "billing" }}aria-current="page"{{ end }}>
+      {{ template "icon" "card" }} Billing
+    </a>
+    <a class="side-nav__link" href="/logout">
+      {{ template "icon" "logout" }} Log out
+    </a>
+  </div>
+</nav>
+{{ end }}
+
+
+{{/* Page header used across the account screens. */}}
+{{ define "account-head" }}
+<div class="page-head">
+  <div class="container">
+    <div class="page-head__inner">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li><a href="/dashboard">Account</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">{{ .Title }}</li>
+        </ol>
+      </nav>
+      <h1 class="page-head__title">{{ .Title }}</h1>
+      {{ if .Lede }}<p class="lede">{{ .Lede }}</p>{{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

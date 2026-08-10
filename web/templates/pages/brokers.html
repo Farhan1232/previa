@@ -1,0 +1,85 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="page-head">
+  <div class="container">
+    <div class="page-head__inner">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">Brokers</li>
+        </ol>
+      </nav>
+      <h1 class="page-head__title">Find a broker</h1>
+      <p class="lede">
+        Every broker on Previa is verified, with their credentials, languages and
+        completed sales on show. Filter by market, city or specialisation.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <form class="card" style="margin-bottom:var(--sp-8)" action="/brokers" method="get">
+    <div class="card__body">
+      <div class="filter-row">
+        <div class="field">
+          <label class="field__label" for="b-country">Country</label>
+          <select class="select" id="b-country" name="country">
+            <option value="">All countries</option>
+            {{ range $d.Countries }}
+            <option value="{{ .Code }}">{{ .Name }}</option>
+            {{ end }}
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="b-city">City</label>
+          <input class="input" id="b-city" name="city" type="text"
+                 value="{{ $d.FilterCity }}" placeholder="Any city">
+        </div>
+        <div class="field">
+          <label class="field__label" for="b-lang">Language spoken</label>
+          <select class="select" id="b-lang" name="language">
+            <option value="">Any language</option>
+            {{ range $d.Languages }}
+            <option value="{{ . }}" {{ if eq . $d.FilterLang }}selected{{ end }}>{{ . }}</option>
+            {{ end }}
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="b-q">Name or speciality</label>
+          <span class="input-icon">
+            {{ template "icon" "search" }}
+            <input class="input" id="b-q" name="q" type="search" value="{{ $d.FilterQ }}"
+                   placeholder="e.g. Old Town, villas">
+          </span>
+        </div>
+        <button class="btn btn--primary" type="submit">Search brokers</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="row row--between" style="margin-bottom:var(--sp-5)">
+    <p class="results-count">
+      <strong class="numeric">{{ len $d.Brokers }}</strong>
+      {{ if eq (len $d.Brokers) 1 }}broker{{ else }}brokers{{ end }}
+    </p>
+    <a class="section__link" href="/agencies">
+      Browse agencies instead {{ template "icon" "arrow-right" }}
+    </a>
+  </div>
+
+  {{ if $d.Brokers }}
+  <div class="grid grid--4">
+    {{ range $d.Brokers }}{{ template "broker-card" . }}{{ end }}
+  </div>
+  {{ else }}
+    {{ template "empty-state" dict
+       "Icon" "users"
+       "Title" "No brokers match this search"
+       "Text" "Try removing the language or city filter — most brokers cover more than one area."
+       "ActionHref" "/brokers"
+       "ActionLabel" "Show all brokers" }}
+  {{ end }}
+</div>
+{{ end }}

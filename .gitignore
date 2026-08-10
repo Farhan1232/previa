@@ -1,0 +1,19 @@
+# Build output
+/previa
+/previa-dev
+/previa-prod
+*.exe
+
+# Local environment — never commit real keys
+.env
+.env.local
+.env*.local
+
+# Vercel
+.vercel
+
+# Editor / OS noise
+.DS_Store
+*.swp
+.idea/
+.vscode/

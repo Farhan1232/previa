@@ -1,0 +1,76 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $img := "/static/img/hero.jpg" }}
+
+<div class="auth">
+  {{ template "auth-banner" dict "Image" $img }}
+
+  <div class="auth__form-side">
+    <div class="auth__form" x-data="{ loading: false }">
+
+      <a class="auth__back" href="/">
+        {{ template "icon" "arrow-left" }} <span>Back to Previa</span>
+      </a>
+
+      <header class="auth__head">
+        <h1 class="display display--h2">Welcome back</h1>
+        <p class="muted">
+          Sign in to reach your saved properties, searches and listings.
+        </p>
+      </header>
+
+      <div class="alert alert--info">
+        {{ template "icon" "info" }}
+        <p>
+          Demonstration build — no credentials are checked or stored. Any
+          valid-looking email and an eight-character password will sign you in.
+        </p>
+      </div>
+
+      <form class="stack" action="/login" method="post" novalidate
+            @submit="loading = true">
+
+        {{ template "auth-field" dict
+           "ID" "l-email" "Name" "email" "Label" "Email address" "Type" "email"
+           "Value" (index $d.Values "email") "Placeholder" "you@example.com"
+           "Autocomplete" "email" "Icon" "mail"
+           "Error" (index $d.Errors "email") }}
+
+        {{ template "password-field" dict
+           "ID" "l-password" "Name" "password" "Label" "Password"
+           "Autocomplete" "current-password"
+           "Error" (index $d.Errors "password") }}
+
+        <div class="row row--between auth__row">
+          <label class="check">
+            <input type="checkbox" name="remember" checked>
+            <span class="check__text">Keep me signed in</span>
+          </label>
+          <a class="auth__link" href="/forgot-password">Forgot password?</a>
+        </div>
+
+        <button class="btn btn--primary btn--block" type="submit"
+                :class="{ 'is-loading': loading }" :disabled="loading">
+          <span>Sign In</span>
+        </button>
+      </form>
+
+      <p class="divider-text">or continue with</p>
+
+      {{ template "google-button" "Sign in with Google" }}
+
+      <p class="auth__foot">
+        New to Previa? <a class="auth__link" href="/register">Create an account</a>
+      </p>
+    </div>
+  </div>
+
+  {{ template "auth-aside" dict
+     "Image" $img
+     "Headline" "Every listing, every market, one search."
+     "Points" (list
+        "Save properties and compare them side by side"
+        "Store searches and hear about matches first"
+        "Message verified brokers directly") }}
+</div>
+{{ end }}

@@ -1,0 +1,103 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{/*
+  Airbnb-style split view: results on the left, map on the right.
+
+  The filter panel and the results panel are separate components, and stacking
+  both beside the map would create three competing columns. So filters open as
+  an overlay drawer here (from the toolbar button or the fixed edge tab) while
+  the left column is dedicated to results. The map keeps the remaining space.
+*/}}
+<div class="map-shell" x-data="previaMap({{ $d.MapConfig }})"
+     :class="{ 'is-panel-collapsed': !panelOpen, 'is-map-visible': mapVisible }">
+
+  <section class="map-results" aria-label="Search results">
+    <div class="map-results__head">
+      <div>
+        <p class="results-count" role="status" aria-live="polite">
+          <strong class="numeric">{{ $d.Result.Total }}</strong>
+          {{ if eq $d.Result.Total 1 }}property{{ else }}properties{{ end }}
+        </p>
+        <p class="text-xs muted">
+          {{ if $d.Filter.City }}{{ $d.Filter.City }}{{ else }}All locations{{ end }}
+          · {{ $d.SortLabel }}
+        </p>
+      </div>
+
+      <div class="row row--tight">
+        <button type="button" class="btn btn--quiet btn--sm"
+                @click="$dispatch('open-filters')">
+          {{ template "icon" "filter" }}
+          Filters
+          {{ if $d.Filter.ActiveCount }}
+          <span class="filter-reopen__count">{{ $d.Filter.ActiveCount }}</span>
+          {{ end }}
+        </button>
+        <a class="btn btn--quiet btn--sm" href="{{ queryAdd .Query "view" "grid" }}"
+           aria-label="Switch to grid view">{{ template "icon" "grid" }}</a>
+        <button type="button" class="icon-btn map-results__collapse" @click="togglePanel()"
+                aria-label="Hide results panel">{{ template "icon" "chevron-left" }}</button>
+      </div>
+    </div>
+
+    {{ if $d.Chips }}
+    <div class="active-filters" style="padding:var(--sp-3) var(--sp-4) 0;margin:0">
+      {{ range $d.Chips }}
+      <span class="chip">
+        {{ .Label }}
+        <a class="chip__remove" href="/search{{ queryDrop $.Query .Key .Value }}"
+           aria-label="Remove filter {{ .Label }}">{{ template "icon" "close" }}</a>
+      </span>
+      {{ end }}
+    </div>
+    {{ end }}
+
+    {{ template "map-results-region" . }}
+
+    {{/* Small screens: swap between list and map */}}
+    <div class="map-results__mobile-bar">
+      <button type="button" class="btn btn--primary btn--sm btn--block" @click="toggleMap()">
+        {{ template "icon" "map" }} Show map
+      </button>
+    </div>
+  </section>
+
+  {{ template "map-surface" . }}
+
+  {{/* Edge button that reopens the collapsed results panel */}}
+  <button type="button" class="map-edge-btn" x-show="!panelOpen" x-cloak @click="togglePanel()"
+          aria-label="Show results panel">
+    {{ template "icon" "chevron-right" }}
+    <span class="numeric">{{ $d.Result.Total }}</span>
+  </button>
+
+  <button type="button" class="btn btn--quiet btn--sm map-back-btn" x-show="mapVisible" x-cloak
+          @click="toggleMap()">
+    {{ template "icon" "list" }} Show list
+  </button>
+</div>
+
+{{/* Filters as an overlay drawer, so the screen never becomes three columns */}}
+<div x-data="previaSearch()" @open-filters.window="openDrawer()">
+  <div class="filter-backdrop" x-show="drawer" x-cloak x-transition.opacity.duration.200ms
+       @click="closeDrawer()" aria-hidden="true"></div>
+
+  <aside class="filter-panel filter-panel--overlay" id="filter-drawer" aria-label="Search filters"
+         :class="{ 'is-open': drawer }" x-trap.noscroll="drawer"
+         @keydown.escape.window="closeDrawer()">
+    <div class="filter-panel__header">
+      <h2 class="card__title" style="font-size:var(--fs-base)">Filters</h2>
+      <button type="button" class="icon-btn" @click="closeDrawer()"
+              aria-label="Close filters">{{ template "icon" "close" }}</button>
+    </div>
+    {{ template "filter-form" . }}
+  </aside>
+
+  <button type="button" class="filter-fab" @click="openDrawer()" :aria-expanded="drawer"
+          aria-controls="filter-drawer">
+    {{ template "icon" "filter" }}
+    <span>Filters</span>
+  </button>
+</div>
+{{ end }}

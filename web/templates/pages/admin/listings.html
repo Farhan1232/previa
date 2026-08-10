@@ -1,0 +1,93 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Property listings" "Lede" "Moderate, approve and manage every listing on Previa." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="row row--between">
+        <div class="tabs" role="tablist" aria-label="Listing status">
+          <a class="tab {{ if not $d.Status }}is-active{{ end }}" href="/admin/listings">All</a>
+          <a class="tab {{ if eq $d.Status "pending" }}is-active{{ end }}" href="/admin/listings?status=pending">
+            Pending <span class="tab__count numeric">{{ $d.Stats.PendingCount }}</span>
+          </a>
+          <a class="tab {{ if eq $d.Status "active" }}is-active{{ end }}" href="/admin/listings?status=active">Approved</a>
+          <a class="tab {{ if eq $d.Status "rejected" }}is-active{{ end }}" href="/admin/listings?status=rejected">Rejected</a>
+          <a class="tab {{ if eq $d.Status "draft" }}is-active{{ end }}" href="/admin/listings?status=draft">Drafts</a>
+        </div>
+        <div class="row row--tight">
+          <span class="input-icon">
+            {{ template "icon" "search" }}
+            <input class="input" type="search" placeholder="Search listings" style="min-height:40px;width:220px">
+          </span>
+        </div>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width:36px"><input type="checkbox" aria-label="Select all listings"></th>
+              <th>Property</th><th>Seller</th><th>Country</th>
+              <th>Price</th><th>Status</th><th>Published</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ range $d.Listings }}
+            <tr>
+              <td><input type="checkbox" aria-label="Select {{ .Title }}"></td>
+              <td>
+                <div class="mini-row">
+                  <img class="mini-row__img" src="{{ (.PrimaryImage).URL }}" alt=""
+                       width="72" height="54" loading="lazy">
+                  <div class="mini-row__text">
+                    <a class="strong" href="{{ propertyURL . }}">{{ truncate 40 .Title }}</a>
+                    <p class="text-xs muted">{{ .ID }} · {{ typeLabel .Type }} · {{ .City }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="text-sm">
+                {{ if eq .SellerKind "private" }}
+                <span class="badge badge--neutral">Private</span>
+                {{ else }}
+                <span class="badge badge--outline">Broker</span>
+                {{ end }}
+              </td>
+              <td class="text-sm nowrap">{{ .Country }}</td>
+              <td class="numeric nowrap">{{ money .Price }}</td>
+              <td><span class="badge badge--{{ statusTone .Status }}">{{ statusLabel .Status }}</span></td>
+              <td class="text-sm muted nowrap">{{ date .CreatedAt }}</td>
+              <td>
+                <div class="table__actions">
+                  <button class="btn btn--quiet btn--sm" aria-label="Approve {{ .Title }}"
+                          hx-post="/admin/mock-action" hx-vals='{"action":"approve"}'
+                          hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "check" }}
+                  </button>
+                  <button class="btn btn--quiet btn--sm" aria-label="Reject {{ .Title }}"
+                          hx-post="/admin/mock-action" hx-vals='{"action":"reject"}'
+                          hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "close" }}
+                  </button>
+                  <a class="btn btn--quiet btn--sm" href="{{ propertyURL . }}"
+                     aria-label="View {{ .Title }}">{{ template "icon" "eye" }}</a>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

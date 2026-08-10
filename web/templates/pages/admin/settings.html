@@ -1,0 +1,101 @@
+{{ define "content" }}
+<div class="admin">
+{{ template "admin-head" dict "Title" "General settings" "Lede" "Platform-wide configuration." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+      <div id="admin-result"></div>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Site</h2></div>
+        <div class="card__body">
+          <form class="grid grid--2" style="gap:var(--sp-4)"
+                hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+            <div class="field">
+              <label class="field__label" for="s-name">Site name</label>
+              <input class="input" id="s-name" value="Previa">
+            </div>
+            <div class="field">
+              <label class="field__label" for="s-domain">Primary domain</label>
+              <input class="input" id="s-domain" value="previa.estate">
+            </div>
+            <div class="field">
+              <label class="field__label" for="s-email">Support email</label>
+              <input class="input" id="s-email" type="email" value="hello@previa.estate">
+            </div>
+            <div class="field">
+              <label class="field__label" for="s-default-country">Default country</label>
+              <select class="select" id="s-default-country">
+                {{ range .Countries }}
+                <option {{ if eq .Code "EE" }}selected{{ end }}>{{ .Name }}</option>
+                {{ end }}
+              </select>
+            </div>
+            <div style="grid-column:1/-1">
+              <button class="btn btn--primary" type="submit">Save settings</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Listings</h2></div>
+        <div class="card__body stack">
+          <div class="cookie-row">
+            <div>
+              <p class="strong">Moderate new listings before publishing</p>
+              <p class="text-sm muted">New listings enter a pending queue instead of going live immediately.</p>
+            </div>
+            <label class="switch"><input type="checkbox" checked>
+              <span class="switch__track"><span class="switch__thumb"></span></span>
+              <span class="visually-hidden">Moderate new listings</span></label>
+          </div>
+          <div class="cookie-row">
+            <div>
+              <p class="strong">Allow private sellers</p>
+              <p class="text-sm muted">When off, only verified brokers and agencies may publish.</p>
+            </div>
+            <label class="switch"><input type="checkbox" checked>
+              <span class="switch__track"><span class="switch__thumb"></span></span>
+              <span class="visually-hidden">Allow private sellers</span></label>
+          </div>
+          <div class="cookie-row">
+            <div>
+              <p class="strong">Automatically expire listings</p>
+              <p class="text-sm muted">Listings come offline when their package period ends.</p>
+            </div>
+            <label class="switch"><input type="checkbox" checked>
+              <span class="switch__track"><span class="switch__thumb"></span></span>
+              <span class="visually-hidden">Automatically expire listings</span></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Email and notifications</h2></div>
+        <div class="card__body">
+          <div class="alert alert--neutral" style="margin-bottom:var(--sp-4)">
+            {{ template "icon" "info" }}
+            <p>Email delivery is not configured in this frontend milestone. No mail is sent.</p>
+          </div>
+          <div class="grid grid--2" style="gap:var(--sp-4)">
+            <div class="field">
+              <label class="field__label" for="s-smtp">SMTP host</label>
+              <input class="input" id="s-smtp" placeholder="smtp.example.com" disabled>
+            </div>
+            <div class="field">
+              <label class="field__label" for="s-from">From address</label>
+              <input class="input" id="s-from" placeholder="no-reply@previa.estate" disabled>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

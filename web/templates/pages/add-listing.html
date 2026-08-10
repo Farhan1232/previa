@@ -1,0 +1,454 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $step := $d.CurrentNum }}
+
+{{/*
+  Add-listing wizard.
+
+  The vertical publishing progression sits on the right on desktop, as the
+  client asked, with deliberately compact step markers. Every step writes to
+  localStorage as you type, so leaving the page and coming back resumes where
+  you were; unfinished listings show up under Drafts.
+*/}}
+<div class="container" style="padding:var(--sp-7) 0 var(--sp-11)"
+     x-data="previaWizard({{ $step }}, {{ $d.TotalSteps }})">
+
+  <div class="row row--between" style="margin-bottom:var(--sp-6)">
+    <div>
+      <h1 class="display display--h2">Add a listing</h1>
+      <p class="muted">Step {{ $step }} of {{ $d.TotalSteps }} · {{ $d.Current.Label }}</p>
+    </div>
+    <div class="row row--tight">
+      <span class="autosave" :class="{ 'is-saving': state === 'saving', 'is-saved': state === 'saved' }"
+            role="status" aria-live="polite">
+        <template x-if="state === 'saving'"><span>{{ template "icon" "refresh" }}</span></template>
+        <template x-if="state === 'saved'"><span>{{ template "icon" "check-circle" }}</span></template>
+        <span x-text="state === 'saving' ? 'Saving…' : (state === 'saved' ? 'Saved' : 'All changes saved')"></span>
+      </span>
+      <a class="btn btn--quiet btn--sm" href="/drafts">Save and exit</a>
+    </div>
+  </div>
+
+  <div class="progress" style="margin-bottom:var(--sp-7)">
+    <div class="progress__bar" style="width:{{ $d.Progress }}%"></div>
+  </div>
+
+  <div class="wizard">
+    {{/* ---------------- step content ---------------- */}}
+    <div class="wizard-card">
+      <div class="wizard-card__body">
+
+        {{ if eq $step 1 }}
+          <h2 class="display display--h3">Are you selling or renting out?</h2>
+          <p class="muted">This decides which fields you'll be asked for next.</p>
+          <div class="option-grid">
+            <label class="option-tile">
+              <input type="radio" name="deal" value="sale" checked @change="touch()">
+              {{ template "icon" "home" }}
+              <span class="option-tile__label">For sale</span>
+              <span class="option-tile__hint">One-off sale price</span>
+            </label>
+            <label class="option-tile">
+              <input type="radio" name="deal" value="rent" @change="touch()">
+              {{ template "icon" "key" }}
+              <span class="option-tile__label">For rent</span>
+              <span class="option-tile__hint">Monthly rent</span>
+            </label>
+          </div>
+
+        {{ else if eq $step 2 }}
+          <h2 class="display display--h3">What kind of property is it?</h2>
+          <div class="option-grid">
+            {{ $cats := list "apartment" "house" "villa" "commercial" "land" "garage" }}
+            {{ $icons := list "building" "home" "villa" "commercial" "land" "garage" }}
+            {{ $names := list "Apartment" "House" "Villa" "Commercial" "Land" "Garage" }}
+            {{ range $i, $c := $cats }}
+            <label class="option-tile">
+              <input type="radio" name="type" value="{{ $c }}" {{ if eq $i 0 }}checked{{ end }} @change="touch()">
+              {{ template "icon" (index $icons $i) }}
+              <span class="option-tile__label">{{ index $names $i }}</span>
+            </label>
+            {{ end }}
+          </div>
+
+        {{ else if eq $step 3 }}
+          <h2 class="display display--h3">Where is the property?</h2>
+          <p class="muted">
+            Search for the address, or drop the pin directly on the map. The map
+            is the source of truth — the address fields fill in from it.
+          </p>
+          <div class="field">
+            <label class="field__label" for="w-address">Address search</label>
+            <span class="input-icon">
+              {{ template "icon" "search" }}
+              <input class="input" id="w-address" type="text" @input="touch()"
+                     placeholder="Start typing a street address…"
+                     value="Pikk 42, Tallinn">
+            </span>
+            <span class="field__hint">
+              Powered by Google Maps address autocomplete when a key is configured.
+            </span>
+          </div>
+
+          <div class="detail-map" x-data="previaMap({{ $d.WizardMap }})">
+            {{ template "map-surface" . }}
+          </div>
+          <p class="text-xs muted">
+            {{ template "icon" "map-pin" }} Drag the pin to correct the exact position.
+          </p>
+
+          <div class="grid grid--2" style="gap:var(--sp-4)">
+            <div class="field">
+              <label class="field__label" for="w-country">Country</label>
+              <select class="select" id="w-country" @change="touch()">
+                {{ range $d.Countries }}<option>{{ .Name }}</option>{{ end }}
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-city">City</label>
+              <input class="input" id="w-city" type="text" value="Tallinn" @input="touch()">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-district">District</label>
+              <input class="input" id="w-district" type="text" value="Vanalinn" @input="touch()">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-postal">Postal code</label>
+              <input class="input" id="w-postal" type="text" value="10133" @input="touch()">
+            </div>
+          </div>
+
+        {{ else if eq $step 4 }}
+          <h2 class="display display--h3">How precisely should the location appear?</h2>
+          <p class="muted">
+            You control what the public sees. Enquiries still reach you either way,
+            and the exact position is only ever shared with people you reply to.
+          </p>
+          <div class="stack">
+            <label class="option-row">
+              <input type="radio" name="precision" value="exact" checked @change="touch()">
+              <span>
+                <span class="strong">Exact address and pin</span>
+                <span class="text-sm muted">Shows the full street address. Attracts the most enquiries.</span>
+              </span>
+            </label>
+            <label class="option-row">
+              <input type="radio" name="precision" value="street" @change="touch()">
+              <span>
+                <span class="strong">Street only</span>
+                <span class="text-sm muted">Shows the street name and an approximate pin, not the house number.</span>
+              </span>
+            </label>
+            <label class="option-row">
+              <input type="radio" name="precision" value="area" @change="touch()">
+              <span>
+                <span class="strong">District only</span>
+                <span class="text-sm muted">Shows a circle over the district. Most private, fewest enquiries.</span>
+              </span>
+            </label>
+          </div>
+
+        {{ else if eq $step 5 }}
+          <h2 class="display display--h3">Property information</h2>
+          <div class="grid grid--2" style="gap:var(--sp-4)">
+            <div class="field">
+              <label class="field__label" for="w-year">Construction year</label>
+              <input class="input" id="w-year" type="number" min="1700" max="2030" value="1897" @input="touch()">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-cond">Condition</label>
+              <select class="select" id="w-cond" @change="touch()">
+                <option>Newly built</option><option selected>Renovated</option>
+                <option>Good</option><option>Satisfactory</option><option>Needs work</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-energy">Energy rating</label>
+              <select class="select" id="w-energy" @change="touch()">
+                {{ range list "A" "B" "C" "D" "E" "F" "G" }}<option>{{ . }}</option>{{ end }}
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-ownership">Ownership</label>
+              <select class="select" id="w-ownership" @change="touch()">
+                <option>Freehold</option><option>Leasehold</option><option>Co-operative</option>
+              </select>
+            </div>
+          </div>
+
+        {{ else if eq $step 6 }}
+          <h2 class="display display--h3">Rooms and dimensions</h2>
+          {{/* One field is shown in its error state so the design covers validation */}}
+          <div class="grid grid--2" style="gap:var(--sp-4)">
+            <div class="field">
+              <label class="field__label" for="w-rooms">Total rooms <span class="req">*</span></label>
+              <input class="input" id="w-rooms" type="number" min="1" value="4" @input="touch()">
+            </div>
+            <div class="field is-invalid">
+              <label class="field__label" for="w-area">Living area <span class="req">*</span></label>
+              <span class="input-unit">
+                <input class="input" id="w-area" type="number" value="" placeholder="e.g. 118"
+                       aria-invalid="true" aria-describedby="w-area-err" @input="touch()">
+                <span class="input-unit__suffix">m²</span>
+              </span>
+              <p class="field__error" id="w-area-err">
+                {{ template "icon" "alert" }} Living area is required before you can publish.
+              </p>
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-beds">Bedrooms</label>
+              <input class="input" id="w-beds" type="number" min="0" value="2" @input="touch()">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-baths">Bathrooms</label>
+              <input class="input" id="w-baths" type="number" min="0" value="2" @input="touch()">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-floor">Floor</label>
+              <input class="input" id="w-floor" type="number" value="3" @input="touch()">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-floors">Floors in building</label>
+              <input class="input" id="w-floors" type="number" value="4" @input="touch()">
+            </div>
+          </div>
+
+        {{ else if eq $step 7 }}
+          <h2 class="display display--h3">Features and amenities</h2>
+          <p class="muted">Tick everything that applies — these become search filters.</p>
+          <div class="grid grid--2" style="gap:0 var(--sp-6)">
+            {{ $feats := list "Parking" "Balcony" "Terrace" "Garden" "Elevator" "Sauna"
+                              "Sea or water view" "Furnished" "Storage room" "Air conditioning"
+                              "Fireplace" "Alarm system" }}
+            {{ range $feats }}
+            <label class="check">
+              <input type="checkbox" @change="touch()">
+              <span class="check__text">{{ . }}</span>
+            </label>
+            {{ end }}
+          </div>
+
+        {{ else if eq $step 8 }}
+          <h2 class="display display--h3">Describe the property</h2>
+          <div class="field">
+            <label class="field__label" for="w-title">Listing title <span class="req">*</span></label>
+            <input class="input" id="w-title" type="text" @input="touch()"
+                   value="Restored merchant's apartment in Tallinn Old Town">
+            <span class="field__hint">Lead with what makes it distinctive. Around 60 characters works best.</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="w-desc">Description <span class="req">*</span></label>
+            <textarea class="textarea" id="w-desc" rows="10" @input="touch()">A rare limestone-walled apartment on one of the Old Town's best-preserved merchant streets. The 2022 restoration kept the original beamed ceilings and Baltic pine floors while adding underfloor heating, triple glazing and a fully rebuilt service core.</textarea>
+            <span class="field__hint">Cover condition, layout, the neighbourhood and what's included.</span>
+          </div>
+
+        {{ else if eq $step 9 }}
+          <h2 class="display display--h3">Photos and media</h2>
+          <div class="uploader">
+            <span class="empty__icon">{{ template "icon" "upload" }}</span>
+            <p class="strong">Drag photos here, or choose files</p>
+            <p class="text-sm muted">JPEG or PNG, up to 10 MB each. The first photo becomes the cover.</p>
+            <button type="button" class="btn btn--secondary btn--sm"
+                    @click="previaToast('File uploads are mocked in this build.', 'warning')">
+              Choose files
+            </button>
+          </div>
+
+          <div class="photo-grid" style="margin-top:var(--sp-5)">
+            {{ range $i, $img := $d.SampleImgs }}
+            <div class="photo-thumb">
+              <img src="{{ $img }}" alt="Uploaded photo {{ add $i 1 }}" loading="lazy">
+              {{ if eq $i 0 }}<span class="photo-thumb__badge">Cover</span>{{ end }}
+              <button type="button" class="photo-thumb__remove" aria-label="Remove photo {{ add $i 1 }}"
+                      @click="previaToast('Photo removed from this demonstration.', 'success')">
+                {{ template "icon" "close" }}
+              </button>
+            </div>
+            {{ end }}
+          </div>
+
+        {{ else if eq $step 10 }}
+          <h2 class="display display--h3">Set your price</h2>
+          <div class="grid grid--2" style="gap:var(--sp-4)">
+            <div class="field">
+              <label class="field__label" for="w-price">Asking price <span class="req">*</span></label>
+              <span class="input-unit">
+                <input class="input" id="w-price" type="number" value="429000" @input="touch()">
+                <span class="input-unit__suffix">EUR</span>
+              </span>
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-currency">Currency</label>
+              <select class="select" id="w-currency" @change="touch()">
+                <option>EUR — Euro</option><option>CZK — Czech koruna</option><option>GBP — Pound sterling</option>
+              </select>
+            </div>
+          </div>
+          <label class="check">
+            <input type="checkbox" @change="touch()">
+            <span class="check__text">Price negotiable</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" @change="touch()">
+            <span class="check__text">Hide the price and show “Price on application”</span>
+          </label>
+          <div class="alert alert--info">
+            {{ template "icon" "info" }}
+            <p>Comparable renovated apartments in Vanalinn are listed between
+               €3 200 and €4 100 per m². At €429 000 this works out at €3 636/m².</p>
+          </div>
+
+        {{ else if eq $step 11 }}
+          <h2 class="display display--h3">How should buyers reach you?</h2>
+          <div class="grid grid--2" style="gap:var(--sp-4)">
+            <div class="field">
+              <label class="field__label" for="w-cname">Contact name</label>
+              <input class="input" id="w-cname" type="text" value="{{ .User.Name }}" @input="touch()">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-cphone">Phone</label>
+              <input class="input" id="w-cphone" type="tel" value="{{ .User.Phone }}" @input="touch()">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field__label" for="w-cemail">Email</label>
+            <input class="input" id="w-cemail" type="email" value="{{ .User.Email }}" @input="touch()">
+          </div>
+          <label class="check">
+            <input type="checkbox" checked @change="touch()">
+            <span class="check__text">Show my phone number on the listing</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" checked @change="touch()">
+            <span class="check__text">Let buyers message me through Previa</span>
+          </label>
+
+        {{ else if eq $step 12 }}
+          <h2 class="display display--h3">Choose a package</h2>
+          <div class="stack">
+            {{ range $d.Packages }}
+            <label class="option-row">
+              <input type="radio" name="package" value="{{ .ID }}" {{ if .IsPopular }}checked{{ end }} @change="touch()">
+              <span style="flex:1">
+                <span class="row row--between">
+                  <span class="strong">{{ .Name }}
+                    {{ if .IsPopular }}<span class="badge badge--info">Popular</span>{{ end }}
+                    {{ if .IsPremium }}<span class="badge badge--featured">Best exposure</span>{{ end }}
+                  </span>
+                  <span class="strong numeric">{{ money .Price }}</span>
+                </span>
+                <span class="text-sm muted">{{ .Tagline }} · {{ .DurationDays }} days · up to {{ .PhotoLimit }} photos</span>
+              </span>
+            </label>
+            {{ end }}
+          </div>
+
+        {{ else if eq $step 13 }}
+          <h2 class="display display--h3">Preview your listing</h2>
+          <p class="muted">This is exactly how buyers will see it in search results.</p>
+          <div class="preview-frame">
+            <div class="grid grid--3">
+              <article class="pcard">
+                <div class="pcard__media">
+                  <img src="{{ index $d.SampleImgs 0 }}" alt="Preview" width="1200" height="900">
+                  <div class="pcard__badges"><span class="badge badge--sale">For sale</span></div>
+                </div>
+                <div class="pcard__body">
+                  <p class="pcard__price numeric">€429 000</p>
+                  <h3 class="pcard__title">Restored merchant's apartment in Tallinn Old Town</h3>
+                  <p class="pcard__location">
+                    {{ template "icon" "map-pin" }} <span>Vanalinn, Tallinn, Estonia</span>
+                  </p>
+                  <div class="pcard__facts numeric">
+                    <span class="pcard__fact">{{ template "icon" "rooms" }} <strong>4</strong> rooms</span>
+                    <span class="pcard__fact">{{ template "icon" "bed" }} <strong>2</strong></span>
+                    <span class="pcard__fact">{{ template "icon" "area" }} <strong>118 m²</strong></span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+          <div class="alert alert--warning">
+            {{ template "icon" "alert-triangle" }}
+            <div>
+              <p class="alert__title">One field still needs attention</p>
+              <p>Living area is empty. <a href="/add-listing?step=6" class="strong">Go back to step 6</a> to add it.</p>
+            </div>
+          </div>
+
+        {{ else }}
+          <div class="publish-done">
+            <span class="empty__icon" style="background:var(--success-bg);color:var(--success)">
+              {{ template "icon" "check-circle" }}
+            </span>
+            <h2 class="display display--h3">Ready to publish</h2>
+            <p class="muted" style="max-width:52ch">
+              Your listing will be checked automatically and appear in search
+              results within a few minutes. You can edit it at any time from
+              My listings.
+            </p>
+            <div class="row" style="justify-content:center;margin-top:var(--sp-4)">
+              <a class="btn btn--primary btn--lg" href="/checkout?package=pk-standard">
+                Pay and publish
+              </a>
+              <a class="btn btn--secondary btn--lg" href="/drafts">Save as draft</a>
+            </div>
+          </div>
+        {{ end }}
+      </div>
+
+      <div class="wizard-card__foot">
+        {{ if gt $step 1 }}
+        <a class="btn btn--quiet" href="/add-listing?step={{ $d.PrevStep }}">
+          {{ template "icon" "chevron-left" }} Back
+        </a>
+        {{ else }}
+        <a class="btn btn--quiet" href="/">Cancel</a>
+        {{ end }}
+
+        {{ if lt $step $d.TotalSteps }}
+        <a class="btn btn--primary" href="/add-listing?step={{ $d.NextStep }}">
+          Continue {{ template "icon" "chevron-right" }}
+        </a>
+        {{ else }}
+        <a class="btn btn--gold" href="/checkout?package=pk-standard">Pay and publish</a>
+        {{ end }}
+      </div>
+    </div>
+
+    {{/* ---------------- vertical stepper (right, compact) ---------------- */}}
+    <nav class="stepper" aria-label="Listing progress">
+      <p class="overline" style="margin-bottom:var(--sp-4)">Your progress</p>
+      <ol class="stepper__list">
+        {{ range $d.Steps }}
+        <li class="stepper__item is-{{ .State }}">
+          <a class="stepper__marker" href="/add-listing?step={{ .Number }}"
+             aria-label="Step {{ .Number }}: {{ .Label }}{{ if eq .State "error" }} — needs attention{{ end }}"
+             {{ if eq .State "current" }}aria-current="step"{{ end }}>
+            {{ if eq .State "done" }}{{ template "icon" "check" }}
+            {{ else if eq .State "error" }}!
+            {{ else }}{{ .Number }}{{ end }}
+          </a>
+          <a class="stepper__label" href="/add-listing?step={{ .Number }}">{{ .Label }}</a>
+        </li>
+        {{ end }}
+      </ol>
+
+      <div class="stepper__foot">
+        <p class="text-xs muted">
+          Your progress saves automatically. You can close this page and pick it
+          up from <a href="/drafts" class="strong">Drafts</a>.
+        </p>
+      </div>
+    </nav>
+  </div>
+</div>
+{{ end }}
+
+
+{{/* HTMX fragment: autosave indicator. */}}
+{{ define "autosave-indicator" }}
+<span class="autosave is-saved" role="status">
+  {{ template "icon" "check-circle" }} Saved
+</span>
+{{ end }}

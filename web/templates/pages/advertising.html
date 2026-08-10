@@ -1,0 +1,89 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="page-head">
+  <div class="container">
+    <div class="page-head__inner">
+      <h1 class="page-head__title">Advertise on Previa</h1>
+      <p class="lede">
+        Reach buyers, renters and sellers at the moment they are searching.
+        Placements are sold per country, so your budget stays in your market.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <div class="grid grid--3">
+    <div class="card">
+      <div class="card__body stack">
+        <span class="trust-item__icon">{{ template "icon" "megaphone" }}</span>
+        <h2 class="card__title">Homepage banner</h2>
+        <p class="text-sm muted">
+          The strip above the hero on the homepage, shown only to visitors who
+          have selected your country. Suits lenders, insurers and developers.
+        </p>
+        <p class="text-sm strong">From €890 / month per country</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card__body stack">
+        <span class="trust-item__icon">{{ template "icon" "badge" }}</span>
+        <h2 class="card__title">Promoted broker</h2>
+        <p class="text-sm muted">
+          Your brokers appear in the promoted strip on the homepage and at the
+          top of broker search for your market.
+        </p>
+        <p class="text-sm strong">From €340 / month per broker</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card__body stack">
+        <span class="trust-item__icon">{{ template "icon" "sparkle" }}</span>
+        <h2 class="card__title">Featured listings</h2>
+        <p class="text-sm muted">
+          Gold-badged placement at the top of search results and on the
+          homepage, with priority position on the map.
+        </p>
+        <p class="text-sm strong">Included in the Premium package</p>
+      </div>
+    </div>
+  </div>
+
+  <section class="stack" style="margin-top:var(--sp-11)">
+    <h2 class="display display--h3">Available markets</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Country</th>
+            <th>Monthly visitors</th>
+            <th>Live listings</th>
+            <th>Banner availability</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range $i, $c := $d.Countries }}
+          <tr>
+            <td>{{ template "flag" $c.Code }} <span>{{ $c.Name }}</span></td>
+            <td class="numeric">{{ mul (add $i 4) 18400 }}</td>
+            <td class="numeric">{{ mul (add $i 2) 96 }}</td>
+            <td>
+              {{ if eq (mod $i 3) 0 }}
+              <span class="badge badge--warning">Waiting list</span>
+              {{ else }}
+              <span class="badge badge--success">Available</span>
+              {{ end }}
+            </td>
+            <td class="table__actions">
+              <a class="btn btn--quiet btn--sm" href="/help">Enquire</a>
+            </td>
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{{ end }}

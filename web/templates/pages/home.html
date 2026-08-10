@@ -1,0 +1,415 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{/* ---------------------------------------------------------------
+     Country-specific advertising banner
+     --------------------------------------------------------------- */}}
+{{ if .HasBanner }}
+<div class="container" style="padding-top:var(--sp-5)">
+  <aside class="cbanner cbanner--{{ .Banner.Theme }}" aria-label="Sponsored offer for {{ .Country.Name }}">
+    <span class="cbanner__icon" aria-hidden="true">{{ template "icon" "card" }}</span>
+    <div class="cbanner__text">
+      <p class="cbanner__sponsor">Sponsored · {{ .Banner.Sponsor }} · {{ .Country.Name }}</p>
+      <p class="cbanner__headline">{{ .Banner.Headline }}</p>
+      <p class="cbanner__body">{{ .Banner.Body }}</p>
+    </div>
+    <a class="btn btn--secondary btn--sm" href="{{ .Banner.CTAHref }}">{{ .Banner.CTALabel }}</a>
+  </aside>
+</div>
+{{ end }}
+
+{{/* ---------------------------------------------------------------
+     Hero and search
+     --------------------------------------------------------------- */}}
+<section class="hero">
+  <div class="hero__media">
+    <img src="/static/img/hero.jpg" alt=""
+         srcset="{{ srcset "/static/img/hero.jpg" 800 1400 2000 }}"
+         sizes="100vw"
+         width="2000" height="1200" fetchpriority="high">
+  </div>
+
+  <div class="container">
+    <div class="hero__inner">
+      <div class="hero__copy">
+        <h1 class="hero__title">Find the place you'll want to come home to</h1>
+        <p class="hero__sub">
+          {{ .Data.TotalCount }} verified properties for sale and rent across eight European
+          markets — searched on a real map, listed by brokers you can check.
+        </p>
+        <div class="hero__stats numeric">
+          <div class="hero__stat"><strong>{{ .Data.TotalCount }}</strong><span>Live listings</span></div>
+          <div class="hero__stat"><strong>312</strong><span>Verified brokers</span></div>
+          <div class="hero__stat"><strong>8</strong><span>Countries</span></div>
+        </div>
+      </div>
+
+      {{/* Search panel — the most important element in the hero */}}
+      <form class="searchbox" action="/search" method="get" role="search"
+            aria-label="Property search"
+            x-data="{ deal: 'sale' }">
+
+        <div class="searchbox__tabs" role="group" aria-label="Search mode">
+          <div class="segmented">
+            <label class="segmented__item">
+              <input type="radio" name="deal" value="sale" x-model="deal" checked>
+              {{ template "icon" "home" }} Buy
+            </label>
+            <label class="segmented__item">
+              <input type="radio" name="deal" value="rent" x-model="deal">
+              {{ template "icon" "key" }} Rent
+            </label>
+          </div>
+        </div>
+
+        <div class="searchbox__body">
+          <div class="field">
+            <label class="field__label" for="hero-location">Location</label>
+            <span class="input-icon">
+              {{ template "icon" "map-pin" }}
+              <input class="input" id="hero-location" name="city" type="text"
+                     list="hero-cities" placeholder="City, district or address"
+                     autocomplete="off">
+            </span>
+            <datalist id="hero-cities">
+              {{ range .Countries }}{{ range .Cities }}<option value="{{ . }}"></option>{{ end }}{{ end }}
+            </datalist>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="hero-type">Property type</label>
+            <select class="select" id="hero-type" name="type">
+              <option value="">Any type</option>
+              <option value="apartment">Apartment</option>
+              <option value="house">House</option>
+              <option value="villa">Villa</option>
+              <option value="commercial">Commercial</option>
+              <option value="land">Land</option>
+              <option value="garage">Garage</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="hero-price-min">Price range</label>
+            <div class="range-pair">
+              <input class="input" id="hero-price-min" name="price_min" type="number"
+                     min="0" step="1000" placeholder="Min" inputmode="numeric"
+                     aria-label="Minimum price">
+              <span class="range-pair__dash" aria-hidden="true">–</span>
+              <input class="input" name="price_max" type="number"
+                     min="0" step="1000" placeholder="Max" inputmode="numeric"
+                     aria-label="Maximum price">
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="hero-bedrooms">Bedrooms</label>
+            <select class="select" id="hero-bedrooms" name="bedrooms">
+              <option value="">Any</option>
+              <option value="1">1+</option>
+              <option value="2">2+</option>
+              <option value="3">3+</option>
+              <option value="4">4+</option>
+              <option value="5">5+</option>
+            </select>
+          </div>
+
+          <button class="btn btn--primary searchbox__submit" type="submit">
+            {{ template "icon" "search" }} Search Properties
+          </button>
+        </div>
+
+        <div class="searchbox__footer">
+          <a class="btn btn--ghost btn--sm" href="/search#filters">
+            {{ template "icon" "sliders" }} Advanced filters
+          </a>
+          <a class="btn btn--ghost btn--sm" href="/search?view=map">
+            {{ template "icon" "map" }} Search on the map
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Featured properties
+     --------------------------------------------------------------- */}}
+<section class="section">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <p class="overline">Handpicked</p>
+        <h2 class="section__title">Featured properties</h2>
+        <p class="section__subtitle">
+          Premium listings promoted by their brokers, refreshed daily.
+        </p>
+      </div>
+      <a class="section__link" href="/search?featured=1">
+        View all featured {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    <div class="grid grid--3">
+      {{ range $i, $p := $d.Featured }}
+        {{ template "property-card" dict "Property" $p "Eager" (lt $i 3) }}
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Browse by property type
+     --------------------------------------------------------------- */}}
+<section class="section section--band">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <h2 class="section__title">Browse by property type</h2>
+        <p class="section__subtitle">Jump straight to the category you're looking for.</p>
+      </div>
+    </div>
+
+    <div class="type-grid">
+      {{ range $d.Types }}
+      <a class="type-tile" href="/search?type={{ .Type }}">
+        <span class="type-tile__icon" aria-hidden="true">{{ template "icon" .Icon }}</span>
+        <span class="type-tile__name">{{ .Label }}</span>
+        <span class="type-tile__count numeric">{{ .Count }} listings</span>
+      </a>
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Popular locations
+     --------------------------------------------------------------- */}}
+<section class="section">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <h2 class="section__title">Popular locations</h2>
+        <p class="section__subtitle">The cities buyers and renters search most on Previa.</p>
+      </div>
+      <a class="section__link" href="/search">
+        Browse everywhere {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    <div class="loc-grid">
+      {{ range $d.Locations }}
+      <a class="loc-tile" href="/search?city={{ .City }}&country={{ .CountryCode }}">
+        <img src="{{ .Image }}" alt="{{ .City }}, {{ .Country }}"
+             srcset="{{ srcset .Image 400 900 }}"
+             sizes="(max-width: 480px) 92vw, (max-width: 900px) 45vw, 300px"
+             width="900" height="700" loading="lazy" decoding="async">
+        <span class="loc-tile__text">
+          <span class="loc-tile__city">{{ .City }}</span>
+          <span class="loc-tile__count numeric">{{ pluralize .Count "property" "properties" }}</span>
+        </span>
+      </a>
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Recently added
+     --------------------------------------------------------------- */}}
+<section class="section section--band">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <p class="overline">Fresh to market</p>
+        <h2 class="section__title">Recently added</h2>
+        <p class="section__subtitle">The newest listings across all Previa markets.</p>
+      </div>
+      <a class="section__link" href="/search?sort=newest">
+        See the newest {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    <div class="grid grid--4">
+      {{ range $d.Recent }}
+        {{ template "property-card" dict "Property" . "Variant" "compact" }}
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     New developments
+     --------------------------------------------------------------- */}}
+<section class="section">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <p class="overline">Buy new</p>
+        <h2 class="section__title">New developments</h2>
+        <p class="section__subtitle">
+          Off-plan and newly completed projects, direct from the developer.
+        </p>
+      </div>
+      <a class="section__link" href="/developments">
+        All developments {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    <div class="grid grid--3">
+      {{ range $d.Developments }}{{ template "development-card" . }}{{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Promoted brokers for the active country
+     --------------------------------------------------------------- */}}
+<section class="section section--band">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <p class="overline">{{ .Country.Name }}</p>
+        <h2 class="section__title">Brokers to work with in {{ .Country.Name }}</h2>
+        <p class="section__subtitle">
+          Verified professionals with a track record in this market. Their placement
+          here is a promoted listing.
+        </p>
+      </div>
+      <a class="section__link" href="/brokers?country={{ .Country.Code }}">
+        All brokers {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    <div class="broker-strip">
+      {{ range $d.Brokers }}{{ template "broker-card" . }}{{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Why Previa
+     --------------------------------------------------------------- */}}
+<section class="section section--navy">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <h2 class="section__title">Why people search on Previa</h2>
+        <p class="section__subtitle">
+          One platform for eight markets, built around the map and the people
+          who actually sell the property.
+        </p>
+      </div>
+    </div>
+
+    <div class="trust-grid">
+      <div class="trust-item">
+        <span class="trust-item__icon" aria-hidden="true">{{ template "icon" "map" }}</span>
+        <h3 class="trust-item__title">Search the map, not a list</h3>
+        <p class="trust-item__text">
+          Every listing is placed accurately. Filter, pan and compare
+          neighbourhoods without losing your results.
+        </p>
+      </div>
+      <div class="trust-item">
+        <span class="trust-item__icon" aria-hidden="true">{{ template "icon" "shield" }}</span>
+        <h3 class="trust-item__title">Brokers you can check</h3>
+        <p class="trust-item__text">
+          Credentials, languages, active listings and completed sales are on
+          every broker profile, so you know who you're dealing with.
+        </p>
+      </div>
+      <div class="trust-item">
+        <span class="trust-item__icon" aria-hidden="true">{{ template "icon" "globe" }}</span>
+        <h3 class="trust-item__title">Genuinely international</h3>
+        <p class="trust-item__text">
+          Prices in local currency, listings in your language and guidance on
+          the buying process in each market.
+        </p>
+      </div>
+      <div class="trust-item">
+        <span class="trust-item__icon" aria-hidden="true">{{ template "icon" "bell" }}</span>
+        <h3 class="trust-item__title">First to know</h3>
+        <p class="trust-item__text">
+          Save a search and get an alert the moment something matching it is
+          published — often before it reaches the portals.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Testimonials
+     --------------------------------------------------------------- */}}
+<section class="section">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <h2 class="section__title">What people say</h2>
+      </div>
+    </div>
+    <div class="grid grid--3">
+      {{ range $d.Testimonials }}
+      <figure class="tcard">
+        <div class="tcard__stars" aria-label="{{ .Stars }} out of 5 stars">
+          {{ range seq .Stars }}{{ template "icon" "star" }}{{ end }}
+        </div>
+        <blockquote class="tcard__quote">{{ .Quote }}</blockquote>
+        <figcaption class="tcard__author">
+          <span class="avatar avatar--sm">{{ initials .Name }}</span>
+          <span>
+            <span class="tcard__name">{{ .Name }}</span><br>
+            <span class="tcard__role">{{ .Role }} · {{ .City }}</span>
+          </span>
+        </figcaption>
+      </figure>
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Articles
+     --------------------------------------------------------------- */}}
+<section class="section section--band">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text">
+        <p class="overline">Advice</p>
+        <h2 class="section__title">Articles &amp; real-estate advice</h2>
+        <p class="section__subtitle">Practical guidance written by working brokers.</p>
+      </div>
+      <a class="section__link" href="/articles">
+        All articles {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    <div class="grid grid--3">
+      {{ range $d.Articles }}{{ template "article-card" . }}{{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Final call to action
+     --------------------------------------------------------------- */}}
+<section class="section">
+  <div class="container">
+    <div class="cta-panel">
+      <div>
+        <h2 class="cta-panel__title">Have a property to sell or rent out?</h2>
+        <p class="cta-panel__text">
+          Publish in about fifteen minutes. Add your photos, place the pin on
+          the map, choose how precisely your address appears, and go live to
+          buyers across eight markets.
+        </p>
+      </div>
+      <div class="cta-panel__actions">
+        <a class="btn btn--gold btn--lg" href="/add-listing">Add listing</a>
+        <a class="btn btn--on-image btn--lg" href="/pricing">See packages</a>
+      </div>
+    </div>
+  </div>
+</section>
+{{ end }}

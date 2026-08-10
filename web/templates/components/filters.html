@@ -1,0 +1,320 @@
+{{/*
+  Filter panel — the search form.
+
+  Every control lives in one <form>. HTMX watches the form for change events and
+  swaps only #results, so the panel's own state, the scroll position and the map
+  viewport all survive a filter update. The form also has a real GET action, so
+  it degrades to a normal page load without JavaScript.
+*/}}
+{{ define "filter-form" }}
+{{ $f := .Data.Filter }}
+{{ $view := .Data.View }}
+<form id="filter-form"
+      action="/search" method="get"
+      hx-get="/search/results"
+      hx-target="#results"
+      hx-swap="innerHTML"
+      hx-trigger="change from:#filter-form, search"
+      hx-push-url="true"
+      hx-indicator="#results">
+
+  <input type="hidden" name="view" value="{{ $view }}">
+  <input type="hidden" name="sort" value="{{ $f.Sort }}">
+
+  <div class="filter-panel__body">
+
+    {{/*
+      Deal type — a single choice. "Any" is a real option so the filter can be
+      cleared without reaching for Clear all.
+    */}}
+    <fieldset class="field filter-fieldset">
+      <legend class="field__label">I want to</legend>
+      <div class="segmented segmented--full" role="radiogroup" aria-label="Deal type">
+        <label class="segmented__item">
+          <input type="radio" name="deal" value="" {{ if eq (printf "%s" $f.Deal) "" }}checked{{ end }}>
+          <span>Any</span>
+        </label>
+        <label class="segmented__item">
+          <input type="radio" name="deal" value="sale" {{ if eq $f.Deal "sale" }}checked{{ end }}>
+          <span>Buy</span>
+        </label>
+        <label class="segmented__item">
+          <input type="radio" name="deal" value="rent" {{ if eq $f.Deal "rent" }}checked{{ end }}>
+          <span>Rent</span>
+        </label>
+      </div>
+    </fieldset>
+
+    {{/* Location */}}
+    <div class="filter-group" x-data="{ open: true }">
+      <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
+        Location {{ template "icon" "chevron-down" }}
+      </button>
+      <div class="filter-group__content" x-show="open" x-collapse>
+        <div class="field">
+          <label class="field__label" for="f-country">Country</label>
+          <select class="select" id="f-country" name="country">
+            <option value="">All countries</option>
+            {{ range .Countries }}
+            <option value="{{ .Code }}" {{ if eq .Code $f.CountryCode }}selected{{ end }}>
+              {{ .Name }}
+            </option>
+            {{ end }}
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-city">City or region</label>
+          <input class="input" id="f-city" name="city" type="text" list="filter-cities"
+                 value="{{ $f.City }}" placeholder="Any city" autocomplete="off">
+          <datalist id="filter-cities">
+            {{ range .Data.Cities }}<option value="{{ . }}"></option>{{ end }}
+          </datalist>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-address">Address or district</label>
+          <input class="input" id="f-address" name="address" type="text"
+                 value="{{ $f.Address }}" placeholder="Street or district">
+        </div>
+      </div>
+    </div>
+
+    {{/* Property type */}}
+    <div class="filter-group" x-data="{ open: true }">
+      <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
+        Property type {{ template "icon" "chevron-down" }}
+      </button>
+      <div class="filter-group__content" x-show="open" x-collapse>
+        {{/*
+          Exactly one property type may be active. A native radio group gives
+          that behaviour for free — selecting House deselects Apartment, every
+          option stays enabled so the user can switch, and arrow keys move
+          between options. "Any type" clears the choice.
+
+          Selection is communicated by border, background, weight and a check
+          icon, not by colour alone.
+        */}}
+        <div class="type-check-grid" role="radiogroup" aria-label="Property type">
+          <label class="type-check type-check--any">
+            <input type="radio" name="type" value=""
+                   {{ if not .Data.Filter.Types }}checked{{ end }}>
+            <span class="type-check__box">
+              {{ template "icon" "layers" }}
+              <span>Any type</span>
+              <span class="type-check__tick">{{ template "icon" "check" }}</span>
+            </span>
+          </label>
+          {{ range .Data.TypeOpts }}
+          <label class="type-check">
+            <input type="radio" name="type" value="{{ .Value }}" {{ if .Checked }}checked{{ end }}>
+            <span class="type-check__box">
+              {{ template "icon" .Icon }}
+              <span>{{ .Label }}</span>
+              <span class="type-check__tick">{{ template "icon" "check" }}</span>
+            </span>
+          </label>
+          {{ end }}
+        </div>
+      </div>
+    </div>
+
+    {{/* Price */}}
+    <div class="filter-group" x-data="{ open: true }">
+      <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
+        Price {{ template "icon" "chevron-down" }}
+      </button>
+      <div class="filter-group__content" x-show="open" x-collapse>
+        <div class="field">
+          <span class="field__label">Price range</span>
+          <div class="range-pair">
+            <span class="input-unit">
+              <input class="input" name="price_min" type="number" min="0" step="1000" inputmode="numeric"
+                     placeholder="Min" aria-label="Minimum price"
+                     value="{{ if $f.PriceMin }}{{ printf "%.0f" $f.PriceMin }}{{ end }}">
+            </span>
+            <span class="range-pair__dash" aria-hidden="true">–</span>
+            <span class="input-unit">
+              <input class="input" name="price_max" type="number" min="0" step="1000" inputmode="numeric"
+                     placeholder="Max" aria-label="Maximum price"
+                     value="{{ if $f.PriceMax }}{{ printf "%.0f" $f.PriceMax }}{{ end }}">
+            </span>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-currency">Currency</label>
+          <select class="select" id="f-currency" name="currency">
+            <option value="EUR" {{ if eq $f.Currency "EUR" }}selected{{ end }}>EUR — Euro</option>
+            <option value="CZK" {{ if eq $f.Currency "CZK" }}selected{{ end }}>CZK — Czech koruna</option>
+            <option value="GBP" {{ if eq $f.Currency "GBP" }}selected{{ end }}>GBP — Pound sterling</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {{/* Size and rooms */}}
+    <div class="filter-group" x-data="{ open: true }">
+      <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
+        Size and rooms {{ template "icon" "chevron-down" }}
+      </button>
+      <div class="filter-group__content" x-show="open" x-collapse>
+        <div class="field">
+          <span class="field__label">Living area</span>
+          <div class="range-pair">
+            <span class="input-unit">
+              <input class="input" name="area_min" type="number" min="0" inputmode="numeric"
+                     placeholder="Min" aria-label="Minimum area in square metres"
+                     value="{{ if $f.AreaMin }}{{ printf "%.0f" $f.AreaMin }}{{ end }}">
+              <span class="input-unit__suffix">m²</span>
+            </span>
+            <span class="range-pair__dash" aria-hidden="true">–</span>
+            <span class="input-unit">
+              <input class="input" name="area_max" type="number" min="0" inputmode="numeric"
+                     placeholder="Max" aria-label="Maximum area in square metres"
+                     value="{{ if $f.AreaMax }}{{ printf "%.0f" $f.AreaMax }}{{ end }}">
+              <span class="input-unit__suffix">m²</span>
+            </span>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-land">Minimum land area</label>
+          <span class="input-unit">
+            <input class="input" id="f-land" name="land_min" type="number" min="0" inputmode="numeric"
+                   placeholder="Any" value="{{ if $f.LandAreaMin }}{{ printf "%.0f" $f.LandAreaMin }}{{ end }}">
+            <span class="input-unit__suffix">m²</span>
+          </span>
+        </div>
+        <div class="grid grid--2" style="gap:var(--sp-3)">
+          <div class="field">
+            <label class="field__label" for="f-rooms">Rooms</label>
+            <select class="select" id="f-rooms" name="rooms">
+              <option value="">Any</option>
+              {{ range seq 6 }}<option value="{{ add . 1 }}" {{ if eq $f.Rooms (add . 1) }}selected{{ end }}>{{ add . 1 }}+</option>{{ end }}
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="f-bedrooms">Bedrooms</label>
+            <select class="select" id="f-bedrooms" name="bedrooms">
+              <option value="">Any</option>
+              {{ range seq 5 }}<option value="{{ add . 1 }}" {{ if eq $f.Bedrooms (add . 1) }}selected{{ end }}>{{ add . 1 }}+</option>{{ end }}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field__label" for="f-bathrooms">Bathrooms</label>
+          <select class="select" id="f-bathrooms" name="bathrooms">
+            <option value="">Any</option>
+            {{ range seq 4 }}<option value="{{ add . 1 }}" {{ if eq $f.Bathrooms (add . 1) }}selected{{ end }}>{{ add . 1 }}+</option>{{ end }}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {{/* Building */}}
+    <div class="filter-group" x-data="{ open: false }">
+      <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
+        Building {{ template "icon" "chevron-down" }}
+      </button>
+      <div class="filter-group__content" x-show="open" x-collapse x-cloak>
+        <div class="field">
+          <span class="field__label">Construction year</span>
+          <div class="range-pair">
+            <input class="input" name="year_min" type="number" min="1700" max="2030" inputmode="numeric"
+                   placeholder="From" aria-label="Built from year"
+                   value="{{ if $f.YearMin }}{{ $f.YearMin }}{{ end }}">
+            <span class="range-pair__dash" aria-hidden="true">–</span>
+            <input class="input" name="year_max" type="number" min="1700" max="2030" inputmode="numeric"
+                   placeholder="To" aria-label="Built to year"
+                   value="{{ if $f.YearMax }}{{ $f.YearMax }}{{ end }}">
+          </div>
+        </div>
+        <fieldset style="border:0;padding:0;margin:0">
+          <legend class="field__label" style="margin-bottom:var(--sp-2)">Condition</legend>
+          {{ range .Data.CondOpts }}
+          <label class="check">
+            <input type="checkbox" name="condition" value="{{ .Value }}" {{ if .Checked }}checked{{ end }}>
+            <span class="check__text">{{ .Label }}</span>
+          </label>
+          {{ end }}
+        </fieldset>
+        <div class="field">
+          <label class="field__label" for="f-energy">Energy rating</label>
+          <select class="select" id="f-energy" name="energy">
+            <option value="">Any rating</option>
+            {{ range list "A" "B" "C" "D" "E" "F" "G" }}
+            <option value="{{ . }}" {{ if eq $f.EnergyRating . }}selected{{ end }}>Class {{ . }}</option>
+            {{ end }}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {{/* Features */}}
+    <div class="filter-group" x-data="{ open: false }">
+      <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
+        Features {{ template "icon" "chevron-down" }}
+      </button>
+      <div class="filter-group__content" x-show="open" x-collapse x-cloak>
+        <label class="check">
+          <input type="checkbox" name="furnished" value="1" {{ if $f.Furnished }}checked{{ end }}>
+          <span class="check__text">Furnished</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" name="parking" value="1" {{ if $f.Parking }}checked{{ end }}>
+          <span class="check__text">Parking</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" name="balcony" value="1" {{ if $f.Balcony }}checked{{ end }}>
+          <span class="check__text">Balcony or terrace</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" name="garden" value="1" {{ if $f.Garden }}checked{{ end }}>
+          <span class="check__text">Garden</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" name="elevator" value="1" {{ if $f.Elevator }}checked{{ end }}>
+          <span class="check__text">Elevator</span>
+        </label>
+      </div>
+    </div>
+
+    {{/* Listing */}}
+    <div class="filter-group" x-data="{ open: false }">
+      <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
+        Listing {{ template "icon" "chevron-down" }}
+      </button>
+      <div class="filter-group__content" x-show="open" x-collapse x-cloak>
+        <div class="field">
+          <label class="field__label" for="f-seller">Listed by</label>
+          <select class="select" id="f-seller" name="seller">
+            <option value="">Anyone</option>
+            <option value="broker" {{ if eq $f.SellerKind "broker" }}selected{{ end }}>Brokers only</option>
+            <option value="private" {{ if eq $f.SellerKind "private" }}selected{{ end }}>Private sellers only</option>
+          </select>
+        </div>
+        <label class="check">
+          <input type="checkbox" name="new_development" value="1" {{ if $f.NewDevelopment }}checked{{ end }}>
+          <span class="check__text">New developments only</span>
+        </label>
+        <label class="check">
+          <input type="checkbox" name="featured" value="1" {{ if $f.FeaturedOnly }}checked{{ end }}>
+          <span class="check__text">Featured listings only</span>
+        </label>
+        <div class="field">
+          <label class="field__label" for="f-q">Keyword</label>
+          <span class="input-icon">
+            {{ template "icon" "search" }}
+            <input class="input" id="f-q" name="q" type="search" value="{{ $f.Keyword }}"
+                   placeholder="e.g. sauna, sea view, balcony">
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="filter-panel__footer">
+    <a class="btn btn--quiet btn--sm" href="/search?view={{ $view }}">Clear all</a>
+    <button class="btn btn--primary btn--sm" type="submit" style="flex:1">
+      {{ template "icon" "search" }} Apply filters
+    </button>
+  </div>
+</form>
+{{ end }}

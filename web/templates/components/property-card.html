@@ -1,0 +1,256 @@
+{{/*
+  Property card — one component, several density variants.
+
+  Args (dict):
+    Property   models.Property   (required)
+    Variant    ""|"compact"|"row"|"map"   default standard grid card
+    Favourite  bool              current saved state
+    Eager      bool              skip lazy-loading for above-the-fold cards
+    Index      int               used to build stable ids for map sync
+*/}}
+{{ define "property-card" }}
+{{ $p := .Property }}
+{{ $v := "" }}{{ if hasField . "Variant" }}{{ $v = .Variant }}{{ end }}
+{{ $fav := false }}{{ if hasField . "Favourite" }}{{ $fav = .Favourite }}{{ end }}
+{{ $eager := false }}{{ if hasField . "Eager" }}{{ $eager = .Eager }}{{ end }}
+{{ $img := $p.PrimaryImage }}
+
+<article class="pcard{{ if $v }} pcard--{{ $v }}{{ end }}{{ if $p.IsFeatured }} pcard--featured{{ end }}"
+         data-property-id="{{ $p.ID }}"
+         data-lat="{{ $p.Coords.Lat }}" data-lng="{{ $p.Coords.Lng }}"
+         {{ if eq $v "map" }}@mouseenter="highlight('{{ $p.ID }}')" @mouseleave="highlight(null)"
+         :class="{ 'is-active': active === '{{ $p.ID }}' }"{{ end }}>
+
+  <div class="pcard__media">
+    {{/*
+      Cards never need the full-size photograph. The WebP srcset lets a phone
+      pull the 400px variant instead of the 1200px original; width/height are
+      always present so the grid reserves space and nothing shifts on load.
+    */}}
+    <img src="{{ $img.URL }}" alt="{{ $img.Alt }}"
+         srcset="{{ srcset $img.URL 400 800 1200 }}"
+         sizes="(max-width: 600px) 92vw, (max-width: 1024px) 45vw, 320px"
+         width="{{ $img.Width }}" height="{{ $img.Height }}"
+         {{ if $eager }}fetchpriority="high"{{ else }}loading="lazy" decoding="async"{{ end }}>
+
+    <div class="pcard__badges">
+      <span class="badge {{ if $p.IsRental }}badge--rent{{ else }}badge--sale{{ end }}">
+        {{ dealLabel $p.Deal }}
+      </span>
+      {{ if $p.IsFeatured }}
+      <span class="badge badge--featured">{{ template "icon" "sparkle" }} Featured</span>
+      {{ end }}
+      {{ if and $p.IsNewDevelopment (ne $v "map") }}
+      <span class="badge badge--neutral">New build</span>
+      {{ end }}
+    </div>
+
+    {{/*
+      Favourite posts to the mock endpoint and swaps itself with the response,
+      so the pressed state survives without any bespoke JavaScript.
+    */}}
+    <button type="button" class="pcard__fav"
+            hx-post="/favourite/{{ $p.ID }}" hx-swap="outerHTML" hx-target="this"
+            aria-pressed="{{ if $fav }}true{{ else }}false{{ end }}"
+            aria-label="{{ if $fav }}Remove {{ $p.Title }} from favourites{{ else }}Save {{ $p.Title }} to favourites{{ end }}">
+      {{ template "icon" "heart" }}
+    </button>
+
+    {{ if and (gt (len $p.Images) 1) (ne $v "map") }}
+    <span class="pcard__count">{{ template "icon" "camera" }} {{ len $p.Images }}</span>
+    {{ end }}
+  </div>
+
+  <div class="pcard__body">
+    <p class="pcard__price numeric">
+      {{ money $p.Price }}{{ if $p.IsRental }}<span class="pcard__price-period">/month</span>{{ end }}
+    </p>
+
+    <h3 class="pcard__title">
+      <a href="{{ propertyURL $p }}">{{ $p.Title }}</a>
+    </h3>
+
+    <p class="pcard__location">
+      {{ template "icon" "map-pin" }}
+      <span>{{ if $p.District }}{{ $p.District }}, {{ end }}{{ $p.City }}, {{ $p.Country }}</span>
+    </p>
+
+    <div class="pcard__facts numeric">
+      {{ if $p.Rooms }}
+      <span class="pcard__fact">{{ template "icon" "rooms" }} <strong>{{ $p.Rooms }}</strong> rooms</span>
+      {{ end }}
+      {{ if $p.Bedrooms }}
+      <span class="pcard__fact">{{ template "icon" "bed" }} <strong>{{ $p.Bedrooms }}</strong></span>
+      {{ end }}
+      {{ if $p.Bathrooms }}
+      <span class="pcard__fact">{{ template "icon" "bath" }} <strong>{{ $p.Bathrooms }}</strong></span>
+      {{ end }}
+      {{ if $p.Area }}
+      <span class="pcard__fact">{{ template "icon" "area" }} <strong>{{ area $p.Area }}</strong></span>
+      {{ end }}
+      {{ if and $p.LandArea (not $p.Area) }}
+      <span class="pcard__fact">{{ template "icon" "land" }} <strong>{{ area $p.LandArea }}</strong></span>
+      {{ end }}
+    </div>
+
+    {{ if ne $v "map" }}
+    <div class="pcard__seller">
+      <span>
+        {{ if eq $p.SellerKind "private" }}Private seller{{ else }}{{ typeLabel $p.Type }} · Broker listing{{ end }}
+      </span>
+      {{ if $p.PricePerM2 }}<span class="numeric">{{ pricePerM2 $p }}</span>{{ end }}
+    </div>
+    {{ end }}
+  </div>
+</article>
+{{ end }}
+
+
+{{/* Favourite button on its own, so the HTMX endpoint can return just this. */}}
+{{ define "favourite-button" }}
+<button type="button" class="pcard__fav"
+        hx-post="/favourite/{{ .ID }}" hx-swap="outerHTML" hx-target="this"
+        aria-pressed="{{ if .Favourite }}true{{ else }}false{{ end }}"
+        aria-label="{{ if .Favourite }}Remove {{ .Title }} from favourites{{ else }}Save {{ .Title }} to favourites{{ end }}">
+  {{ template "icon" "heart" }}
+</button>
+{{ end }}
+
+
+{{/* Loading skeleton matching the standard card's shape. */}}
+{{ define "property-card-skeleton" }}
+<div class="skeleton-card" aria-hidden="true">
+  <div class="skeleton skeleton--media"></div>
+  <div class="skeleton-card__body">
+    <div class="skeleton skeleton--title"></div>
+    <div class="skeleton skeleton--text" style="width:90%"></div>
+    <div class="skeleton skeleton--text" style="width:60%"></div>
+    <div class="skeleton skeleton--text" style="width:75%;margin-top:16px"></div>
+  </div>
+</div>
+{{ end }}
+
+
+{{/*
+  Broker card.
+
+  Structured so a row of cards stays visually even: fixed-height identity
+  block, then metadata, then a footer pinned to the bottom with the contact
+  details and both actions.
+*/}}
+{{ define "broker-card" }}
+{{ $b := . }}
+<article class="bcard">
+  <img class="bcard__avatar" src="{{ $b.Photo }}" alt="{{ $b.Name }}"
+       srcset="{{ srcset $b.Photo 176 352 }}" sizes="88px"
+       width="88" height="88" loading="lazy" decoding="async">
+
+  <div class="bcard__identity">
+    <h3 class="bcard__name">
+      <a href="/broker/{{ $b.Slug }}">{{ $b.Name }}</a>
+      {{ if $b.IsVerified }}<span class="visually-hidden">(verified broker)</span>{{ end }}
+    </h3>
+    <p class="bcard__role">{{ $b.Title }}</p>
+    <p class="bcard__agency">{{ $b.AgencyName }}</p>
+    <p class="bcard__location">
+      {{ template "icon" "map-pin" }} <span>{{ $b.City }}</span>
+    </p>
+  </div>
+
+  <div class="bcard__meta numeric">
+    <span class="bcard__rating" aria-label="Rated {{ $b.Rating }} out of 5 from {{ $b.Reviews }} reviews">
+      {{ template "icon" "star" }} {{ $b.Rating }}
+      <span class="subtle">({{ $b.Reviews }})</span>
+    </span>
+    <span>{{ pluralize $b.ActiveListings "listing" "listings" }}</span>
+  </div>
+
+  {{ if $b.IsPromoted }}
+  <span class="badge badge--featured">{{ template "icon" "sparkle" }} Promoted</span>
+  {{ end }}
+
+  <div class="bcard__foot">
+    <div class="bcard__contact">
+      <a href="mailto:{{ $b.Email }}">
+        {{ template "icon" "mail" }} <span class="truncate">{{ $b.Email }}</span>
+      </a>
+      <a href="tel:{{ $b.Phone }}">
+        {{ template "icon" "phone" }} <span>{{ $b.Phone }}</span>
+      </a>
+    </div>
+    <div class="bcard__actions">
+      <a class="btn btn--secondary btn--sm" href="/broker/{{ $b.Slug }}">View profile</a>
+      <a class="btn btn--primary btn--sm" href="mailto:{{ $b.Email }}">Contact</a>
+    </div>
+  </div>
+</article>
+{{ end }}
+
+
+{{/* Development card. */}}
+{{ define "development-card" }}
+{{ $d := . }}
+<article class="dcard">
+  <div class="dcard__media">
+    <img src="{{ $d.Cover.URL }}" alt="{{ $d.Name }} — {{ $d.City }}"
+         srcset="{{ srcset $d.Cover.URL 400 800 1400 }}"
+         sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 400px"
+         width="1400" height="900" loading="lazy" decoding="async">
+    {{ if not $d.IsCompleted }}
+    <span class="dcard__ribbon">Completing {{ $d.CompletionQuarter }}</span>
+    {{ end }}
+  </div>
+  <div class="dcard__body">
+    <h3 class="dcard__name"><a href="/development/{{ $d.Slug }}">{{ $d.Name }}</a></h3>
+    <p class="pcard__location">
+      {{ template "icon" "map-pin" }}
+      <span>{{ $d.District }}, {{ $d.City }}</span>
+    </p>
+    <p class="text-sm muted">by {{ $d.Developer }}</p>
+    <p class="pcard__price numeric" style="font-size:var(--fs-lg)">
+      From {{ money $d.PriceFrom }}
+    </p>
+    <div class="dcard__stats numeric">
+      <span>{{ area $d.AreaFrom }} – {{ area $d.AreaTo }}</span>
+      <span>{{ $d.AvailableUnits }} of {{ $d.TotalUnits }} available</span>
+    </div>
+  </div>
+</article>
+{{ end }}
+
+
+{{/* Article card. */}}
+{{ define "article-card" }}
+{{ $a := . }}
+<article class="acard">
+  <a class="acard__media" href="/article/{{ $a.Slug }}" tabindex="-1" aria-hidden="true">
+    <img src="{{ $a.Cover.URL }}" alt=""
+         srcset="{{ srcset $a.Cover.URL 400 800 1200 }}"
+         sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 400px"
+         width="1200" height="800" loading="lazy" decoding="async">
+  </a>
+  <div class="acard__body">
+    <p class="overline">{{ $a.Category }}</p>
+    <h3 class="acard__title"><a href="/article/{{ $a.Slug }}">{{ $a.Title }}</a></h3>
+    <p class="acard__excerpt clamp-3">{{ $a.Excerpt }}</p>
+    <div class="acard__meta">
+      <span>{{ date $a.PublishedAt }}</span>
+      <span aria-hidden="true">·</span>
+      <span>{{ $a.ReadMinutes }} min read</span>
+    </div>
+  </div>
+</article>
+{{ end }}
+
+
+{{/* Empty state. */}}
+{{ define "empty-state" }}
+<div class="empty">
+  <span class="empty__icon">{{ template "icon" (default "search" .Icon) }}</span>
+  <h3 class="empty__title">{{ .Title }}</h3>
+  <p class="empty__text">{{ .Text }}</p>
+  {{ if .ActionHref }}
+  <a class="btn btn--primary" href="{{ .ActionHref }}">{{ .ActionLabel }}</a>
+  {{ end }}
+</div>
+{{ end }}

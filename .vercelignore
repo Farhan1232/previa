@@ -1,0 +1,5 @@
+# Not needed by the build or the runtime
+docs/
+.git/
+*.md
+!README.md

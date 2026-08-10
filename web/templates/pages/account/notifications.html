@@ -1,0 +1,50 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{ template "account-head" dict "Title" "Notifications"
+   "Lede" "Alerts from your saved searches, replies from brokers, and account activity." }}
+
+<div class="container section">
+  <div class="shell">
+    {{ template "account-nav" . }}
+
+    <div class="stack stack--lg">
+      <div class="row row--between">
+        <p class="results-count">
+          <strong class="numeric">{{ $d.Unread }}</strong> unread
+          of {{ len $d.Notifications }}
+        </p>
+        <button type="button" class="btn btn--quiet btn--sm" x-data
+                @click="previaToast('All notifications marked as read.', 'success')">
+          {{ template "icon" "check" }} Mark all as read
+        </button>
+      </div>
+
+      {{ if $d.Notifications }}
+      <div class="card">
+        <div class="notif-list">
+          {{ range $d.Notifications }}
+          <a class="notif {{ if not .IsRead }}is-unread{{ end }}" href="{{ .Link }}">
+            <span class="notif__icon notif__icon--{{ .Type }}">{{ template "icon" .Icon }}</span>
+            <span class="notif__body">
+              <span class="notif__title">
+                {{ .Title }}
+                {{ if not .IsRead }}<span class="notif__dot" aria-label="Unread"></span>{{ end }}
+              </span>
+              <span class="notif__text">{{ .Body }}</span>
+            </span>
+            <span class="notif__time">{{ timeAgo .CreatedAt }}</span>
+          </a>
+          {{ end }}
+        </div>
+      </div>
+      {{ else }}
+        {{ template "empty-state" dict "Icon" "bell"
+           "Title" "Nothing new"
+           "Text" "Alerts from your saved searches and replies from brokers will appear here."
+           "ActionHref" "/saved-searches" "ActionLabel" "Manage saved searches" }}
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

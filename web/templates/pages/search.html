@@ -1,0 +1,71 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="container container--wide" style="padding-top:var(--sp-6);padding-bottom:var(--sp-11)">
+
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumbs">
+      <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+      <li aria-current="page">Search</li>
+    </ol>
+  </nav>
+
+  <h1 class="display display--h2" style="margin:var(--sp-4) 0 var(--sp-6)">
+    {{ if eq $d.Filter.Deal "rent" }}Property to rent{{ else if eq $d.Filter.Deal "sale" }}Property for sale{{ else }}Search all property{{ end }}
+    {{ if $d.Filter.City }}<span class="muted">in {{ $d.Filter.City }}</span>{{ end }}
+  </h1>
+
+  {{/*
+    The layout collapses by widening the results column. Below 1024px the panel
+    becomes an off-canvas drawer opened from a fixed edge tab, and the filter
+    values survive both transitions because the form is never re-rendered.
+  */}}
+  <div class="search-layout" x-data="previaSearch()"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
+
+    {{/* Backdrop only exists while the mobile drawer is open. */}}
+    <div class="filter-backdrop" x-show="drawer" x-cloak x-transition.opacity.duration.200ms
+         @click="closeDrawer()" aria-hidden="true"></div>
+
+    {{/*
+      A single filter form serves both breakpoints: a sticky sidebar on large
+      screens, an off-canvas drawer below 1024px. Rendering it once keeps one
+      #filter-form in the DOM, so HTMX and the browser's own form state stay
+      unambiguous and no filter value is ever lost when the layout changes.
+    */}}
+    <aside class="filter-panel" id="filter-drawer" aria-label="Search filters"
+           :class="{ 'is-open': drawer }"
+           x-trap.noscroll="drawer"
+           @keydown.escape.window="closeDrawer()">
+      <div class="filter-panel__header">
+        <h2 class="card__title" style="font-size:var(--fs-base)">Filters</h2>
+        <button type="button" class="icon-btn filter-panel__collapse" @click="collapse()"
+                aria-label="Hide filter panel">{{ template "icon" "chevron-left" }}</button>
+        <button type="button" class="icon-btn filter-panel__close" @click="closeDrawer()"
+                aria-label="Close filters">{{ template "icon" "close" }}</button>
+      </div>
+      {{ template "filter-form" . }}
+    </aside>
+
+    <div class="filter-rail">
+      <button type="button" class="filter-reopen" @click="expand()" aria-label="Show filter panel">
+        {{ template "icon" "filter" }}
+        <span>Filters</span>
+        {{ if $d.Filter.ActiveCount }}<span class="filter-reopen__count">{{ $d.Filter.ActiveCount }}</span>{{ end }}
+      </button>
+    </div>
+
+    <div>
+      {{ template "results-region" . }}
+    </div>
+
+    {{/* Small screens: fixed edge tab, reachable at any scroll position */}}
+    <button type="button" class="filter-fab" @click="openDrawer()" aria-controls="filter-drawer"
+            :aria-expanded="drawer">
+      {{ template "icon" "filter" }}
+      <span>Filters</span>
+      {{ if $d.Filter.ActiveCount }}<span class="filter-reopen__count">{{ $d.Filter.ActiveCount }}</span>{{ end }}
+    </button>
+  </div>
+</div>
+{{ end }}

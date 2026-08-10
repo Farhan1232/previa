@@ -1,0 +1,101 @@
+{{ define "content" }}
+<div class="admin">
+{{ template "admin-head" dict "Title" "Google Maps settings"
+   "Lede" "Map provider configuration and default viewport per market." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+      <div id="admin-result"></div>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">API key</h2></div>
+        <div class="card__body stack">
+          {{ if .HasMaps }}
+          <div class="alert alert--success">
+            {{ template "icon" "check-circle" }}
+            <div>
+              <p class="alert__title">Live Google Maps active</p>
+              <p>A key is configured in the environment. Map screens render live tiles.</p>
+            </div>
+          </div>
+          {{ else }}
+          <div class="alert alert--warning">
+            {{ template "icon" "alert-triangle" }}
+            <div>
+              <p class="alert__title">No API key configured — mock map in use</p>
+              <p>
+                Map screens render Previa's built-in demonstration map with real
+                markers and full card synchronisation. Set
+                <code>PREVIA_MAPS_API_KEY</code> in the environment to switch to
+                live Google Maps tiles. Nothing else needs to change.
+              </p>
+            </div>
+          </div>
+          {{ end }}
+
+          <div class="field">
+            <label class="field__label" for="mk-key">Google Maps JavaScript API key</label>
+            <input class="input" id="mk-key" type="password" value="{{ if .HasMaps }}configured-in-environment{{ end }}"
+                   placeholder="Set via PREVIA_MAPS_API_KEY" readonly>
+            <span class="field__hint">
+              The key is read from the environment and is never stored in the
+              database or committed to the repository.
+            </span>
+          </div>
+
+          <div class="grid grid--2" style="gap:var(--sp-4)">
+            <div class="field">
+              <label class="field__label" for="mk-cluster">Marker clustering</label>
+              <select class="select" id="mk-cluster">
+                <option>Enabled above 40 markers</option>
+                <option>Always enabled</option>
+                <option>Disabled</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="mk-style">Map style</label>
+              <select class="select" id="mk-style">
+                <option>Previa light</option><option>Previa dark</option><option>Google default</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Default viewport per market</h2></div>
+        <div class="card__body" style="padding:0">
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table class="table">
+              <thead><tr><th>Country</th><th>Latitude</th><th>Longitude</th><th>Zoom</th><th>Actions</th></tr></thead>
+              <tbody>
+                {{ range .Countries }}
+                <tr>
+                  <td>{{ template "flag" .Code }} <span>{{ .Name }}</span></td>
+                  <td class="numeric">{{ .Lat }}</td>
+                  <td class="numeric">{{ .Lng }}</td>
+                  <td class="numeric">{{ .Zoom }}</td>
+                  <td>
+                    <div class="table__actions">
+                      <button class="btn btn--quiet btn--sm" aria-label="Edit viewport for {{ .Name }}"
+                              hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                        {{ template "icon" "edit" }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

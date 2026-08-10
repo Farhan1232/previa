@@ -1,0 +1,206 @@
+{{ define "header" }}
+<header class="site-header" x-data="previaHeader()" :class="{ 'is-scrolled': scrolled }">
+  <div class="container">
+    <div class="header__inner">
+
+      <a class="header__logo" href="/" aria-label="Previa — go to homepage">
+        {{ template "logo" dict "Size" "md" }}
+      </a>
+
+      {{/* Primary navigation. Buy and Rent are search modes, not header items. */}}
+      <nav class="header__nav" aria-label="Main">
+        <a class="header__link" href="/search?deal=sale"
+           {{ if eq .Nav "buy" }}aria-current="page"{{ end }}>Buy</a>
+        <a class="header__link" href="/search?deal=rent"
+           {{ if eq .Nav "rent" }}aria-current="page"{{ end }}>Rent</a>
+        <a class="header__link" href="/articles"
+           {{ if eq .Nav "articles" }}aria-current="page"{{ end }}>Articles</a>
+        <a class="header__link" href="/brokers"
+           {{ if eq .Nav "brokers" }}aria-current="page"{{ end }}>Brokers</a>
+        <a class="header__link" href="/developments"
+           {{ if eq .Nav "developments" }}aria-current="page"{{ end }}>Developments</a>
+      </nav>
+
+      <div class="header__actions">
+
+        {{/* Country selector — drives banner, promoted brokers and map centre */}}
+        <div class="header__desktop-only" x-data="previaMenu()" @keydown.escape.window="close()">
+          <button type="button" class="icon-btn" @click="toggle()" :aria-expanded="open"
+                  aria-haspopup="true" aria-label="Change country — currently {{ .Country.Name }}">
+            {{ template "flag" .Country.Code }}
+            <span class="text-sm">{{ .Country.Code }}</span>
+            {{ template "icon" "chevron-down" }}
+          </button>
+          <div class="dropdown" x-show="open" x-cloak x-transition.opacity.duration.150ms
+               @click.outside="close()">
+            <div class="menu" role="menu">
+              <p class="menu__label">Choose your market</p>
+              {{ range .Countries }}
+              <a class="menu__item {{ if eq .Code $.Country.Code }}is-active{{ end }}"
+                 role="menuitem" href="/set-country?code={{ .Code }}&return={{ $.CurrentPath }}">
+                {{ template "flag" .Code }}
+                <span>{{ .Name }}</span>
+                {{ if eq .Code $.Country.Code }}<span class="spacer"></span>{{ template "icon" "check" }}{{ end }}
+              </a>
+              {{ end }}
+              <div class="menu__divider"></div>
+              <button type="button" class="menu__item" @click="$dispatch('previa-locate'); close()">
+                {{ template "icon" "map-pin" }} Detect my location
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {{/* Language selector */}}
+        <div class="header__desktop-only" x-data="previaMenu()" @keydown.escape.window="close()">
+          <button type="button" class="icon-btn" @click="toggle()" :aria-expanded="open"
+                  aria-haspopup="true" aria-label="Change language — currently {{ .LangName }}">
+            {{ template "icon" "language" }}
+            <span class="text-sm">{{ .Lang | printf "%.2s" }}</span>
+          </button>
+          <div class="dropdown" x-show="open" x-cloak x-transition.opacity.duration.150ms
+               @click.outside="close()">
+            <div class="menu" role="menu">
+              <p class="menu__label">Language</p>
+              {{ range .Languages }}
+              {{ if .IsEnabled }}
+              <a class="menu__item {{ if eq .Code $.Lang }}is-active{{ end }}" role="menuitem"
+                 href="/{{ .Code }}{{ $.CurrentPath }}">
+                <span class="menu__code">{{ .Code }}</span>
+                <span>{{ .NativeName }}</span>
+                {{ if not .IsDefault }}<span class="text-xs subtle">{{ .Progress }}%</span>{{ end }}
+              </a>
+              {{ end }}
+              {{ end }}
+            </div>
+          </div>
+        </div>
+
+        {{/* Theme control */}}
+        <button type="button" class="icon-btn" x-data @click="$store.theme.toggle()"
+                :aria-label="$store.theme.value === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+          <span x-show="$store.theme.value !== 'dark'" x-cloak>{{ template "icon" "moon" }}</span>
+          <span x-show="$store.theme.value === 'dark'" x-cloak>{{ template "icon" "sun" }}</span>
+        </button>
+
+        {{ if .User.ID }}
+          {{/* Signed in: notifications + account menu */}}
+          <a class="icon-btn header__desktop-only" href="/notifications"
+             aria-label="Notifications{{ if .UnreadCount }} — {{ .UnreadCount }} unread{{ end }}">
+            {{ template "icon" "bell" }}
+            {{ if .UnreadCount }}<span class="icon-btn__dot" aria-hidden="true"></span>{{ end }}
+          </a>
+
+          <div class="header__desktop-only" x-data="previaMenu()" @keydown.escape.window="close()">
+            <button type="button" class="icon-btn" @click="toggle()" :aria-expanded="open"
+                    aria-haspopup="true" aria-label="Account menu">
+              <span class="avatar avatar--sm">{{ initials .User.Name }}</span>
+              {{ template "icon" "chevron-down" }}
+            </button>
+            <div class="dropdown dropdown--right" x-show="open" x-cloak
+                 x-transition.opacity.duration.150ms @click.outside="close()">
+              <div class="menu" role="menu">
+                <p class="menu__label">{{ .User.Name }}</p>
+                <a class="menu__item" role="menuitem" href="/dashboard">{{ template "icon" "grid" }} Dashboard</a>
+                <a class="menu__item" role="menuitem" href="/my-listings">{{ template "icon" "home" }} My listings</a>
+                <a class="menu__item" role="menuitem" href="/favourites">{{ template "icon" "heart" }} Favourites</a>
+                <a class="menu__item" role="menuitem" href="/saved-searches">{{ template "icon" "search" }} Saved searches</a>
+                <a class="menu__item" role="menuitem" href="/billing">{{ template "icon" "card" }} Billing</a>
+                <div class="menu__divider"></div>
+                <a class="menu__item" role="menuitem" href="/settings">{{ template "icon" "settings" }} Settings</a>
+                <a class="menu__item" role="menuitem" href="/admin">{{ template "icon" "shield" }} Admin panel</a>
+                <a class="menu__item" role="menuitem" href="/logout">{{ template "icon" "logout" }} Log out</a>
+              </div>
+            </div>
+          </div>
+        {{ else }}
+          <a class="btn btn--ghost btn--sm header__desktop-only" href="/login">Log in</a>
+        {{ end }}
+
+        {{/* Dominant header action */}}
+        <a class="btn btn--primary btn--sm header__cta" href="/add-listing">
+          {{ template "icon" "plus" }}
+          <span>Add listing</span>
+        </a>
+
+        {{/* Mobile menu trigger */}}
+        <button type="button" class="icon-btn header__burger" @click="openMenu()"
+                :aria-expanded="menuOpen" aria-controls="mobile-drawer" aria-label="Open menu">
+          {{ template "icon" "menu" }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {{/* Mobile off-canvas drawer — overlays the page, traps focus, Escape closes */}}
+  <template x-teleport="body">
+    <div x-show="menuOpen" x-cloak>
+      <div class="drawer-backdrop" x-show="menuOpen" x-transition.opacity.duration.200ms
+           @click="closeMenu()" aria-hidden="true"></div>
+
+      <div class="drawer" id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu"
+           x-show="menuOpen" x-trap.noscroll="menuOpen"
+           x-transition:enter="drawer-enter" x-transition:enter-start="drawer-enter-start"
+           x-transition:leave="drawer-leave" x-transition:leave-end="drawer-leave-end"
+           @keydown.escape.window="closeMenu()">
+
+        <div class="drawer__header">
+          {{ template "logo" dict "Size" "sm" }}
+          <button type="button" class="icon-btn" @click="closeMenu()" aria-label="Close menu">
+            {{ template "icon" "close" }}
+          </button>
+        </div>
+
+        <div class="drawer__body">
+          <nav class="drawer__nav" aria-label="Mobile">
+            <a class="drawer__link" href="/search?deal=sale">{{ template "icon" "search" }} Buy</a>
+            <a class="drawer__link" href="/search?deal=rent">{{ template "icon" "key" }} Rent</a>
+            <a class="drawer__link" href="/articles">{{ template "icon" "file" }} Articles</a>
+            <a class="drawer__link" href="/brokers">{{ template "icon" "users" }} Brokers</a>
+            <a class="drawer__link" href="/developments">{{ template "icon" "building" }} Developments</a>
+          </nav>
+
+          <div class="drawer__divider"></div>
+
+          {{ if .User.ID }}
+          <p class="drawer__label">{{ .User.Name }}</p>
+          <nav class="drawer__nav" aria-label="Account">
+            <a class="drawer__link" href="/dashboard">{{ template "icon" "grid" }} Dashboard</a>
+            <a class="drawer__link" href="/my-listings">{{ template "icon" "home" }} My listings</a>
+            <a class="drawer__link" href="/favourites">{{ template "icon" "heart" }} Favourites</a>
+            <a class="drawer__link" href="/saved-searches">{{ template "icon" "search" }} Saved searches</a>
+            <a class="drawer__link" href="/notifications">
+              {{ template "icon" "bell" }} Notifications
+              {{ if .UnreadCount }}<span class="side-nav__badge">{{ .UnreadCount }}</span>{{ end }}
+            </a>
+            <a class="drawer__link" href="/settings">{{ template "icon" "settings" }} Settings</a>
+            <a class="drawer__link" href="/admin">{{ template "icon" "shield" }} Admin panel</a>
+          </nav>
+          {{ else }}
+          <nav class="drawer__nav" aria-label="Account">
+            <a class="drawer__link" href="/login">{{ template "icon" "user" }} Log in</a>
+            <a class="drawer__link" href="/register">{{ template "icon" "plus" }} Create an account</a>
+          </nav>
+          {{ end }}
+
+          <div class="drawer__divider"></div>
+
+          <p class="drawer__label">Country</p>
+          <div class="drawer__countries">
+            {{ range .Countries }}
+            <a class="country-pill {{ if eq .Code $.Country.Code }}is-active{{ end }}"
+               href="/set-country?code={{ .Code }}&return={{ $.CurrentPath }}">
+              {{ template "flag" .Code }} {{ .Code }}
+            </a>
+            {{ end }}
+          </div>
+        </div>
+
+        <div class="drawer__footer">
+          <a class="btn btn--primary btn--block" href="/add-listing">Add listing</a>
+        </div>
+      </div>
+    </div>
+  </template>
+</header>
+{{ end }}

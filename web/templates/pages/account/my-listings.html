@@ -1,0 +1,87 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{ template "account-head" dict "Title" "My listings"
+   "Lede" "Everything you've published, and everything still waiting to go live." }}
+
+<div class="container section">
+  <div class="shell">
+    {{ template "account-nav" . }}
+
+    <div class="stack stack--lg">
+      <div class="row row--between">
+        <div class="tabs" role="tablist" aria-label="Listing status">
+          <a class="tab {{ if not $d.Status }}is-active{{ end }}" href="/my-listings">
+            All <span class="tab__count numeric">{{ index $d.Counts "all" }}</span>
+          </a>
+          <a class="tab {{ if eq $d.Status "active" }}is-active{{ end }}" href="/my-listings?status=active">
+            Active <span class="tab__count numeric">{{ index $d.Counts "active" }}</span>
+          </a>
+          <a class="tab {{ if eq $d.Status "pending" }}is-active{{ end }}" href="/my-listings?status=pending">
+            Pending <span class="tab__count numeric">{{ index $d.Counts "pending" }}</span>
+          </a>
+          <a class="tab {{ if eq $d.Status "expired" }}is-active{{ end }}" href="/my-listings?status=expired">
+            Expired <span class="tab__count numeric">{{ index $d.Counts "expired" }}</span>
+          </a>
+          <a class="tab {{ if eq $d.Status "rejected" }}is-active{{ end }}" href="/my-listings?status=rejected">
+            Rejected <span class="tab__count numeric">{{ index $d.Counts "rejected" }}</span>
+          </a>
+        </div>
+        <a class="btn btn--primary btn--sm" href="/add-listing">{{ template "icon" "plus" }} Add listing</a>
+      </div>
+
+      {{ if $d.Listings }}
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Status</th>
+              <th>Price</th>
+              <th>Views</th>
+              <th>Saves</th>
+              <th>Expires</th>
+              <th><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ range $d.Listings }}
+            <tr>
+              <td>
+                <div class="mini-row" style="gap:var(--sp-3)">
+                  <img class="mini-row__img" src="{{ (.PrimaryImage).URL }}" alt=""
+                       width="72" height="54" loading="lazy">
+                  <div class="mini-row__text">
+                    <a class="strong" href="{{ propertyURL . }}">{{ truncate 44 .Title }}</a>
+                    <p class="text-xs muted">{{ .City }} · {{ typeLabel .Type }}</p>
+                  </div>
+                </div>
+              </td>
+              <td><span class="badge badge--{{ statusTone .Status }}">{{ statusLabel .Status }}</span></td>
+              <td class="numeric nowrap">{{ money .Price }}</td>
+              <td class="numeric">{{ .Views }}</td>
+              <td class="numeric">{{ .Saves }}</td>
+              <td class="text-sm muted nowrap">{{ date .ExpiresAt }}</td>
+              <td>
+                <div class="table__actions">
+                  <a class="btn btn--quiet btn--sm" href="/add-listing?step=1"
+                     aria-label="Edit {{ .Title }}">{{ template "icon" "edit" }}</a>
+                  <a class="btn btn--quiet btn--sm" href="{{ propertyURL . }}"
+                     aria-label="View {{ .Title }}">{{ template "icon" "eye" }}</a>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+      {{ else }}
+        {{ template "empty-state" dict "Icon" "home"
+           "Title" "Nothing here yet"
+           "Text" "No listings match this status. Publish a property to get started."
+           "ActionHref" "/add-listing" "ActionLabel" "Add listing" }}
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

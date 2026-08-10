@@ -1,0 +1,86 @@
+{{ define "structured-data" }}
+{{ $a := .Data.Article }}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Article",
+ "headline":{{ $a.Title }},
+ "description":{{ $a.Excerpt }},
+ "datePublished":"{{ $a.PublishedAt.Format "2006-01-02" }}",
+ "author":{"@type":"Person","name":{{ $a.Author }}},
+ "publisher":{"@type":"Organization","name":"Previa"},
+ "mainEntityOfPage":"{{ .Meta.Canonical }}"}
+</script>
+{{ end }}
+
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $a := $d.Article }}
+
+<article>
+  <div class="container container--narrow" style="padding-top:var(--sp-8)">
+    <nav aria-label="Breadcrumb">
+      <ol class="breadcrumbs">
+        <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+        <li><a href="/articles">Articles</a> {{ template "icon" "chevron-right" }}</li>
+        <li aria-current="page">{{ truncate 40 $a.Title }}</li>
+      </ol>
+    </nav>
+
+    <header class="stack" style="margin:var(--sp-6) 0 var(--sp-7)">
+      <p class="overline">{{ $a.Category }}</p>
+      <h1 class="display display--h1">{{ $a.Title }}</h1>
+      <p class="lede">{{ $a.Excerpt }}</p>
+
+      <div class="row" style="margin-top:var(--sp-4);gap:var(--sp-3)">
+        {{ if $a.AuthorPhoto }}
+        <img class="avatar" src="{{ $a.AuthorPhoto }}" alt="" width="40" height="40" loading="lazy">
+        {{ else }}
+        <span class="avatar">{{ initials $a.Author }}</span>
+        {{ end }}
+        <div>
+          <p class="text-sm strong">{{ $a.Author }}</p>
+          <p class="text-xs muted">{{ $a.AuthorRole }}</p>
+        </div>
+        <span class="spacer"></span>
+        <p class="text-xs muted">
+          {{ date $a.PublishedAt }} · {{ $a.ReadMinutes }} min read
+        </p>
+      </div>
+    </header>
+  </div>
+
+  <div class="container" style="margin-bottom:var(--sp-9)">
+    <img class="article-cover" src="{{ $a.Cover.URL }}" alt="" width="1200" height="800"
+         fetchpriority="high">
+  </div>
+
+  <div class="container container--narrow" style="padding-bottom:var(--sp-11)">
+    <div class="prose prose--article">
+      {{ range $a.Body }}<p>{{ . }}</p>{{ end }}
+    </div>
+
+    <div class="row row--tight" style="margin-top:var(--sp-8);padding-top:var(--sp-5);border-top:1px solid var(--border)">
+      <span class="text-sm muted">Share this article</span>
+      <span class="spacer"></span>
+      <button type="button" class="btn btn--quiet btn--sm"
+              @click="navigator.clipboard && navigator.clipboard.writeText(window.location.href); previaToast('Link copied to your clipboard.', 'success')"
+              x-data>
+        {{ template "icon" "share" }} Copy link
+      </button>
+    </div>
+  </div>
+</article>
+
+{{ if $d.Related }}
+<section class="section section--band">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text"><h2 class="section__title">Related reading</h2></div>
+      <a class="section__link" href="/articles">All articles {{ template "icon" "arrow-right" }}</a>
+    </div>
+    <div class="grid grid--3">
+      {{ range $d.Related }}{{ template "article-card" . }}{{ end }}
+    </div>
+  </div>
+</section>
+{{ end }}
+{{ end }}

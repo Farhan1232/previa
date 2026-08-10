@@ -1,0 +1,35 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{ template "account-head" dict "Title" "Favourites"
+   "Lede" "Properties you've saved. We'll tell you if any of them change price." }}
+
+<div class="container section">
+  <div class="shell">
+    {{ template "account-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ if $d.Favourites }}
+      <div class="row row--between">
+        <p class="results-count">
+          <strong class="numeric">{{ len $d.Favourites }}</strong>
+          saved {{ if eq (len $d.Favourites) 1 }}property{{ else }}properties{{ end }}
+        </p>
+        <a class="btn btn--quiet btn--sm" href="/search">{{ template "icon" "search" }} Find more</a>
+      </div>
+
+      <div class="grid grid--3">
+        {{ range $d.Favourites }}
+          {{ template "property-card" dict "Property" . "Favourite" true }}
+        {{ end }}
+      </div>
+      {{ else }}
+        {{ template "empty-state" dict "Icon" "heart"
+           "Title" "Nothing saved yet"
+           "Text" "Tap the heart on any listing to keep it here. Saved properties are easy to compare side by side."
+           "ActionHref" "/search" "ActionLabel" "Browse properties" }}
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}

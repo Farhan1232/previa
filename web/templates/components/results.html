@@ -1,0 +1,153 @@
+{{/* ------------------------------------------------------------------
+     Results region — the only part HTMX replaces on a filter change.
+     ------------------------------------------------------------------ */}}
+{{ define "results-region" }}
+{{ $d := .Data }}
+<div id="results">
+
+  <div class="results-bar">
+    <p class="results-count" role="status" aria-live="polite">
+      <strong class="numeric">{{ $d.Result.Total }}</strong>
+      {{ if eq $d.Result.Total 1 }}property{{ else }}properties{{ end }} found
+      {{ if gt $d.Result.Total 0 }}
+      <span class="subtle">· showing {{ $d.Result.From }}–{{ $d.Result.To }}</span>
+      {{ end }}
+    </p>
+
+    <div class="row row--tight">
+      <div class="field" style="flex-direction:row;align-items:center;gap:var(--sp-2)">
+        <label class="field__label" for="sort" style="white-space:nowrap">Sort by</label>
+        <select class="select" id="sort" name="sort" style="min-height:40px;width:auto"
+                hx-get="/search/results" hx-target="#results" hx-swap="innerHTML"
+                hx-include="#filter-form" hx-push-url="true">
+          <option value="newest"     {{ if eq $d.Filter.Sort "newest" }}selected{{ end }}>Newest first</option>
+          <option value="price_asc"  {{ if eq $d.Filter.Sort "price_asc" }}selected{{ end }}>Price: low to high</option>
+          <option value="price_desc" {{ if eq $d.Filter.Sort "price_desc" }}selected{{ end }}>Price: high to low</option>
+          <option value="area_desc"  {{ if eq $d.Filter.Sort "area_desc" }}selected{{ end }}>Largest first</option>
+          <option value="price_m2"   {{ if eq $d.Filter.Sort "price_m2" }}selected{{ end }}>Price per m²</option>
+          <option value="popular"    {{ if eq $d.Filter.Sort "popular" }}selected{{ end }}>Most viewed</option>
+        </select>
+      </div>
+
+      <div class="view-switch" role="group" aria-label="Result view">
+        <a class="view-switch__btn" href="{{ queryAdd .Query "view" "grid" }}"
+           aria-current="{{ if eq $d.View "grid" }}true{{ else }}false{{ end }}">
+          {{ template "icon" "grid" }} <span class="header__desktop-only">Grid</span>
+        </a>
+        <a class="view-switch__btn" href="{{ queryAdd .Query "view" "list" }}"
+           aria-current="{{ if eq $d.View "list" }}true{{ else }}false{{ end }}">
+          {{ template "icon" "list" }} <span class="header__desktop-only">List</span>
+        </a>
+        <a class="view-switch__btn" href="{{ queryAdd .Query "view" "map" }}"
+           aria-current="{{ if eq $d.View "map" }}true{{ else }}false{{ end }}">
+          {{ template "icon" "map" }} <span class="header__desktop-only">Map</span>
+        </a>
+        <a class="view-switch__btn" href="{{ queryAdd .Query "view" "full" }}"
+           aria-current="{{ if eq $d.View "full" }}true{{ else }}false{{ end }}">
+          {{ template "icon" "expand" }} <span class="visually-hidden">Full-screen map</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {{ if $d.Chips }}
+  <div class="active-filters">
+    <span class="text-xs muted">Active filters:</span>
+    {{ range $d.Chips }}
+    <span class="chip">
+      {{ .Label }}
+      <a class="chip__remove" href="/search{{ queryDrop $.Query .Key .Value }}"
+         aria-label="Remove filter {{ .Label }}">{{ template "icon" "close" }}</a>
+    </span>
+    {{ end }}
+    <a class="btn btn--ghost btn--sm" href="/search?view={{ $d.View }}">Clear all</a>
+    <span class="spacer"></span>
+    <button class="btn btn--quiet btn--sm" type="button"
+            hx-post="/save-search" hx-target="#save-search-slot" hx-swap="innerHTML">
+      {{ template "icon" "bell" }} Save this search
+    </button>
+  </div>
+  <div id="save-search-slot"></div>
+  {{ end }}
+
+  {{ if eq $d.Result.Total 0 }}
+    {{ template "empty-state" dict
+       "Icon" "search"
+       "Title" "No properties match these filters"
+       "Text" "Try widening the price range, removing a filter, or searching a nearby city. Every filter you remove brings more results back."
+       "ActionHref" "/search"
+       "ActionLabel" "Clear all filters" }}
+  {{ else }}
+
+    <div class="results-fade">
+      {{ if eq $d.View "list" }}
+        <div class="grid grid--list">
+          {{ range $d.Result.Items }}
+            {{ template "property-card" dict "Property" . "Variant" "row"
+               "Favourite" (index $.Data.Favourites .ID) }}
+          {{ end }}
+        </div>
+      {{ else }}
+        <div class="grid grid--results">
+          {{ range $i, $p := $d.Result.Items }}
+            {{ template "property-card" dict "Property" $p "Variant" "compact"
+               "Favourite" (index $.Data.Favourites $p.ID) "Eager" (lt $i 4) }}
+          {{ end }}
+        </div>
+      {{ end }}
+    </div>
+
+    {{ if gt $d.Result.TotalPages 1 }}
+    <nav class="pagination" aria-label="Pagination" style="margin-top:var(--sp-8)">
+      <a class="pagination__item" href="{{ queryAdd $.Query "page" (printf "%d" $d.Result.PrevPage) }}"
+         {{ if not $d.Result.HasPrev }}aria-disabled="true"{{ end }} aria-label="Previous page">
+        {{ template "icon" "chevron-left" }}
+      </a>
+      {{ range seq $d.Result.TotalPages }}
+      {{ $n := add . 1 }}
+      <a class="pagination__item numeric" href="{{ queryAdd $.Query "page" (printf "%d" $n) }}"
+         {{ if eq $n $d.Result.Page }}aria-current="page"{{ end }}>{{ $n }}</a>
+      {{ end }}
+      <a class="pagination__item" href="{{ queryAdd $.Query "page" (printf "%d" $d.Result.NextPage) }}"
+         {{ if not $d.Result.HasNext }}aria-disabled="true"{{ end }} aria-label="Next page">
+        {{ template "icon" "chevron-right" }}
+      </a>
+    </nav>
+    {{ end }}
+  {{ end }}
+</div>
+{{ end }}
+
+
+{{/* Map-mode results list, swapped by the same HTMX endpoint. */}}
+{{ define "map-results-region" }}
+{{ $d := .Data }}
+<div id="results" class="map-results__list results-fade">
+  {{ if eq $d.Result.Total 0 }}
+    {{ template "empty-state" dict
+       "Icon" "map-pin"
+       "Title" "Nothing in this area"
+       "Text" "Move the map or relax a filter to see more properties."
+       "ActionHref" "/search?view=map"
+       "ActionLabel" "Reset filters" }}
+  {{ else }}
+    {{ range $d.Result.Items }}
+      {{ template "property-card" dict "Property" . "Variant" "map"
+         "Favourite" (index $.Data.Favourites .ID) }}
+    {{ end }}
+  {{ end }}
+</div>
+{{ end }}
+
+
+{{/* Mock confirmation after saving a search. */}}
+{{ define "save-search-success" }}
+<div class="alert alert--success" role="status" style="margin-bottom:var(--sp-4)">
+  {{ template "icon" "check-circle" }}
+  <div>
+    <p class="alert__title">Search saved</p>
+    <p>We'll email you when new properties match. Manage it in
+      <a href="/saved-searches" class="strong">saved searches</a>.</p>
+  </div>
+</div>
+{{ end }}

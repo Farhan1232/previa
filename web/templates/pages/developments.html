@@ -1,0 +1,45 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="page-head">
+  <div class="container">
+    <div class="page-head__inner">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">Developments</li>
+        </ol>
+      </nav>
+      <h1 class="page-head__title">New developments</h1>
+      <p class="lede">
+        Off-plan and newly completed projects across Previa's markets, with
+        completion dates, availability and prices direct from the developer.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <div class="row row--between" style="margin-bottom:var(--sp-6)">
+    <div class="row row--tight">
+      <a class="chip" href="/developments">All markets</a>
+      {{ range $d.Countries }}
+      <a class="chip" href="/developments?country={{ .Code }}">{{ .Name }}</a>
+      {{ end }}
+    </div>
+  </div>
+
+  {{ if $d.Developments }}
+  <div class="grid grid--3">
+    {{ range $d.Developments }}{{ template "development-card" . }}{{ end }}
+  </div>
+  {{ else }}
+    {{ template "empty-state" dict
+       "Icon" "building"
+       "Title" "No developments in this market yet"
+       "Text" "We're adding new-build projects continuously. Try another country, or save a search to be notified."
+       "ActionHref" "/developments"
+       "ActionLabel" "Show all developments" }}
+  {{ end }}
+</div>
+{{ end }}

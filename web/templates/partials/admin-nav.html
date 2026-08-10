@@ -1,0 +1,132 @@
+{{/* Admin side navigation and page shell. */}}
+{{ define "admin-nav" }}
+{{ $s := .Data.Section }}
+<nav class="side-nav" aria-label="Administration">
+  <div class="side-nav__group">
+    <p class="side-nav__label">Overview</p>
+    <a class="side-nav__link" href="/admin" {{ if eq $s "dashboard" }}aria-current="page"{{ end }}>
+      {{ template "icon" "chart" }} Dashboard
+    </a>
+  </div>
+
+  <div class="side-nav__group">
+    <p class="side-nav__label">Content</p>
+    <a class="side-nav__link" href="/admin/listings" {{ if eq $s "listings" }}aria-current="page"{{ end }}>
+      {{ template "icon" "home" }} Listings
+      <span class="side-nav__badge">23</span>
+    </a>
+    <a class="side-nav__link" href="/admin/developments" {{ if eq $s "developments" }}aria-current="page"{{ end }}>
+      {{ template "icon" "building" }} Developments
+    </a>
+    <a class="side-nav__link" href="/admin/articles" {{ if eq $s "articles" }}aria-current="page"{{ end }}>
+      {{ template "icon" "file" }} Articles
+    </a>
+    <a class="side-nav__link" href="/admin/banners" {{ if eq $s "banners" }}aria-current="page"{{ end }}>
+      {{ template "icon" "megaphone" }} Advertising
+    </a>
+  </div>
+
+  <div class="side-nav__group">
+    <p class="side-nav__label">People</p>
+    <a class="side-nav__link" href="/admin/users" {{ if eq $s "users" }}aria-current="page"{{ end }}>
+      {{ template "icon" "users" }} Users
+    </a>
+    <a class="side-nav__link" href="/admin/brokers" {{ if eq $s "brokers" }}aria-current="page"{{ end }}>
+      {{ template "icon" "badge" }} Brokers
+    </a>
+    <a class="side-nav__link" href="/admin/agencies" {{ if eq $s "agencies" }}aria-current="page"{{ end }}>
+      {{ template "icon" "layers" }} Agencies
+    </a>
+  </div>
+
+  <div class="side-nav__group">
+    <p class="side-nav__label">Commerce</p>
+    <a class="side-nav__link" href="/admin/packages" {{ if eq $s "packages" }}aria-current="page"{{ end }}>
+      {{ template "icon" "puzzle" }} Packages
+    </a>
+    <a class="side-nav__link" href="/admin/payments" {{ if eq $s "payments" }}aria-current="page"{{ end }}>
+      {{ template "icon" "card" }} Payments
+    </a>
+  </div>
+
+  <div class="side-nav__group">
+    <p class="side-nav__label">Settings</p>
+    <a class="side-nav__link" href="/admin/languages" {{ if eq $s "languages" }}aria-current="page"{{ end }}>
+      {{ template "icon" "language" }} Languages
+    </a>
+    <a class="side-nav__link" href="/admin/strings" {{ if eq $s "strings" }}aria-current="page"{{ end }}>
+      {{ template "icon" "copy" }} Strings
+    </a>
+    <a class="side-nav__link" href="/admin/seo" {{ if eq $s "seo" }}aria-current="page"{{ end }}>
+      {{ template "icon" "search" }} SEO
+    </a>
+    <a class="side-nav__link" href="/admin/maps" {{ if eq $s "maps" }}aria-current="page"{{ end }}>
+      {{ template "icon" "map" }} Google Maps
+    </a>
+    <a class="side-nav__link" href="/admin/restricted" {{ if eq $s "restricted" }}aria-current="page"{{ end }}>
+      {{ template "icon" "shield" }} Restricted countries
+    </a>
+    <a class="side-nav__link" href="/admin/settings" {{ if eq $s "settings" }}aria-current="page"{{ end }}>
+      {{ template "icon" "settings" }} General
+    </a>
+  </div>
+
+  <div class="side-nav__group">
+    <p class="side-nav__label">System</p>
+    <a class="side-nav__link" href="/admin/backups" {{ if eq $s "backups" }}aria-current="page"{{ end }}>
+      {{ template "icon" "cloud" }} Backups
+    </a>
+    <a class="side-nav__link" href="/admin/files" {{ if eq $s "files" }}aria-current="page"{{ end }}>
+      {{ template "icon" "folder" }} File manager
+    </a>
+    <a class="side-nav__link" href="/admin/database" {{ if eq $s "database" }}aria-current="page"{{ end }}>
+      {{ template "icon" "database" }} MySQL manager
+    </a>
+    <a class="side-nav__link" href="/admin/system" {{ if eq $s "system" }}aria-current="page"{{ end }}>
+      {{ template "icon" "power" }} Cache &amp; restart
+    </a>
+  </div>
+</nav>
+{{ end }}
+
+
+{{/* Admin page header. */}}
+{{ define "admin-head" }}
+<div class="page-head">
+  <div class="container container--wide">
+    <div class="page-head__inner">
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Previa</a> {{ template "icon" "chevron-right" }}</li>
+          <li><a href="/admin">Admin</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">{{ .Title }}</li>
+        </ol>
+      </nav>
+      <div class="row row--between">
+        <h1 class="page-head__title">{{ .Title }}</h1>
+        {{ if .Lede }}{{ end }}
+      </div>
+      {{ if .Lede }}<p class="lede">{{ .Lede }}</p>{{ end }}
+    </div>
+  </div>
+</div>
+{{ end }}
+
+
+{{/*
+  Banner shown on every admin screen. The whole panel is a frontend
+  demonstration: nothing here writes to a database, touches the filesystem or
+  restarts anything.
+*/}}
+{{ define "admin-demo-notice" }}
+<div class="alert alert--warning" style="margin-bottom:var(--sp-6)">
+  {{ template "icon" "alert-triangle" }}
+  <div>
+    <p class="alert__title">Demonstration panel</p>
+    <p>
+      Every control on these screens is a frontend mock. No data is written, no
+      files are touched, no database is queried and nothing is restarted.
+    </p>
+  </div>
+</div>
+{{ end }}

@@ -1,0 +1,74 @@
+{{/*
+  Map surface.
+
+  Rendering is handled by previaMap() in previa.js, which talks to a thin
+  provider adapter. Today that adapter drives Leaflet with OpenStreetMap tiles;
+  swapping it for the client's Google Maps implementation later is a change
+  inside the adapter only — the markup, markers, popups, card synchronisation
+  and every state below stay exactly as they are.
+*/}}
+{{ define "map-surface" }}
+<div class="map-pane">
+
+  {{/* Leaflet renders into this element. */}}
+  <div class="map-canvas" x-ref="canvas" role="application"
+       aria-label="Map of matching properties"></div>
+
+  {{/* Loading — shown until the first tiles land. */}}
+  <div class="map-state map-state--loading" x-show="!ready && !failed" x-cloak>
+    <span class="spinner" aria-hidden="true"></span>
+    <p class="text-sm muted">Loading map…</p>
+  </div>
+
+  {{/* No results in view. */}}
+  <div class="map-state" x-show="ready && !failed && points.length === 0" x-cloak>
+    <span class="empty__icon">{{ template "icon" "map-pin" }}</span>
+    <h3 class="empty__title">Nothing to show here</h3>
+    <p class="empty__text">
+      No properties match your filters in this area. Try widening the price
+      range or panning the map.
+    </p>
+  </div>
+
+  {{/* Tiles unreachable. */}}
+  <div class="map-state" x-show="failed" x-cloak>
+    <span class="empty__icon">{{ template "icon" "wifi-off" }}</span>
+    <h3 class="empty__title">The map didn't load</h3>
+    <p class="empty__text">
+      Map tiles could not be reached. Your search results are still listed
+      beside the map.
+    </p>
+    <button type="button" class="btn btn--secondary" @click="retry()">
+      {{ template "icon" "refresh" }} Try again
+    </button>
+  </div>
+
+  {{/* Zoom / fit controls, kept out of Leaflet's own control layer so they
+       match the Previa button system. */}}
+  <div class="map-controls" x-show="ready && !failed" x-cloak>
+    <button type="button" class="map-ctrl" @click="zoomIn()" aria-label="Zoom in">
+      {{ template "icon" "plus" }}
+    </button>
+    <button type="button" class="map-ctrl" @click="zoomOut()" aria-label="Zoom out">
+      {{ template "icon" "minus" }}
+    </button>
+    <button type="button" class="map-ctrl" @click="fitAll()" aria-label="Fit all results">
+      {{ template "icon" "expand" }}
+    </button>
+  </div>
+</div>
+{{ end }}
+
+
+{{/* Restricted-country state, shown when a market is disabled in admin. */}}
+{{ define "map-restricted" }}
+<div class="map-state">
+  <span class="empty__icon">{{ template "icon" "shield" }}</span>
+  <h3 class="empty__title">Map coverage is unavailable here</h3>
+  <p class="empty__text">
+    Previa does not display map data or listings for this country. Choose a
+    different market to continue searching.
+  </p>
+  <a class="btn btn--secondary" href="/search">Back to search</a>
+</div>
+{{ end }}

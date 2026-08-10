@@ -1,0 +1,99 @@
+{{ define "base" }}<!doctype html>
+<html lang="{{ .Lang }}" data-theme-default>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<title>{{ .Meta.Title }}</title>
+<meta name="description" content="{{ .Meta.Description }}">
+<link rel="canonical" href="{{ .Meta.Canonical }}">
+{{ if .Meta.NoIndex }}<meta name="robots" content="noindex, nofollow">{{ end }}
+
+{{/* hreflang placeholders — the future backend swaps these for real per-language URLs */}}
+{{ range .Meta.Alternates }}
+<link rel="alternate" hreflang="{{ .Lang }}" href="{{ .Href }}">
+{{ end }}
+<link rel="alternate" hreflang="x-default" href="{{ .Meta.Canonical }}">
+
+{{/* Open Graph / Twitter */}}
+<meta property="og:type" content="{{ default "website" .Meta.OGType }}">
+<meta property="og:site_name" content="Previa">
+<meta property="og:title" content="{{ .Meta.Title }}">
+<meta property="og:description" content="{{ .Meta.Description }}">
+<meta property="og:url" content="{{ .Meta.Canonical }}">
+<meta property="og:image" content="{{ default "/static/img/hero.jpg" .Meta.OGImage }}">
+<meta name="twitter:card" content="summary_large_image">
+
+<meta name="theme-color" content="#102A43" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B1620" media="(prefers-color-scheme: dark)">
+
+<link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+
+{{/*
+  Theme is applied before the first paint so the page never flashes light
+  before switching to dark. This is the only blocking script on the page.
+*/}}
+<script>
+  (function () {
+    try {
+      var stored = localStorage.getItem('previa-theme');
+      var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>
+
+<link rel="preload" href="/static/fonts/manrope-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/static/fonts/manrope-600-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/base.css">
+<link rel="stylesheet" href="/static/css/components.css">
+<link rel="stylesheet" href="/static/css/layout.css">
+<link rel="stylesheet" href="/static/css/pages.css">
+
+{{/* Leaflet is only needed on screens that render a map. */}}
+{{ if .NeedsMap }}
+<link rel="stylesheet" href="/static/vendor/leaflet.css">
+<script defer src="/static/vendor/leaflet.js"></script>
+{{ end }}
+
+{{/*
+  Load order matters. Alpine's build calls start() in a microtask as soon as it
+  executes, so anything it needs — our component factories and the focus plugin
+  that powers x-trap — has to be defined first.
+*/}}
+<script defer src="/static/js/previa.js"></script>
+<script defer src="/static/vendor/alpine-focus.min.js"></script>
+<script defer src="/static/vendor/alpine-collapse.min.js"></script>
+<script defer src="/static/vendor/alpine.min.js"></script>
+<script defer src="/static/vendor/htmx.min.js"></script>
+
+{{ block "head" . }}{{ end }}
+
+{{/* Structured-data placeholder — replaced with real values by the backend */}}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"Previa","url":"https://previa.estate",
+ "potentialAction":{"@type":"SearchAction","target":"https://previa.estate/search?q={search_term_string}","query-input":"required name=search_term_string"}}
+</script>
+{{ block "structured-data" . }}{{ end }}
+</head>
+
+<body class="page">
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  {{ template "header" . }}
+
+  <main id="main" class="page__main">
+    {{ block "content" . }}{{ end }}
+  </main>
+
+  {{ template "footer" . }}
+
+  {{/* Toast region for mock action feedback */}}
+  <div class="toast-stack" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+</body>
+</html>
+{{ end }}

@@ -1,0 +1,116 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "SEO"
+   "Lede" "Titles, descriptions and social images, editable per page and per language." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Path</th><th>Language</th><th>Title</th><th>Description</th>
+                <th>Index</th><th>Updated</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.SEO }}
+            <tr>
+              <td><code class="text-xs">{{ .Path }}</code></td>
+              <td><span class="badge badge--outline">{{ .Language }}</span></td>
+              <td class="text-sm">
+                {{ truncate 44 .Title }}
+                <p class="text-xs {{ if gt (len .Title) 60 }}text-warning{{ else }}subtle{{ end }}">
+                  {{ len .Title }} / 60 characters
+                </p>
+              </td>
+              <td class="text-sm muted">
+                {{ truncate 60 .Description }}
+                <p class="text-xs subtle">{{ len .Description }} / 160 characters</p>
+              </td>
+              <td>
+                {{ if .NoIndex }}<span class="badge badge--error">noindex</span>
+                {{ else }}<span class="badge badge--success">index</span>{{ end }}
+              </td>
+              <td class="text-sm muted nowrap">{{ date .UpdatedAt }}</td>
+              <td>
+                <div class="table__actions">
+                  <button class="btn btn--quiet btn--sm" aria-label="Edit SEO for {{ .Path }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "edit" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Edit SEO — homepage (English)</h2></div>
+        <div class="card__body">
+          <form class="stack" hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+            <div class="field">
+              <label class="field__label" for="seo-title">Page title</label>
+              <input class="input" id="seo-title" value="Previa — Property for sale and rent worldwide">
+              <span class="field__hint">Aim for 50–60 characters. Include the brand at the end.</span>
+            </div>
+            <div class="field">
+              <label class="field__label" for="seo-desc">Meta description</label>
+              <textarea class="textarea" id="seo-desc" rows="3">Search apartments, houses, villas, commercial property and land across Europe. Verified brokers, accurate maps and new listings every day.</textarea>
+              <span class="field__hint">Aim for 140–160 characters.</span>
+            </div>
+            <div class="grid grid--2" style="gap:var(--sp-4)">
+              <div class="field">
+                <label class="field__label" for="seo-og">Open Graph image</label>
+                <input class="input" id="seo-og" value="/static/img/hero.jpg">
+              </div>
+              <div class="field">
+                <label class="field__label" for="seo-canon">Canonical URL</label>
+                <input class="input" id="seo-canon" value="https://previa.estate/">
+              </div>
+            </div>
+            <label class="check">
+              <input type="checkbox">
+              <span class="check__text">Add <code>noindex, nofollow</code> to this page</span>
+            </label>
+            <button class="btn btn--primary" type="submit" style="align-self:flex-start">Save SEO</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Sitemap and robots</h2></div>
+        <div class="card__body stack">
+          <div class="row row--between">
+            <div>
+              <p class="strong">sitemap.xml</p>
+              <p class="text-xs muted">Generated from published listings, developments, brokers and articles.</p>
+            </div>
+            <a class="btn btn--quiet btn--sm" href="/sitemap.xml" target="_blank" rel="noopener">
+              {{ template "icon" "external" }} View
+            </a>
+          </div>
+          <div class="row row--between">
+            <div>
+              <p class="strong">robots.txt</p>
+              <p class="text-xs muted">Admin, dashboard and checkout paths are disallowed.</p>
+            </div>
+            <a class="btn btn--quiet btn--sm" href="/robots.txt" target="_blank" rel="noopener">
+              {{ template "icon" "external" }} View
+            </a>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

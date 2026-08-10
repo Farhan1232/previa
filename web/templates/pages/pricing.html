@@ -1,0 +1,111 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="page-head">
+  <div class="container">
+    <div class="page-head__inner" style="text-align:center;align-items:center">
+      <h1 class="page-head__title">Listing packages</h1>
+      <p class="lede" style="margin-inline:auto;text-align:center">
+        Publish one property or run a full agency portfolio. Every package
+        includes map placement, enquiry handling and performance statistics.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <div class="price-grid">
+    {{ range $d.Packages }}
+    <div class="plan {{ if .IsPopular }}plan--popular{{ end }} {{ if .IsPremium }}plan--premium{{ end }}"
+         {{ if eq .ID "pk-agency" }}id="agency"{{ end }}>
+      {{ if .IsPopular }}<span class="plan__flag">Most popular</span>{{ end }}
+      {{ if .IsPremium }}<span class="plan__flag">Best exposure</span>{{ end }}
+
+      <div>
+        <h2 class="plan__name">{{ .Name }}</h2>
+        <p class="plan__tagline">{{ .Tagline }}</p>
+      </div>
+
+      <div class="plan__price numeric">
+        <span class="plan__amount">{{ money .Price }}</span>
+        <span class="plan__period">/ {{ .DurationDays }} days</span>
+      </div>
+
+      <ul class="plan__features">
+        {{ range .Features }}
+        <li>{{ template "icon" "check" }} <span>{{ . }}</span></li>
+        {{ end }}
+      </ul>
+
+      <a class="btn {{ if .IsPremium }}btn--gold{{ else if .IsPopular }}btn--primary{{ else }}btn--secondary{{ end }} btn--block"
+         href="/checkout?package={{ .ID }}">
+        Choose {{ .Name }}
+      </a>
+    </div>
+    {{ end }}
+  </div>
+
+  <div class="notice-row" style="margin-top:var(--sp-8)">
+    {{ template "icon" "info" }}
+    <p class="text-sm muted">
+      Prices exclude VAT, which is added at checkout based on your billing country.
+      Packages renew only if you choose to renew them — nothing recurs automatically.
+    </p>
+  </div>
+</div>
+
+<section class="section section--band">
+  <div class="container container--narrow">
+    <div class="section__head">
+      <div class="section__head-text">
+        <h2 class="section__title">Common questions</h2>
+      </div>
+    </div>
+
+    <div class="stack" x-data="{ open: 0 }">
+      {{ $faqs := list
+         "How long does it take to publish a listing?"
+         "Can I edit a listing after it goes live?"
+         "What happens when my package expires?"
+         "Do you charge commission on a sale?"
+         "Can I pay by bank transfer?" }}
+      {{ $answers := list
+         "Most sellers finish the wizard in about fifteen minutes. Listings appear in search results as soon as they pass an automated check, which usually takes a few minutes."
+         "Yes. Price, description, photos and availability can be changed at any time from My listings, and updates appear immediately."
+         "The listing comes off search results but stays in your account, with all its photos and statistics intact. Renewing puts it straight back online."
+         "No. Previa charges for the listing package only. What you agree with a broker is a separate arrangement between you and them."
+         "Card and PayPal are processed immediately. Paysera bank links are available for Baltic bank accounts, and agencies on the Agency package can be invoiced monthly." }}
+
+      {{ range $i, $q := $faqs }}
+      <div class="faq" :class="{ 'is-open': open === {{ $i }} }">
+        <button type="button" class="faq__q" @click="open = open === {{ $i }} ? -1 : {{ $i }}"
+                :aria-expanded="open === {{ $i }}">
+          <span>{{ $q }}</span>
+          {{ template "icon" "chevron-down" }}
+        </button>
+        <div class="faq__a" x-show="open === {{ $i }}" x-collapse>
+          <p>{{ index $answers $i }}</p>
+        </div>
+      </div>
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="cta-panel">
+      <div>
+        <h2 class="cta-panel__title">Ready to publish?</h2>
+        <p class="cta-panel__text">
+          Start the listing wizard now — you can pick a package at the end, and
+          your progress saves automatically as you go.
+        </p>
+      </div>
+      <div class="cta-panel__actions">
+        <a class="btn btn--gold btn--lg" href="/add-listing">Add listing</a>
+      </div>
+    </div>
+  </div>
+</section>
+{{ end }}

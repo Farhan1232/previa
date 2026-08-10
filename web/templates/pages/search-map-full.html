@@ -1,0 +1,47 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+{{/*
+  Full-screen map mode: the map fills the content area, and results are reached
+  through the markers themselves or by reopening the results panel.
+*/}}
+<div class="map-shell map-shell--full" x-data="previaMap({{ $d.MapConfig }})">
+
+  {{ template "map-surface" . }}
+
+  {{/* Floating toolbar over the map */}}
+  <div class="map-toolbar">
+    <button type="button" class="btn btn--quiet btn--sm" @click="$dispatch('open-filters')">
+      {{ template "icon" "filter" }} Filters
+      {{ if $d.Filter.ActiveCount }}
+      <span class="filter-reopen__count">{{ $d.Filter.ActiveCount }}</span>
+      {{ end }}
+    </button>
+    <span class="map-toolbar__count numeric">
+      {{ $d.Result.Total }} {{ if eq $d.Result.Total 1 }}property{{ else }}properties{{ end }}
+    </span>
+    <a class="btn btn--quiet btn--sm" href="{{ queryAdd .Query "view" "map" }}">
+      {{ template "icon" "list" }} Split view
+    </a>
+    <a class="btn btn--quiet btn--sm" href="{{ queryAdd .Query "view" "grid" }}">
+      {{ template "icon" "grid" }} <span class="header__desktop-only">Grid</span>
+    </a>
+  </div>
+</div>
+
+<div x-data="previaSearch()" @open-filters.window="openDrawer()">
+  <div class="filter-backdrop" x-show="drawer" x-cloak x-transition.opacity.duration.200ms
+       @click="closeDrawer()" aria-hidden="true"></div>
+
+  <aside class="filter-panel filter-panel--overlay" id="filter-drawer" aria-label="Search filters"
+         :class="{ 'is-open': drawer }" x-trap.noscroll="drawer"
+         @keydown.escape.window="closeDrawer()">
+    <div class="filter-panel__header">
+      <h2 class="card__title" style="font-size:var(--fs-base)">Filters</h2>
+      <button type="button" class="icon-btn" @click="closeDrawer()"
+              aria-label="Close filters">{{ template "icon" "close" }}</button>
+    </div>
+    {{ template "filter-form" . }}
+  </aside>
+</div>
+{{ end }}

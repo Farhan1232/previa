@@ -1,0 +1,67 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $a := $d.Agency }}
+
+<div class="page-head">
+  <div class="container">
+    <nav aria-label="Breadcrumb">
+      <ol class="breadcrumbs">
+        <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+        <li><a href="/agencies">Agencies</a> {{ template "icon" "chevron-right" }}</li>
+        <li aria-current="page">{{ $a.Name }}</li>
+      </ol>
+    </nav>
+
+    <div class="profile-head">
+      <span class="avatar avatar--xl">{{ initials $a.Name }}</span>
+      <div class="profile-head__text">
+        <h1 class="page-head__title">{{ $a.Name }}</h1>
+        <p class="lede" style="margin:0">{{ template "icon" "map-pin" }} {{ $a.Address }}</p>
+        <div class="row row--tight" style="margin-top:var(--sp-3)">
+          {{ if $a.IsVerified }}
+          <span class="badge badge--success">{{ template "icon" "check" }} Verified agency</span>
+          {{ end }}
+          <span class="badge badge--outline">Founded {{ $a.Founded }}</span>
+          <span class="badge badge--outline numeric">{{ $a.BrokerCount }} brokers</span>
+        </div>
+      </div>
+      <div class="profile-head__actions">
+        <a class="btn btn--primary" href="mailto:{{ $a.Email }}">{{ template "icon" "mail" }} Contact agency</a>
+        <a class="btn btn--secondary" href="tel:{{ $a.Phone }}">{{ template "icon" "phone" }} {{ $a.Phone }}</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <div class="stack stack--lg">
+    <section class="stack">
+      <h2 class="display display--h3">About the agency</h2>
+      <div class="prose"><p>{{ $a.Description }}</p></div>
+    </section>
+
+    <section class="stack">
+      <div class="section__head" style="margin-bottom:var(--sp-5)">
+        <div class="section__head-text"><h2 class="section__title">Our brokers</h2></div>
+      </div>
+      <div class="grid grid--4">
+        {{ range $d.Brokers }}{{ template "broker-card" . }}{{ end }}
+      </div>
+    </section>
+
+    {{ if $d.Listings }}
+    <section class="stack">
+      <div class="section__head" style="margin-bottom:var(--sp-5)">
+        <div class="section__head-text"><h2 class="section__title">Featured listings</h2></div>
+        <a class="section__link" href="/search?city={{ $a.City }}">
+          All properties in {{ $a.City }} {{ template "icon" "arrow-right" }}
+        </a>
+      </div>
+      <div class="grid grid--4">
+        {{ range $d.Listings }}{{ template "property-card" dict "Property" . "Variant" "compact" }}{{ end }}
+      </div>
+    </section>
+    {{ end }}
+  </div>
+</div>
+{{ end }}

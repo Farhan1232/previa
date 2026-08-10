@@ -1,0 +1,108 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $img := "/static/img/hero-2.jpg" }}
+
+<div class="auth">
+  {{ template "auth-banner" dict "Image" $img }}
+
+  <div class="auth__form-side">
+    <div class="auth__form" x-data="{ loading: false }">
+
+      <a class="auth__back" href="/">
+        {{ template "icon" "arrow-left" }} <span>Back to Previa</span>
+      </a>
+
+      <header class="auth__head">
+        <h1 class="display display--h2">Create your account</h1>
+        <p class="muted">Free to join. You only pay when you publish a listing.</p>
+      </header>
+
+      <form class="stack" action="/register" method="post" novalidate
+            @submit="loading = true">
+
+        {{ template "auth-field" dict
+           "ID" "r-name" "Name" "name" "Label" "Full name"
+           "Value" (index $d.Values "name") "Placeholder" "Jane Doe"
+           "Autocomplete" "name" "Icon" "user"
+           "Error" (index $d.Errors "name") }}
+
+        {{ template "auth-field" dict
+           "ID" "r-email" "Name" "email" "Label" "Email address" "Type" "email"
+           "Value" (index $d.Values "email") "Placeholder" "you@example.com"
+           "Autocomplete" "email" "Icon" "mail"
+           "Error" (index $d.Errors "email") }}
+
+        {{ template "password-field" dict
+           "ID" "r-password" "Name" "password" "Label" "Password"
+           "Autocomplete" "new-password" "Strength" true
+           "Hint" "At least 8 characters, including a capital letter."
+           "Error" (index $d.Errors "password") }}
+
+        {{ template "password-field" dict
+           "ID" "r-confirm" "Name" "password_confirm" "Label" "Confirm password"
+           "Autocomplete" "new-password"
+           "Error" (index $d.Errors "password_confirm") }}
+
+        {{/* Account type — the two roles the product already supports. */}}
+        <fieldset class="field filter-fieldset">
+          <legend class="field__label">I'm signing up as</legend>
+          <div class="auth__roles" role="radiogroup" aria-label="Account type">
+            <label class="auth__role">
+              <input type="radio" name="role" value="individual" checked>
+              <span class="auth__role-box">
+                {{ template "icon" "user" }}
+                <span class="auth__role-title">An individual</span>
+                <span class="auth__role-hint">Buying, renting or selling my own property</span>
+              </span>
+            </label>
+            <label class="auth__role">
+              <input type="radio" name="role" value="professional">
+              <span class="auth__role-box">
+                {{ template "icon" "badge" }}
+                <span class="auth__role-title">A professional</span>
+                <span class="auth__role-hint">Broker or agency listing on behalf of clients</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="field {{ if index $d.Errors "terms" }}is-invalid{{ end }}">
+          <label class="check">
+            <input type="checkbox" name="terms" value="1">
+            <span class="check__text">
+              I accept the <a class="auth__link" href="/terms">terms of service</a> and the
+              <a class="auth__link" href="/privacy">privacy policy</a>.
+            </span>
+          </label>
+          {{ if index $d.Errors "terms" }}
+          <p class="field__error">
+            {{ template "icon" "alert" }} <span>{{ index $d.Errors "terms" }}</span>
+          </p>
+          {{ end }}
+        </div>
+
+        <button class="btn btn--primary btn--block" type="submit"
+                :class="{ 'is-loading': loading }" :disabled="loading">
+          <span>Create Account</span>
+        </button>
+      </form>
+
+      <p class="divider-text">or continue with</p>
+
+      {{ template "google-button" "Sign up with Google" }}
+
+      <p class="auth__foot">
+        Already have an account? <a class="auth__link" href="/login">Sign in</a>
+      </p>
+    </div>
+  </div>
+
+  {{ template "auth-aside" dict
+     "Image" $img
+     "Headline" "Publish a property in about fifteen minutes."
+     "Points" (list
+        "Add photos and drop the pin on a real map"
+        "Choose exactly how precisely your address appears"
+        "Reach buyers across eight European markets") }}
+</div>
+{{ end }}

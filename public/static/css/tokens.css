@@ -1,0 +1,249 @@
+/* ==========================================================================
+   Previa — design tokens
+   Single source of truth for colour, type, space, radius, shadow and motion.
+   Every component reads from these variables. Never hardcode a raw value in
+   a component stylesheet.
+   ========================================================================== */
+
+:root {
+  /* --- Brand ------------------------------------------------------------ */
+  --navy: #0C2D48;
+  --navy-hover: #061F33;
+  --teal: #2F6F68;
+  --teal-hover: #245852;
+  --slate: #4A6274;          /* neutral supporting blue for secondary text/icons */
+  --gold: #C39A5B;
+  --gold-hover: #A97D3E;
+
+  /* --- Semantic surfaces (light theme) ---------------------------------- */
+  --bg: #F6F3EE;          /* warm off-white page background */
+  --bg-alt: #EEF3F4;      /* cool alternate band */
+  --surface: #FFFFFF;     /* cards, panels, inputs */
+  --surface-2: #FBF9F6;   /* subtle alternate rows */
+  --surface-3: #EFEAE3;   /* pressed / hovered neutral fills */
+  --surface-inverse: #0C2D48;
+
+  /* --- Text ------------------------------------------------------------- */
+  --heading: #0A2238;
+  --text: #172B3A;
+  --text-muted: #687784;
+  --text-subtle: #87939D;
+  --text-inverse: #FFFFFF;
+  --text-on-gold: #2A1D06;
+
+  /* --- Lines ------------------------------------------------------------ */
+  --border: #DDE3E7;
+  --border-strong: #C4CDD4;
+  --border-inverse: #294353;
+
+  /* --- Status ----------------------------------------------------------- */
+  --success: #2E7D5B;
+  --success-bg: #E9F4EF;
+  --success-border: #A9D3C1;
+  --warning: #C77919;
+  --warning-bg: #FCF2E5;
+  --warning-border: #EFCB98;
+  --error: #C43D3D;
+  --error-bg: #FBEDED;
+  --error-border: #EAB4B4;
+  --info: #2B6CB0;
+  --info-bg: #EAF1F9;
+  --info-border: #B0C8E3;
+
+  /* --- Accent tints ----------------------------------------------------- */
+  --navy-tint: #E7EDF2;
+  --teal-tint: #E6EFEE;
+  --teal-border: #A9C8C4;
+  --gold-tint: #F8F1E6;
+  --gold-border: #E2CDA9;
+
+  /* --- Focus ------------------------------------------------------------ */
+  --focus-ring: 0 0 0 3px rgba(12, 45, 72, 0.20);
+  --focus-ring-teal: 0 0 0 3px rgba(47, 111, 104, 0.28);
+  --focus-ring-gold: 0 0 0 3px rgba(195, 154, 91, 0.32);
+  --focus-color: var(--navy);
+
+  /* --- Typography ------------------------------------------------------- */
+  --font-display: 'DM Serif Display', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+               'Helvetica Neue', Arial, sans-serif;
+
+  /* Fluid type scale. Body stays 16px; headings shrink on small screens. */
+  --fs-hero: clamp(2.25rem, 1.30rem + 4.2vw, 4rem);     /* 36 → 64 */
+  --fs-h1: clamp(1.875rem, 1.30rem + 2.6vw, 3rem);      /* 30 → 48 */
+  --fs-h2: clamp(1.5rem, 1.15rem + 1.6vw, 2.25rem);     /* 24 → 36 */
+  --fs-h3: clamp(1.25rem, 1.08rem + 0.75vw, 1.625rem);  /* 20 → 26 */
+  --fs-h4: clamp(1.125rem, 1.04rem + 0.38vw, 1.375rem); /* 18 → 22 */
+  --fs-lg: 1.125rem;   /* 18 */
+  --fs-base: 1rem;     /* 16 */
+  --fs-sm: 0.875rem;   /* 14 */
+  --fs-xs: 0.8125rem;  /* 13 */
+  --fs-2xs: 0.75rem;   /* 12 — badges, overlines only */
+
+  --lh-tight: 1.15;
+  --lh-snug: 1.3;
+  --lh-normal: 1.55;
+  --lh-relaxed: 1.7;
+
+  --ls-tight: -0.02em;
+  --ls-normal: 0;
+  --ls-wide: 0.06em;
+
+  /* --- Spacing (8px system) -------------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 40px;
+  --sp-9: 48px;
+  --sp-10: 64px;
+  --sp-11: 80px;
+  --sp-12: 96px;
+  --sp-13: 120px;
+
+  /* Section rhythm: 80–120px desktop, 48–64px mobile. */
+  --section-y: clamp(48px, 6vw, 96px);
+  --section-y-lg: clamp(56px, 8vw, 120px);
+
+  /* --- Layout ----------------------------------------------------------- */
+  --container: 1280px;
+  --container-narrow: 820px;
+  --gutter: 32px;
+  --card-gap: 24px;
+  --header-h: 72px;
+
+  /* --- Radius ----------------------------------------------------------- */
+  --r-sm: 6px;
+  --r-md: 10px;   /* buttons, inputs */
+  --r-lg: 14px;   /* cards */
+  --r-xl: 20px;   /* large panels */
+  --r-pill: 999px;
+
+  /* --- Elevation ---------------------------------------------------------
+     Two-level shadows: a tight contact shadow plus a wider ambient one. That
+     reads as real depth without the large blurred haze that makes a page feel
+     cheap. */
+  --shadow-xs: 0 1px 1px rgba(10, 34, 56, 0.04), 0 1px 3px rgba(10, 34, 56, 0.05);
+  --shadow-sm: 0 1px 2px rgba(10, 34, 56, 0.06), 0 2px 6px rgba(10, 34, 56, 0.06);
+  --shadow-md: 0 2px 4px rgba(10, 34, 56, 0.07), 0 8px 18px rgba(10, 34, 56, 0.09);
+  --shadow-lg: 0 4px 8px rgba(10, 34, 56, 0.08), 0 16px 32px rgba(10, 34, 56, 0.12);
+  --shadow-panel: 0 6px 12px rgba(10, 34, 56, 0.10), 0 24px 48px rgba(10, 34, 56, 0.16);
+  /* Marker/pin lift — small and directional. */
+  --shadow-pin: 0 1px 2px rgba(8, 23, 34, 0.30), 0 4px 8px rgba(8, 23, 34, 0.22);
+
+  /* --- Motion ----------------------------------------------------------- */
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 250ms;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* --- Control sizing --------------------------------------------------- */
+  --control-h: 48px;
+  --control-h-sm: 40px;
+  --control-px: 22px;
+
+  /* --- Overlay ---------------------------------------------------------- */
+  --overlay: rgba(8, 20, 32, 0.55);
+  --hero-overlay: linear-gradient(
+      to bottom,
+      rgba(8, 20, 32, 0.62) 0%,
+      rgba(8, 20, 32, 0.48) 45%,
+      rgba(8, 20, 32, 0.66) 100%);
+
+  --z-header: 100;
+  --z-drawer: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   Dark theme
+   Applied via [data-theme="dark"] on <html>, set before first paint by an
+   inline script so the page never flashes.
+   ========================================================================== */
+
+[data-theme='dark'] {
+  --bg: #081722;
+  --bg-alt: #0B1E2B;
+  --surface: #102635;
+  --surface-2: #133042;
+  --surface-3: #173243;
+  --surface-inverse: #F6F1E8;
+
+  --heading: #F6F1E8;
+  --text: #E8EDF1;
+  --text-muted: #AEBBC4;
+  --text-subtle: #8B9AA5;
+  --text-inverse: #081722;
+  --text-on-gold: #1B1301;
+
+  --border: #294353;
+  --border-strong: #375667;
+  --border-inverse: #375667;
+
+  /* Brand surfaces lift so primary actions stay legible on a dark page. */
+  --navy: #E9EFF3;          /* primary buttons invert to a light surface */
+  --navy-hover: #FFFFFF;
+  --teal: #5A9D94;
+  --teal-hover: #74B3AA;
+  --slate: #93A7BC;
+  --gold: #D1AA68;
+  --gold-hover: #E0BE84;
+
+  --navy-tint: #173243;
+  --teal-tint: #12302E;
+  --teal-border: #2C5A55;
+  --gold-tint: #2A2214;
+  --gold-border: #4A3C1E;
+
+  --success: #57BC92;
+  --success-bg: #102A21;
+  --success-border: #235C46;
+  --warning: #E0A44F;
+  --warning-bg: #2C2314;
+  --warning-border: #5A4522;
+  --error: #E8827F;
+  --error-bg: #301A1A;
+  --error-border: #66332F;
+  --info: #6FA3DC;
+  --info-bg: #11243A;
+  --info-border: #2B4C74;
+
+  --focus-ring: 0 0 0 3px rgba(209, 170, 104, 0.35);
+  --focus-ring-teal: 0 0 0 3px rgba(90, 157, 148, 0.38);
+  --focus-color: var(--gold);
+
+  --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.30), 0 1px 3px rgba(0, 0, 0, 0.32);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.36), 0 2px 6px rgba(0, 0, 0, 0.34);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.40), 0 8px 18px rgba(0, 0, 0, 0.42);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.44), 0 16px 32px rgba(0, 0, 0, 0.50);
+  --shadow-panel: 0 6px 12px rgba(0, 0, 0, 0.48), 0 24px 48px rgba(0, 0, 0, 0.58);
+  --shadow-pin: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.4);
+
+  --overlay: rgba(3, 9, 15, 0.70);
+
+  color-scheme: dark;
+}
+
+/* Primary buttons in dark mode use a light surface with dark ink. The
+   --on-primary token flips with the theme so button text stays legible. */
+:root { --on-primary: #FFFFFF; }
+[data-theme='dark'] { --on-primary: #081722; }
+
+/* Teal is the interactive accent: selected filters, map actions, active
+   states. It keeps white text in both themes. */
+:root { --on-teal: #FFFFFF; }
+[data-theme='dark'] { --on-teal: #06181A; }
+
+/* --- Responsive gutters --------------------------------------------------- */
+@media (max-width: 1024px) {
+  :root { --gutter: 24px; --card-gap: 20px; }
+}
+@media (max-width: 640px) {
+  :root { --gutter: 16px; --card-gap: 16px; --header-h: 64px; }
+}

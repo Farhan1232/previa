@@ -1,0 +1,103 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Advertising"
+   "Lede" "Country-specific homepage banners and promoted broker placements." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+      <div id="admin-result"></div>
+
+      <section class="card">
+        <div class="card__header">
+          <h2 class="card__title">Homepage banners</h2>
+          <button class="btn btn--primary btn--sm" hx-post="/admin/mock-action"
+                  hx-target="#admin-result" hx-swap="innerHTML">
+            {{ template "icon" "plus" }} New banner
+          </button>
+        </div>
+        <div class="card__body" style="padding:0">
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table class="table">
+              <thead>
+                <tr><th>Country</th><th>Sponsor</th><th>Headline</th><th>Theme</th><th>Live</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {{ range $d.Banners }}
+                <tr>
+                  <td class="nowrap"><span class="badge badge--outline">{{ .CountryCode }}</span></td>
+                  <td class="text-sm strong">{{ .Sponsor }}</td>
+                  <td class="text-sm muted">{{ truncate 52 .Headline }}</td>
+                  <td><span class="badge badge--neutral">{{ .Theme }}</span></td>
+                  <td>
+                    <label class="switch">
+                      <input type="checkbox" checked hx-post="/admin/mock-action"
+                             hx-target="#admin-result" hx-swap="innerHTML">
+                      <span class="switch__track"><span class="switch__thumb"></span></span>
+                      <span class="visually-hidden">Toggle banner for {{ .CountryCode }}</span>
+                    </label>
+                  </td>
+                  <td>
+                    <div class="table__actions">
+                      <button class="btn btn--quiet btn--sm" aria-label="Edit banner for {{ .CountryCode }}"
+                              hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                        {{ template "icon" "edit" }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__header">
+          <h2 class="card__title">Promoted brokers</h2>
+          <span class="text-xs muted">Shown in the homepage strip for the selected country</span>
+        </div>
+        <div class="card__body" style="padding:0">
+          <div class="table-wrap" style="border:0;border-radius:0">
+            <table class="table">
+              <thead>
+                <tr><th>Broker</th><th>Country</th><th>Agency</th><th>Position</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {{ range $i, $b := $d.Brokers }}
+                <tr>
+                  <td>
+                    <div class="mini-row">
+                      <img class="avatar avatar--sm" src="{{ $b.Photo }}" alt="" width="32" height="32" loading="lazy">
+                      <span class="strong">{{ $b.Name }}</span>
+                    </div>
+                  </td>
+                  <td class="text-sm">{{ $b.CountryCode }}</td>
+                  <td class="text-sm muted">{{ $b.AgencyName }}</td>
+                  <td class="numeric">{{ add $i 1 }}</td>
+                  <td>
+                    <div class="table__actions">
+                      <button class="btn btn--quiet btn--sm" aria-label="Remove promotion for {{ $b.Name }}"
+                              hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                        {{ template "icon" "trash" }}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

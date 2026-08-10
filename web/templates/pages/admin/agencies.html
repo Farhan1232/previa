@@ -1,0 +1,60 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Agencies" "Lede" "Agency accounts and their teams." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Agency</th><th>Country</th><th>Brokers</th><th>Listings</th>
+                <th>Founded</th><th>Verified</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Agencies }}
+            <tr>
+              <td>
+                <div class="mini-row">
+                  <span class="avatar avatar--sm">{{ initials .Name }}</span>
+                  <div class="mini-row__text">
+                    <a class="strong" href="/agency/{{ .Slug }}">{{ .Name }}</a>
+                    <p class="text-xs muted">{{ .Email }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="text-sm">{{ .CountryCode }} · {{ .City }}</td>
+              <td class="numeric">{{ .BrokerCount }}</td>
+              <td class="numeric">{{ .ListingCount }}</td>
+              <td class="numeric">{{ .Founded }}</td>
+              <td>
+                {{ if .IsVerified }}<span class="badge badge--success">Verified</span>
+                {{ else }}<span class="badge badge--warning">Pending</span>{{ end }}
+              </td>
+              <td>
+                <div class="table__actions">
+                  <a class="btn btn--quiet btn--sm" href="/agency/{{ .Slug }}"
+                     aria-label="View {{ .Name }}">{{ template "icon" "eye" }}</a>
+                  <button class="btn btn--quiet btn--sm" aria-label="Edit {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "edit" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

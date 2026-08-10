@@ -1,0 +1,115 @@
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $b := $d.Broker }}
+
+<div class="page-head">
+  <div class="container">
+    <nav aria-label="Breadcrumb">
+      <ol class="breadcrumbs">
+        <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+        <li><a href="/brokers">Brokers</a> {{ template "icon" "chevron-right" }}</li>
+        <li aria-current="page">{{ $b.Name }}</li>
+      </ol>
+    </nav>
+
+    <div class="profile-head">
+      <img class="avatar avatar--xl" src="{{ $b.Photo }}" alt="{{ $b.Name }}"
+           width="96" height="96">
+      <div class="profile-head__text">
+        <h1 class="page-head__title">{{ $b.Name }}</h1>
+        <p class="lede" style="margin:0">{{ $b.Title }}{{ if $b.AgencyName }} · {{ $b.AgencyName }}{{ end }}</p>
+        <div class="row row--tight" style="margin-top:var(--sp-3)">
+          {{ if $b.IsVerified }}
+          <span class="badge badge--success">{{ template "icon" "check" }} Verified broker</span>
+          {{ end }}
+          {{ if $b.IsPromoted }}
+          <span class="badge badge--featured">{{ template "icon" "sparkle" }} Promoted</span>
+          {{ end }}
+          <span class="badge badge--outline">{{ template "icon" "map-pin" }} {{ $b.City }}</span>
+        </div>
+      </div>
+      <div class="profile-head__actions">
+        <a class="btn btn--primary" href="mailto:{{ $b.Email }}">{{ template "icon" "mail" }} Contact Broker</a>
+        <a class="btn btn--secondary" href="tel:{{ $b.Phone }}">{{ template "icon" "phone" }} {{ $b.Phone }}</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container section">
+  <div class="detail-layout">
+    <div class="stack stack--lg">
+      <section class="stack">
+        <h2 class="display display--h3">About {{ $b.Name }}</h2>
+        <div class="prose"><p>{{ $b.Bio }}</p></div>
+      </section>
+
+      <section class="stack">
+        <div class="section__head" style="margin-bottom:var(--sp-5)">
+          <div class="section__head-text">
+            <h2 class="section__title">Current listings</h2>
+            <p class="section__subtitle">{{ pluralize (len $d.Listings) "property" "properties" }} on the market</p>
+          </div>
+        </div>
+        {{ if $d.Listings }}
+        <div class="grid grid--3">
+          {{ range $d.Listings }}{{ template "property-card" dict "Property" . "Variant" "compact" }}{{ end }}
+        </div>
+        {{ else }}
+          {{ template "empty-state" dict
+             "Icon" "home"
+             "Title" "No live listings right now"
+             "Text" "This broker has no properties on the market at the moment. Get in touch to hear about upcoming instructions."
+             "ActionHref" "/brokers"
+             "ActionLabel" "Browse other brokers" }}
+        {{ end }}
+      </section>
+    </div>
+
+    <aside class="detail-aside">
+      <div class="card">
+        <div class="card__header"><h2 class="card__title">Track record</h2></div>
+        <div class="card__body">
+          <dl class="kv">
+            <dt>Rating</dt><dd class="numeric">{{ $b.Rating }} / 5 ({{ $b.Reviews }})</dd>
+            <dt>Active listings</dt><dd class="numeric">{{ $b.ActiveListings }}</dd>
+            <dt>Completed sales</dt><dd class="numeric">{{ $b.SoldCount }}</dd>
+            <dt>Years active</dt><dd class="numeric">{{ $b.YearsActive }}</dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title">Languages</h2></div>
+        <div class="card__body">
+          <div class="row row--tight">
+            {{ range $b.Languages }}<span class="badge badge--outline">{{ . }}</span>{{ end }}
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header"><h2 class="card__title">Specialisations</h2></div>
+        <div class="card__body">
+          <div class="row row--tight">
+            {{ range $b.Specialties }}<span class="chip">{{ . }}</span>{{ end }}
+          </div>
+        </div>
+      </div>
+
+      {{ if $d.HasAgency }}
+      <div class="card">
+        <div class="card__body stack stack--sm">
+          <p class="overline">Agency</p>
+          <p class="strong">{{ $d.Agency.Name }}</p>
+          <p class="text-xs muted">{{ $d.Agency.Address }}</p>
+          <a class="btn btn--quiet btn--sm btn--block" href="/agency/{{ $d.Agency.Slug }}">
+            View agency profile
+          </a>
+        </div>
+      </div>
+      {{ end }}
+    </aside>
+  </div>
+</div>
+{{ end }}

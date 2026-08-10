@@ -1,0 +1,66 @@
+{{ define "content" }}
+{{ $d := .Data }}
+
+<div class="admin">
+{{ template "admin-head" dict "Title" "Developments" "Lede" "New-build projects and their availability." }}
+
+<div class="container container--wide section">
+  <div class="shell">
+    {{ template "admin-nav" . }}
+
+    <div class="stack stack--lg">
+      {{ template "admin-demo-notice" }}
+
+      <div class="row row--between">
+        <p class="results-count"><strong class="numeric">{{ len $d.Devs }}</strong> developments</p>
+        <button class="btn btn--primary btn--sm" hx-post="/admin/mock-action"
+                hx-target="#admin-result" hx-swap="innerHTML">
+          {{ template "icon" "plus" }} Add development
+        </button>
+      </div>
+
+      <div id="admin-result"></div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Development</th><th>Developer</th><th>Location</th><th>Price from</th>
+                <th>Units</th><th>Completion</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {{ range $d.Devs }}
+            <tr>
+              <td>
+                <div class="mini-row">
+                  <img class="mini-row__img" src="{{ .Cover.URL }}" alt="" width="72" height="54" loading="lazy">
+                  <div class="mini-row__text">
+                    <a class="strong" href="/development/{{ .Slug }}">{{ .Name }}</a>
+                    <p class="text-xs muted">Energy class {{ .EnergyRating }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="text-sm">{{ .Developer }}</td>
+              <td class="text-sm">{{ .City }}, {{ .CountryCode }}</td>
+              <td class="numeric nowrap">{{ money .PriceFrom }}</td>
+              <td class="numeric">{{ .AvailableUnits }} / {{ .TotalUnits }}</td>
+              <td class="text-sm nowrap">{{ .CompletionQuarter }}</td>
+              <td>
+                <div class="table__actions">
+                  <a class="btn btn--quiet btn--sm" href="/development/{{ .Slug }}"
+                     aria-label="View {{ .Name }}">{{ template "icon" "eye" }}</a>
+                  <button class="btn btn--quiet btn--sm" aria-label="Edit {{ .Name }}"
+                          hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+                    {{ template "icon" "edit" }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+{{ end }}

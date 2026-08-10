@@ -1,0 +1,422 @@
+{{ define "structured-data" }}
+{{ $p := .Data.Property }}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"RealEstateListing",
+ "name":{{ $p.Title }},
+ "url":"{{ .Meta.Canonical }}",
+ "datePosted":"{{ $p.CreatedAt.Format "2006-01-02" }}",
+ "address":{"@type":"PostalAddress","streetAddress":{{ $p.Address }},"addressLocality":{{ $p.City }},"postalCode":{{ $p.PostalCode }},"addressCountry":{{ $p.CountryCode }}},
+ "geo":{"@type":"GeoCoordinates","latitude":{{ $p.Coords.Lat }},"longitude":{{ $p.Coords.Lng }}},
+ "offers":{"@type":"Offer","price":{{ $p.Price.Amount }},"priceCurrency":{{ $p.Price.Currency }}}}
+</script>
+{{ end }}
+
+{{ define "content" }}
+{{ $d := .Data }}
+{{ $p := $d.Property }}
+
+<div class="container" style="padding-top:var(--sp-5)">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumbs">
+      <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+      <li><a href="/search?deal={{ $p.Deal }}">{{ dealLabel $p.Deal }}</a> {{ template "icon" "chevron-right" }}</li>
+      <li><a href="/search?city={{ $p.City }}">{{ $p.City }}</a> {{ template "icon" "chevron-right" }}</li>
+      <li aria-current="page">{{ truncate 40 $p.Title }}</li>
+    </ol>
+  </nav>
+</div>
+
+{{/* Gallery */}}
+<section class="container" style="padding-top:var(--sp-5)"
+         x-data="{ lightbox: false, i: 0, images: {{ len $p.Images }} }">
+  <div class="gallery">
+    <div class="gallery__main">
+      <img src="{{ (index $p.Images 0).URL }}" alt="{{ $p.Title }}"
+           srcset="{{ srcset (index $p.Images 0).URL 400 800 1200 }}"
+           sizes="(max-width: 780px) 100vw, 62vw"
+           width="1200" height="900" fetchpriority="high">
+      <button type="button" class="btn btn--on-image btn--sm gallery__open"
+              @click="lightbox = true; i = 0">
+        {{ template "icon" "camera" }} View all {{ len $p.Images }} photos
+      </button>
+    </div>
+    {{ if gt (len $p.Images) 1 }}
+    <div class="gallery__side">
+      <button type="button" class="gallery__thumb" @click="lightbox = true; i = 1"
+              aria-label="Open photo 2">
+        <img src="{{ (index $p.Images 1).URL }}" alt="" width="600" height="450" loading="lazy">
+      </button>
+      {{ if gt (len $p.Images) 2 }}
+      <button type="button" class="gallery__thumb" @click="lightbox = true; i = 2"
+              aria-label="Open photo gallery">
+        <img src="{{ (index $p.Images 2).URL }}" alt="" width="600" height="450" loading="lazy">
+        {{ if gt (len $p.Images) 3 }}
+        <span class="gallery__more">{{ template "icon" "camera" }} +{{ sub (len $p.Images) 3 }} more</span>
+        {{ end }}
+      </button>
+      {{ end }}
+    </div>
+    {{ end }}
+  </div>
+
+  {{/* Lightbox */}}
+  <template x-teleport="body">
+    <div x-show="lightbox" x-cloak class="lightbox" role="dialog" aria-modal="true"
+         aria-label="Photo gallery" x-trap.noscroll="lightbox"
+         @keydown.escape.window="lightbox = false"
+         @keydown.arrow-right.window="i = (i + 1) % images"
+         @keydown.arrow-left.window="i = (i - 1 + images) % images"
+         x-transition.opacity.duration.200ms>
+      <button type="button" class="lightbox__close" @click="lightbox = false"
+              aria-label="Close gallery">{{ template "icon" "close" }}</button>
+      <button type="button" class="lightbox__nav lightbox__nav--prev"
+              @click="i = (i - 1 + images) % images" aria-label="Previous photo">
+        {{ template "icon" "chevron-left" }}
+      </button>
+      <div class="lightbox__stage">
+        {{ range $idx, $im := $p.Images }}
+        <img x-show="i === {{ $idx }}" src="{{ $im.URL }}" alt="{{ $im.Alt }}" loading="lazy">
+        {{ end }}
+      </div>
+      <button type="button" class="lightbox__nav lightbox__nav--next"
+              @click="i = (i + 1) % images" aria-label="Next photo">
+        {{ template "icon" "chevron-right" }}
+      </button>
+      <p class="lightbox__counter numeric">
+        <span x-text="i + 1"></span> / {{ len $p.Images }}
+      </p>
+    </div>
+  </template>
+</section>
+
+<div class="container" style="padding:var(--sp-8) 0 var(--sp-11)">
+  <div class="detail-layout">
+
+    {{/* ---------------- main column ---------------- */}}
+    <div class="stack stack--lg">
+
+      <header class="stack">
+        <div class="row row--tight">
+          <span class="badge {{ if $p.IsRental }}badge--rent{{ else }}badge--sale{{ end }}">{{ dealLabel $p.Deal }}</span>
+          {{ if $p.IsFeatured }}<span class="badge badge--featured">{{ template "icon" "sparkle" }} Featured</span>{{ end }}
+          {{ if $p.IsVerified }}<span class="badge badge--success">{{ template "icon" "check" }} Verified listing</span>{{ end }}
+          <span class="badge badge--outline">{{ typeLabel $p.Type }}</span>
+        </div>
+
+        <h1 class="display display--h2">{{ $p.Title }}</h1>
+
+        <p class="pcard__location" style="font-size:var(--fs-base)">
+          {{ template "icon" "map-pin" }}
+          <span>{{ $p.Address }}, {{ $p.District }}, {{ $p.City }}, {{ $p.Country }}</span>
+        </p>
+
+        <div class="row row--between" style="align-items:flex-end;margin-top:var(--sp-2)">
+          <div>
+            <p class="detail-price numeric">
+              {{ money $p.Price }}{{ if $p.IsRental }}<span class="pcard__price-period">/month</span>{{ end }}
+            </p>
+            {{ if $p.PricePerM2 }}
+            <p class="text-sm muted numeric">{{ pricePerM2 $p }}</p>
+            {{ end }}
+          </div>
+          <div class="row row--tight">
+            <button type="button" class="btn btn--quiet btn--sm"
+                    hx-post="/favourite/{{ $p.ID }}" hx-swap="none"
+                    @click="previaToast('Saved to your favourites.', 'success')">
+              {{ template "icon" "heart" }} Save
+            </button>
+            <button type="button" class="btn btn--quiet btn--sm"
+                    @click="navigator.clipboard && navigator.clipboard.writeText(window.location.href); previaToast('Link copied to your clipboard.', 'success')">
+              {{ template "icon" "share" }} Share
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {{/* Key facts */}}
+      <div class="fact-grid">
+        {{ if $p.Rooms }}
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "rooms" }} Rooms</span>
+          <span class="fact__value numeric">{{ $p.Rooms }}</span>
+        </div>
+        {{ end }}
+        {{ if $p.Bedrooms }}
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "bed" }} Bedrooms</span>
+          <span class="fact__value numeric">{{ $p.Bedrooms }}</span>
+        </div>
+        {{ end }}
+        {{ if $p.Bathrooms }}
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "bath" }} Bathrooms</span>
+          <span class="fact__value numeric">{{ $p.Bathrooms }}</span>
+        </div>
+        {{ end }}
+        {{ if $p.Area }}
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "area" }} Living area</span>
+          <span class="fact__value numeric">{{ area $p.Area }}</span>
+        </div>
+        {{ end }}
+        {{ if $p.LandArea }}
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "land" }} Land</span>
+          <span class="fact__value numeric">{{ area $p.LandArea }}</span>
+        </div>
+        {{ end }}
+        {{ if $p.BuildYear }}
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "calendar" }} Built</span>
+          <span class="fact__value numeric">{{ $p.BuildYear }}</span>
+        </div>
+        {{ end }}
+        {{ if $p.TotalFloors }}
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "building" }} Floor</span>
+          <span class="fact__value numeric">{{ $p.Floor }} / {{ $p.TotalFloors }}</span>
+        </div>
+        {{ end }}
+        {{ if $p.EnergyRating }}
+        <div class="fact">
+          <span class="fact__label">{{ template "icon" "bolt" }} Energy class</span>
+          <span class="fact__value">{{ $p.EnergyRating }}</span>
+        </div>
+        {{ end }}
+      </div>
+
+      {{/* Description */}}
+      <section class="stack">
+        <h2 class="display display--h3">About this property</h2>
+        {{ if $p.Highlights }}
+        <ul class="feature-list" style="margin-bottom:var(--sp-2)">
+          {{ range $p.Highlights }}
+          <li>{{ template "icon" "check-circle" }} {{ . }}</li>
+          {{ end }}
+        </ul>
+        {{ end }}
+        <div class="prose"><p>{{ $p.Description }}</p></div>
+      </section>
+
+      {{/* Features */}}
+      {{ if $p.Features }}
+      <section class="stack">
+        <h2 class="display display--h3">Features and amenities</h2>
+        <ul class="feature-list">
+          {{ range $p.Features }}
+          <li>{{ template "icon" "check" }} {{ .Label }}</li>
+          {{ end }}
+        </ul>
+      </section>
+      {{ end }}
+
+      {{/* Property information table */}}
+      <section class="stack">
+        <h2 class="display display--h3">Property information</h2>
+        <div class="card">
+          <div class="card__body">
+            <dl class="kv">
+              <dt>Reference</dt><dd class="numeric">{{ $p.ID }}</dd>
+              <dt>Property type</dt><dd>{{ typeLabel $p.Type }}</dd>
+              <dt>Condition</dt><dd>{{ conditionLabel $p.Condition }}</dd>
+              {{ if $p.EnergyRating }}<dt>Energy rating</dt><dd>Class {{ $p.EnergyRating }}</dd>{{ end }}
+              <dt>Listed by</dt><dd>{{ if eq $p.SellerKind "private" }}Private seller{{ else }}Professional broker{{ end }}</dd>
+              <dt>Published</dt><dd>{{ date $p.CreatedAt }}</dd>
+              <dt>Views</dt><dd class="numeric">{{ $p.Views }}</dd>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      {{/* Location */}}
+      <section class="stack" id="location">
+        <h2 class="display display--h3">Location</h2>
+        <p class="muted text-sm">
+          {{ if eq $p.Precision "exact" }}
+            Exact address shown: {{ $p.Address }}, {{ $p.City }}.
+          {{ else if eq $p.Precision "street" }}
+            Approximate location — the seller has chosen to show the street only.
+          {{ else }}
+            Approximate location — the seller has chosen to show the district only.
+          {{ end }}
+        </p>
+        <div class="detail-map" x-data="previaMap({{ .Data.DetailMap }})">
+          {{ template "map-surface" . }}
+        </div>
+        <a class="btn btn--quiet btn--sm" href="{{ mapsURL $p.Coords }}" target="_blank" rel="noopener">
+          {{ template "icon" "external" }} Open in Google Maps
+        </a>
+      </section>
+
+      {{/* Report */}}
+      <div class="row">
+        <button type="button" class="btn btn--ghost btn--sm"
+                @click="previaToast('Thank you — our moderation team will review this listing.', 'success')">
+          {{ template "icon" "flag" }} Report listing
+        </button>
+      </div>
+    </div>
+
+    {{/* ---------------- aside ---------------- */}}
+    <aside class="detail-aside">
+
+      {{ if $d.HasBroker }}
+      <div class="card">
+        <div class="card__body stack">
+          <div class="row" style="gap:var(--sp-3)">
+            <img class="avatar avatar--lg" src="{{ $d.Broker.Photo }}" alt="{{ $d.Broker.Name }}"
+                 width="64" height="64" loading="lazy">
+            <div style="min-width:0">
+              <p class="strong">{{ $d.Broker.Name }}</p>
+              <p class="text-xs muted">{{ $d.Broker.Title }}</p>
+              <p class="text-xs" style="color:var(--slate)">{{ $d.Broker.AgencyName }}</p>
+            </div>
+          </div>
+
+          <div class="row row--tight text-xs muted">
+            <span>{{ template "icon" "star" }} {{ $d.Broker.Rating }} ({{ $d.Broker.Reviews }} reviews)</span>
+            <span>·</span>
+            <span>{{ pluralize $d.Broker.ActiveListings "listing" "listings" }}</span>
+          </div>
+
+          {{/* Click-to-reveal contact details */}}
+          <div id="contact-reveal">
+            <button type="button" class="btn btn--secondary btn--block"
+                    hx-post="/reveal-contact" hx-vals='{"broker":"{{ $d.Broker.ID }}"}'
+                    hx-target="#contact-reveal" hx-swap="innerHTML">
+              {{ template "icon" "phone" }} Show phone number
+            </button>
+          </div>
+
+          <a class="btn btn--primary btn--block" href="#enquiry">
+            {{ template "icon" "mail" }} Contact Broker
+          </a>
+          <a class="btn btn--quiet btn--block" href="#enquiry">
+            {{ template "icon" "calendar" }} Schedule a Viewing
+          </a>
+          <a class="text-xs muted" href="/broker/{{ $d.Broker.Slug }}" style="text-align:center">
+            View all listings from this broker
+          </a>
+        </div>
+      </div>
+      {{ else }}
+      <div class="card">
+        <div class="card__body stack">
+          <span class="badge badge--neutral">Private seller</span>
+          <p class="text-sm muted">
+            This property is listed directly by its owner. Messages go straight
+            to them through Previa.
+          </p>
+          <a class="btn btn--primary btn--block" href="#enquiry">
+            {{ template "icon" "mail" }} Contact seller
+          </a>
+        </div>
+      </div>
+      {{ end }}
+
+      {{/* Enquiry form */}}
+      <div class="card" id="enquiry">
+        <div class="card__header">
+          <h2 class="card__title">Send an enquiry</h2>
+        </div>
+        <div class="card__body">
+          <form class="stack" hx-post="/contact-broker" hx-target="#enquiry-result" hx-swap="innerHTML">
+            <div class="field">
+              <label class="field__label" for="c-name">Your name <span class="req" aria-hidden="true">*</span></label>
+              <input class="input" id="c-name" name="name" type="text" required
+                     placeholder="Jane Doe" autocomplete="name">
+            </div>
+            <div class="field">
+              <label class="field__label" for="c-email">Email <span class="req" aria-hidden="true">*</span></label>
+              <input class="input" id="c-email" name="email" type="email" required
+                     placeholder="jane@example.com" autocomplete="email">
+            </div>
+            <div class="field">
+              <label class="field__label" for="c-phone">Phone</label>
+              <input class="input" id="c-phone" name="phone" type="tel"
+                     placeholder="+372 5555 0000" autocomplete="tel">
+              <span class="field__hint">Optional — brokers usually reply faster by phone.</span>
+            </div>
+            <div class="field">
+              <label class="field__label" for="c-msg">Message</label>
+              <textarea class="textarea" id="c-msg" name="message" rows="4">I'd like to arrange a viewing of {{ $p.Title }}. Which times are available this week?</textarea>
+            </div>
+            <label class="check">
+              <input type="checkbox" name="consent" required>
+              <span class="check__text">
+                I agree that Previa may pass my details to the seller, in line with the
+                <a href="/privacy" class="strong">privacy policy</a>.
+              </span>
+            </label>
+            <button class="btn btn--primary btn--block" type="submit">Send enquiry</button>
+          </form>
+          <div id="enquiry-result"></div>
+        </div>
+      </div>
+
+      {{ if $d.HasDev }}
+      <div class="card">
+        <div class="card__body stack stack--sm">
+          <p class="overline">Part of a development</p>
+          <p class="strong">{{ $d.Development.Name }}</p>
+          <p class="text-xs muted">{{ $d.Development.AvailableUnits }} units still available</p>
+          <a class="btn btn--quiet btn--sm btn--block" href="/development/{{ $d.Development.Slug }}">
+            View the development
+          </a>
+        </div>
+      </div>
+      {{ end }}
+    </aside>
+  </div>
+
+  {{/* Similar properties */}}
+  {{ if $d.Similar }}
+  <section style="margin-top:var(--sp-12)">
+    <div class="section__head">
+      <div class="section__head-text">
+        <h2 class="section__title">Similar properties</h2>
+        <p class="section__subtitle">Comparable listings in {{ $p.City }} and nearby.</p>
+      </div>
+      <a class="section__link" href="/search?city={{ $p.City }}&deal={{ $p.Deal }}">
+        See all in {{ $p.City }} {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+    <div class="grid grid--4">
+      {{ range $d.Similar }}{{ template "property-card" dict "Property" . "Variant" "compact" }}{{ end }}
+    </div>
+  </section>
+  {{ end }}
+</div>
+
+{{/* Mobile sticky contact bar */}}
+<div class="sticky-contact">
+  <a class="btn btn--secondary" href="#enquiry">{{ template "icon" "calendar" }} Viewing</a>
+  <a class="btn btn--primary" href="#enquiry">{{ template "icon" "mail" }} Contact</a>
+</div>
+{{ end }}
+
+
+{{/* HTMX fragment: revealed broker contact details. */}}
+{{ define "revealed-contact" }}
+<div class="stack stack--sm">
+  <a class="btn btn--secondary btn--block" href="tel:{{ .Phone }}">
+    {{ template "icon" "phone" }} {{ .Phone }}
+  </a>
+  <a class="btn btn--quiet btn--block" href="mailto:{{ .Email }}">
+    {{ template "icon" "mail" }} {{ .Email }}
+  </a>
+</div>
+{{ end }}
+
+
+{{/* HTMX fragment: enquiry acknowledgement. */}}
+{{ define "contact-success" }}
+<div class="alert alert--success" role="status" style="margin-top:var(--sp-4)">
+  {{ template "icon" "check-circle" }}
+  <div>
+    <p class="alert__title">Enquiry sent</p>
+    <p>Thanks {{ .Name }} — the broker usually replies within one working day.
+       A copy is in your <a href="/notifications" class="strong">notifications</a>.</p>
+  </div>
+</div>
+{{ end }}

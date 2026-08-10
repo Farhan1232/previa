@@ -1,16 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
-  "//": [
-    "Everything under public/ is served straight from the CDN. Vercel resolves",
-    "the filesystem before applying rewrites, so /static/* and /api/index hit",
-    "real files and only unmatched paths fall through to the Go function."
-  ],
-
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ],
-
   "headers": [
     {
       "source": "/static/fonts/(.*)",

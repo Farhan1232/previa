@@ -417,6 +417,29 @@ type Banner struct {
 	Sponsor     string
 	Image       string
 	Theme       string // "navy" | "gold" | "slate"
+
+	// Placement separates the two advertising slots, which carry different
+	// copy and different dimensions:
+	//
+	//   "home"   the strip laid over the homepage hero
+	//   "search" the shorter strip above the search results
+	//
+	// A country can have one of each. An empty value means "home", so existing
+	// rows keep working.
+	Placement string
+
+	// Active switches the slot off without deleting it. The client asked to
+	// hide the homepage strip for now but keep it editable and re-activatable,
+	// so dismissal is a flag rather than a removal.
+	Active bool
+}
+
+// Slot returns the placement, defaulting to the homepage strip.
+func (b Banner) Slot() string {
+	if b.Placement == "" {
+		return "home"
+	}
+	return b.Placement
 }
 
 // Testimonial supports the homepage trust section.

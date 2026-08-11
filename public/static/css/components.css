@@ -1188,3 +1188,122 @@
 .toast--error { border-left-color: var(--error); }
 .toast--warning { border-left-color: var(--warning); }
 .toast svg { flex: none; width: 18px; height: 18px; margin-top: 1px; }
+
+/* --------------------------------------------------------------------------
+   Card image arrows and position dots
+
+   The client asked to page through a listing's photographs without leaving
+   the results. Arrows are hidden until the card is hovered or focused on
+   pointer devices, and always visible on touch, where there is no hover.
+   -------------------------------------------------------------------------- */
+
+.pcard__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--navy);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.pcard__arrow svg { width: 16px; height: 16px; }
+.pcard__arrow--prev { left: 8px; }
+.pcard__arrow--next { right: 8px; }
+.pcard__arrow:hover { background: #fff; }
+
+.pcard:hover .pcard__arrow,
+.pcard:focus-within .pcard__arrow { opacity: 1; }
+
+/* No hover on touch: show them permanently rather than never. */
+@media (hover: none) {
+  .pcard__arrow { opacity: 1; }
+}
+
+.pcard__dots {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 8px;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.pcard__dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.pcard__dot.is-on { background: #fff; }
+
+/* The map variant is already dense; arrows would crowd it. */
+.pcard--map .pcard__arrow,
+.pcard--map .pcard__dots { display: none; }
+
+/* --------------------------------------------------------------------------
+   Map-list locate control
+   Top-right of each card in the map sidebar: a button that centres the map on
+   this listing, plus the market it belongs to.
+   -------------------------------------------------------------------------- */
+
+.pcard__locate {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px 3px 3px;
+  border-radius: var(--r-pill, 999px);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+  .pcard__locate { background: var(--surface); }
+}
+
+.pcard__locate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--success);
+  transition: background-color var(--dur-fast) var(--ease);
+}
+.pcard__locate-btn svg { width: 16px; height: 16px; stroke-width: 2.2; }
+.pcard__locate-btn:hover { background: color-mix(in srgb, var(--success) 14%, transparent); }
+
+.pcard__market {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+.pcard__market .flag { width: 16px; height: 11px; border-radius: 1px; }
+
+/*
+  The locate control takes the top-right corner on map cards, where the
+  favourite button used to sit. Moving the heart to the left would put it on
+  top of the deal badge, so it drops below the locate row instead and keeps
+  the right edge.
+*/
+.pcard--map .pcard__fav { top: 44px; right: 8px; left: auto; }

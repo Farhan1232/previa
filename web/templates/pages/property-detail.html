@@ -85,6 +85,28 @@
       <p class="lightbox__counter numeric">
         <span x-text="i + 1"></span> / {{ len $p.Images }}
       </p>
+
+      {{/*
+        Thumbnail strip.
+
+        The arrows alone made the gallery a guessing game — there was no way to
+        see what else the listing had, or to jump straight to the floor plan.
+        Each thumbnail sets the index directly and marks itself current, and
+        the strip scrolls horizontally when a listing has many photographs.
+      */}}
+      {{ if gt (len $p.Images) 1 }}
+      <div class="lightbox__thumbs" role="tablist" aria-label="Photographs">
+        {{ range $idx, $im := $p.Images }}
+        <button type="button" class="lightbox__thumb" role="tab"
+                @click="i = {{ $idx }}" :class="{ 'is-current': i === {{ $idx }} }"
+                :aria-selected="i === {{ $idx }} ? 'true' : 'false'"
+                aria-label="Show photo {{ add $idx 1 }} of {{ len $p.Images }}">
+          <img src="{{ $im.URL }}" alt="" srcset="{{ srcset $im.URL 400 800 }}"
+               sizes="96px" loading="lazy" decoding="async">
+        </button>
+        {{ end }}
+      </div>
+      {{ end }}
     </div>
   </template>
 </section>

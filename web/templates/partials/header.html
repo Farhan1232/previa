@@ -7,12 +7,14 @@
         {{ template "logo" dict "Size" "md" }}
       </a>
 
-      {{/* Primary navigation. Buy and Rent are search modes, not header items. */}}
+      {{/*
+        Primary navigation.
+
+        Buy and Rent are deliberately absent: they are search modes, reachable
+        from the hero search box, the filter panel and the mobile drawer, and
+        the client asked for them out of the header bar.
+      */}}
       <nav class="header__nav" aria-label="Main">
-        <a class="header__link" href="/search?deal=sale"
-           {{ if eq .Nav "buy" }}aria-current="page"{{ end }}>Buy</a>
-        <a class="header__link" href="/search?deal=rent"
-           {{ if eq .Nav "rent" }}aria-current="page"{{ end }}>Rent</a>
         <a class="header__link" href="/articles"
            {{ if eq .Nav "articles" }}aria-current="page"{{ end }}>Articles</a>
         <a class="header__link" href="/brokers"
@@ -23,7 +25,16 @@
 
       <div class="header__actions">
 
-        {{/* Country selector — drives banner, promoted brokers and map centre */}}
+        {{/*
+          Country selector — drives banner, promoted brokers and map centre.
+
+          On the home and search pages this control is rendered over the banner
+          instead (see "market-picker"), so that it cannot be mistaken for the
+          language button sitting next to it. Everywhere else it stays here:
+          removing it outright would strand visitors on the wrong market with
+          no way back.
+        */}}
+        {{ if not .MarketInBanner }}
         <div class="header__desktop-only" x-data="previaMenu()" @keydown.escape.window="close()">
           <button type="button" class="icon-btn" @click="toggle()" :aria-expanded="open"
                   aria-haspopup="true" aria-label="Change country — currently {{ .Country.Name }}">
@@ -50,13 +61,14 @@
             </div>
           </div>
         </div>
+        {{ end }}
 
-        {{/* Language selector */}}
+        {{/* Language selector — flag led, so it reads as a language at a glance */}}
         <div class="header__desktop-only" x-data="previaMenu()" @keydown.escape.window="close()">
           <button type="button" class="icon-btn" @click="toggle()" :aria-expanded="open"
                   aria-haspopup="true" aria-label="Change language — currently {{ .LangName }}">
-            {{ template "icon" "language" }}
-            <span class="text-sm">{{ .Lang | printf "%.2s" }}</span>
+            {{ template "flag" (langFlag .Lang) }}
+            <span class="text-sm lang-code">{{ .Lang }}</span>
           </button>
           <div class="dropdown" x-show="open" x-cloak x-transition.opacity.duration.150ms
                @click.outside="close()">
@@ -66,7 +78,8 @@
               {{ if .IsEnabled }}
               <a class="menu__item {{ if eq .Code $.Lang }}is-active{{ end }}" role="menuitem"
                  href="/{{ .Code }}{{ $.CurrentPath }}">
-                <span class="menu__code">{{ .Code }}</span>
+                {{ template "flag" (langFlag .Code) }}
+                <span class="lang-code">{{ .Code }}</span>
                 <span>{{ .NativeName }}</span>
                 {{ if not .IsDefault }}<span class="text-xs subtle">{{ .Progress }}%</span>{{ end }}
               </a>
@@ -119,8 +132,7 @@
 
         {{/* Dominant header action */}}
         <a class="btn btn--primary btn--sm header__cta" href="/add-listing">
-          {{ template "icon" "plus" }}
-          <span>Add listing</span>
+          <span>add listing</span>
         </a>
 
         {{/* Mobile menu trigger */}}
@@ -131,6 +143,24 @@
       </div>
     </div>
   </div>
+
+  {{/*
+    Floating menu trigger.
+
+    The header itself scrolls away with the page (step 8), so this takes over
+    once it is gone: it fades in past the header's height and opens the same
+    drawer. Rendered inside the header component so it shares previaHeader()
+    state, but teleported to the body so no ancestor's overflow or stacking
+    context can clip it.
+  */}}
+  <template x-teleport="body">
+    <button type="button" class="floating-menu" x-show="pastHeader" x-cloak
+            x-transition.opacity.duration.200ms
+            @click="openMenu()" :aria-expanded="menuOpen"
+            aria-controls="mobile-drawer" aria-label="Open menu">
+      {{ template "icon" "menu" }}
+    </button>
+  </template>
 
   {{/* Mobile off-canvas drawer — overlays the page, traps focus, Escape closes */}}
   <template x-teleport="body">

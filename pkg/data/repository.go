@@ -200,6 +200,13 @@ type CatalogRepository interface {
 	Countries(ctx context.Context) []models.Country
 	Country(ctx context.Context, code string) (models.Country, bool)
 	Banner(ctx context.Context, countryCode string) (models.Banner, bool)
+	// BannerFor returns the banner for a market and placement ("home" or
+	// "search"). Inactive slots are reported with ok=false so callers render
+	// nothing, while the row itself stays editable in admin.
+	BannerFor(ctx context.Context, countryCode, placement string) (models.Banner, bool)
+	// BannersAll lists every configured slot for the admin screen, including
+	// the ones currently switched off.
+	BannersAll(ctx context.Context) []models.Banner
 	Packages(ctx context.Context) []models.Package
 	Testimonials(ctx context.Context) []models.Testimonial
 	Languages(ctx context.Context) []models.Language

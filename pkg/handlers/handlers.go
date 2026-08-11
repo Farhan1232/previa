@@ -65,6 +65,16 @@ type PageData struct {
 	Banner      models.Banner
 	HasBanner   bool
 
+	// MarketInBanner moves the country selector out of the header and onto the
+	// page's banner. Set by pages that render one (home, search); everywhere
+	// else the header keeps the control so a visitor is never stuck on the
+	// wrong market with no way to change it.
+	MarketInBanner bool
+
+	// BannerDismissed reports that the sponsored strip is switched off for the
+	// active market. The banner stays configured and re-activatable in admin.
+	BannerDismissed bool
+
 	User        models.User
 	UnreadCount int
 
@@ -83,7 +93,11 @@ func (h *Handler) base(r *http.Request, nav, title, desc string) PageData {
 	ctx := r.Context()
 
 	country := h.activeCountry(r)
-	banner, hasBanner := h.Store.Catalog.Banner(ctx, country.Code)
+
+	// The homepage slot is the default for PageData.Banner. It reports
+	// hasBanner=false while switched off, which is the current state — the
+	// strip stays configured but is not drawn over the hero.
+	banner, hasBanner := h.Store.Catalog.BannerFor(ctx, country.Code, "home")
 
 	path := r.URL.Path
 	canonical := strings.TrimSuffix(h.Cfg.BaseURL, "/") + path

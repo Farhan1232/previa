@@ -43,6 +43,9 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		"Previa — Property for sale and rent worldwide",
 		"Search apartments, houses, villas, commercial property and land across Europe. Verified brokers, accurate maps and new listings every day.")
 
+	// The hero carries the market picker on this page, so the header drops it.
+	pd.MarketInBanner = true
+
 	counts := h.Store.Properties.CountByType(ctx, "")
 	tiles := []TypeTile{
 		{models.TypeApartment, "Apartments", "building", counts[models.TypeApartment]},
@@ -56,7 +59,8 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	all, _ := h.Store.Properties.Search(ctx, data.PropertyFilter{PerPage: 1})
 
 	pd.Data = HomeData{
-		Featured:     h.Store.Properties.Featured(ctx, pd.Country.Code, 6),
+		// Ten fills two complete rows at the five-across desktop density.
+		Featured:     h.Store.Properties.Featured(ctx, pd.Country.Code, 10),
 		Recent:       h.Store.Properties.Recent(ctx, pd.Country.Code, 8),
 		Developments: take(h.Store.Content.Developments(ctx, pd.Country.Code), 3),
 		Brokers:      h.Store.Brokers.Promoted(ctx, pd.Country.Code, 4),

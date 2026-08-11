@@ -72,10 +72,28 @@
 .grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 768px) { .grid--2 { grid-template-columns: 1fr; } }
 
-/* Dense search results: 5–6 on very wide screens, never below readable width. */
-.grid--results { grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); }
-@media (max-width: 600px) { .grid--results { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); } }
+/*
+  Property grids.
+
+  The client asked for smaller previews, five to a row on a large screen. At
+  the 1280px container that means roughly 220px a card, so the auto-fill
+  minimum drops accordingly and the count falls naturally as the viewport
+  narrows rather than through a stack of breakpoints.
+*/
+.grid--results { grid-template-columns: repeat(auto-fill, minmax(214px, 1fr)); }
+@media (max-width: 600px) { .grid--results { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); } }
 @media (max-width: 400px) { .grid--results { grid-template-columns: 1fr; } }
+
+/*
+  Curated property rows (homepage "Featured properties" and similar). Same
+  density as the results grid, expressed in fixed steps because these sections
+  show a known number of cards and should not leave a ragged final row.
+*/
+.grid--properties { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1280px) { .grid--properties { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1024px) { .grid--properties { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 820px)  { .grid--properties { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px)  { .grid--properties { grid-template-columns: 1fr; } }
 
 .grid--list { grid-template-columns: 1fr; gap: var(--sp-4); }
 
@@ -92,14 +110,17 @@
    Header
    ========================================================================== */
 
+/*
+  The header scrolls away with the page rather than pinning to the top: it was
+  taking a permanent bite out of the viewport for no benefit. The floating menu
+  button below takes over once it is gone, so the menu is never unreachable.
+*/
 .site-header {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: var(--z-header);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.site-header.is-scrolled { box-shadow: var(--shadow-sm); }
 
 .header__inner {
   display: flex;
@@ -126,17 +147,18 @@
   transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
 .header__link:hover { color: var(--text); background: var(--surface-3); }
-.header__link[aria-current='page'] { color: var(--navy); font-weight: 600; }
-[data-theme='dark'] .header__link[aria-current='page'] { color: var(--gold); }
-.header__link[aria-current='page']::after {
-  content: '';
-  position: absolute;
-  left: var(--sp-3); right: var(--sp-3);
-  bottom: -21px;
-  height: 2px;
-  background: currentColor;
-  border-radius: 2px;
+
+/*
+  One selection cue, not two. The active section used to carry both an
+  underline and (on hover) a box; the underline is gone and the box now marks
+  the current section as well as the hovered one.
+*/
+.header__link[aria-current='page'] {
+  color: var(--navy);
+  font-weight: 600;
+  background: var(--surface-3);
 }
+[data-theme='dark'] .header__link[aria-current='page'] { color: var(--gold); }
 
 .header__actions { display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; }
 
@@ -160,7 +182,58 @@
 .icon-btn svg { width: 18px; height: 18px; }
 .icon-btn__flag { font-size: 16px; line-height: 1; }
 
+/*
+  Menu trigger. Larger, heavier and green rather than the muted grey it was —
+  at 18px in --text-muted it read as decoration instead of a control.
+  --success is the palette's green and is already defined for both themes,
+  so this needs no new token.
+*/
 .header__burger { display: none; }
+.header__burger,
+.floating-menu {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 34%, transparent);
+}
+.header__burger svg,
+.floating-menu svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.4;
+}
+.header__burger:hover,
+.floating-menu:hover {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+/* Fallback for engines without color-mix: a visible border either way. */
+@supports not (color: color-mix(in srgb, red 50%, transparent)) {
+  .header__burger, .floating-menu { border-color: var(--border-strong); }
+}
+
+/*
+  Floating menu button — appears only after the header has scrolled out of
+  view. Fixed to the top right, above page content but below the drawer it
+  opens, and clear of the safe area on notched phones.
+*/
+.floating-menu {
+  position: fixed;
+  top: max(var(--sp-4), env(safe-area-inset-top));
+  right: max(var(--sp-4), env(safe-area-inset-right));
+  z-index: calc(var(--z-header) - 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid color-mix(in srgb, var(--success) 34%, transparent);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  transition: background-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+.floating-menu:active { transform: translateY(1px); }
 
 @media (max-width: 1080px) {
   .header__nav,

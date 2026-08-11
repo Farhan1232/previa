@@ -239,6 +239,11 @@ func (h *Handler) searchPayload(r *http.Request) (PageData, SearchData) {
 		"Filter by location, price, size, rooms and features. View results as a grid, a list or on the map.")
 	pd.NeedsMap = mode == data.ViewMap || mode == data.ViewFull
 
+	// This page shows its own, shorter advertising strip above the results and
+	// carries the market picker on it, so the header drops the picker here too.
+	pd.MarketInBanner = true
+	pd.Banner, pd.HasBanner = h.Store.Catalog.BannerFor(ctx, pd.Country.Code, "search")
+
 	var cities []string
 	for _, c := range h.Store.Catalog.Countries(ctx) {
 		cities = append(cities, c.Cities...)

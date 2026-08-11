@@ -16,6 +16,35 @@
   </h1>
 
   {{/*
+    Advertising strip for the active market, filling what was dead space
+    between the header and the results. Shorter than the homepage banner and
+    separately worded — it is its own placement in admin, per country, not the
+    homepage banner re-used. The market picker rides on its right, matching the
+    homepage and keeping the control off the header.
+  */}}
+  <div class="search-banner">
+    {{ if .HasBanner }}
+    <aside class="cbanner cbanner--{{ .Banner.Theme }}"
+           aria-label="Sponsored offer for {{ .Country.Name }}">
+      <span class="cbanner__icon" aria-hidden="true">{{ template "icon" "building" }}</span>
+      <div class="cbanner__text">
+        <p class="cbanner__sponsor">Sponsored · {{ .Banner.Sponsor }} · {{ .Country.Name }}</p>
+        <p class="cbanner__headline">{{ .Banner.Headline }}</p>
+        <p class="cbanner__body">{{ .Banner.Body }}</p>
+      </div>
+      <a class="btn btn--secondary btn--sm" href="{{ .Banner.CTAHref }}">{{ .Banner.CTALabel }}</a>
+    </aside>
+    {{ else }}
+    <div class="search-banner__spacer"></div>
+    {{ end }}
+
+    <div class="search-banner__aside">
+      {{ template "market-picker" dict
+          "Countries" .Countries "Country" .Country "CurrentPath" .CurrentPath }}
+    </div>
+  </div>
+
+  {{/*
     The layout collapses by widening the results column. Below 1024px the panel
     becomes an off-canvas drawer opened from a fixed edge tab, and the filter
     values survive both transitions because the form is never re-rendered.

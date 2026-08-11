@@ -52,39 +52,91 @@ func currencyFor(code string) string {
 // Country-specific advertising banners
 // ---------------------------------------------------------------------------
 
+// Advertising slots, keyed by market and placement.
+//
+// The homepage strip is seeded Active:false. The client asked for it to be
+// dismissed for now but kept editable, so the copy stays here and admin can
+// switch it back on per country without anything being re-entered.
+//
+// The search strip is a separate, shorter placement with its own copy — it is
+// not the homepage banner re-used, and it is live.
 var banners = []models.Banner{
 	{ID: "bn-ee", CountryCode: "EE", Sponsor: "Baltic Home Loans",
 		Headline: "Fixed-rate home loans from 3.4% in Estonia",
 		Body:     "Get a decision in principle in two working days. No arrangement fee on applications submitted before 30 September.",
-		CTALabel: "Check your rate", CTAHref: "/help", Theme: "navy"},
+		CTALabel: "Check your rate", CTAHref: "/help", Theme: "navy", Placement: "home", Active: false},
 	{ID: "bn-de", CountryCode: "DE", Sponsor: "Hausbank Direkt",
 		Headline: "Baufinanzierung with a 15-year fixed rate",
 		Body:     "Compare offers from 340 German lenders in one application. Free consultation with a local advisor in Berlin, Munich and Hamburg.",
-		CTALabel: "Compare offers", CTAHref: "/help", Theme: "slate"},
+		CTALabel: "Compare offers", CTAHref: "/help", Theme: "slate", Placement: "home", Active: false},
 	{ID: "bn-es", CountryCode: "ES", Sponsor: "Mediterráneo Hipotecas",
 		Headline: "Mortgages for non-resident buyers in Spain",
 		Body:     "Up to 70% financing for international buyers, with English-speaking advisors in Barcelona, Valencia and Málaga.",
-		CTALabel: "Speak to an advisor", CTAHref: "/help", Theme: "gold"},
+		CTALabel: "Speak to an advisor", CTAHref: "/help", Theme: "gold", Placement: "home", Active: false},
 	{ID: "bn-fi", CountryCode: "FI", Sponsor: "Pohjola Asuntolaina",
 		Headline: "Housing loans with a repayment holiday",
 		Body:     "Take up to twelve months without capital repayments when you buy your first home in Finland.",
-		CTALabel: "See the terms", CTAHref: "/help", Theme: "navy"},
+		CTALabel: "See the terms", CTAHref: "/help", Theme: "navy", Placement: "home", Active: false},
 	{ID: "bn-pt", CountryCode: "PT", Sponsor: "Atlântico Crédito Habitação",
 		Headline: "Portuguese mortgages for residents and expatriates",
 		Body:     "Fixed, mixed and variable rates with no early-repayment penalty on fixed-term products.",
-		CTALabel: "Request a quote", CTAHref: "/help", Theme: "slate"},
+		CTALabel: "Request a quote", CTAHref: "/help", Theme: "slate", Placement: "home", Active: false},
 	{ID: "bn-nl", CountryCode: "NL", Sponsor: "Randstad Hypotheken",
 		Headline: "Hypotheek advice for Amsterdam buyers",
 		Body:     "Independent advice across 28 Dutch lenders, including options for self-employed applicants.",
-		CTALabel: "Book a consultation", CTAHref: "/help", Theme: "navy"},
+		CTALabel: "Book a consultation", CTAHref: "/help", Theme: "navy", Placement: "home", Active: false},
 	{ID: "bn-at", CountryCode: "AT", Sponsor: "Donau Wohnkredit",
 		Headline: "Wohnbaufinanzierung across Austria",
 		Body:     "Fixed rates held for 25 years, with subsidised options for energy-efficient properties.",
-		CTALabel: "Calculate your loan", CTAHref: "/help", Theme: "slate"},
+		CTALabel: "Calculate your loan", CTAHref: "/help", Theme: "slate", Placement: "home", Active: false},
 	{ID: "bn-cz", CountryCode: "CZ", Sponsor: "Vltava Hypotéka",
 		Headline: "Czech mortgages with a rate guarantee",
 		Body:     "Lock today's rate for six months while you search for the right property in Prague or Brno.",
-		CTALabel: "Lock your rate", CTAHref: "/help", Theme: "gold"},
+		CTALabel: "Lock your rate", CTAHref: "/help", Theme: "gold", Placement: "home", Active: false},
+
+	// --- Search results strip -------------------------------------------------
+	// Shorter than the homepage banner and separately worded, matching the
+	// promoted-development strip the client referenced on kinnisvara24.
+	{ID: "bs-ee", CountryCode: "EE", Sponsor: "Uusarendused",
+		Headline: "New developments in Tallinn and Tartu",
+		Body:     "Twelve projects taking reservations this autumn, from 137 000 €.",
+		CTALabel: "See developments", CTAHref: "/developments", Theme: "gold",
+		Placement: "search", Active: true},
+	{ID: "bs-de", CountryCode: "DE", Sponsor: "Neubau Berlin",
+		Headline: "Newly completed apartments in Berlin",
+		Body:     "Move-in ready homes in Mitte, Pankow and Friedrichshain.",
+		CTALabel: "See developments", CTAHref: "/developments", Theme: "navy",
+		Placement: "search", Active: true},
+	{ID: "bs-es", CountryCode: "ES", Sponsor: "Obra Nueva",
+		Headline: "New build on the Catalan coast",
+		Body:     "Sea-facing developments in Barcelona, Sitges and Badalona.",
+		CTALabel: "See developments", CTAHref: "/developments", Theme: "gold",
+		Placement: "search", Active: true},
+	{ID: "bs-fi", CountryCode: "FI", Sponsor: "Uudiskohteet",
+		Headline: "New homes in Helsinki and Espoo",
+		Body:     "Kalasatama, Jätkäsaari and Otaniemi projects now selling.",
+		CTALabel: "See developments", CTAHref: "/developments", Theme: "navy",
+		Placement: "search", Active: true},
+	{ID: "bs-pt", CountryCode: "PT", Sponsor: "Novos Empreendimentos",
+		Headline: "New developments in Lisbon and Porto",
+		Body:     "Riverside and city-centre projects with completion in 2027.",
+		CTALabel: "See developments", CTAHref: "/developments", Theme: "slate",
+		Placement: "search", Active: true},
+	{ID: "bs-nl", CountryCode: "NL", Sponsor: "Nieuwbouw",
+		Headline: "Nieuwbouw across the Randstad",
+		Body:     "Amsterdam, Utrecht and Rotterdam projects open for registration.",
+		CTALabel: "See developments", CTAHref: "/developments", Theme: "navy",
+		Placement: "search", Active: true},
+	{ID: "bs-at", CountryCode: "AT", Sponsor: "Neubauprojekte",
+		Headline: "New apartments in Vienna",
+		Body:     "Projects in Leopoldstadt, Favoriten and Donaustadt.",
+		CTALabel: "See developments", CTAHref: "/developments", Theme: "gold",
+		Placement: "search", Active: true},
+	{ID: "bs-cz", CountryCode: "CZ", Sponsor: "Nové projekty",
+		Headline: "New developments in Prague",
+		Body:     "Karlín, Smíchov and Vinohrady projects taking reservations.",
+		CTALabel: "See developments", CTAHref: "/developments", Theme: "slate",
+		Placement: "search", Active: true},
 }
 
 // ---------------------------------------------------------------------------

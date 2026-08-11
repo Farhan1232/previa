@@ -50,22 +50,49 @@
     });
   });
 
+  // -- Card image carousel ---------------------------------------------------
+  // Steps through a card's photographs in place. Wraps in both directions so
+  // the arrows never dead-end, and holds only an index — the images are all
+  // in the DOM already.
+  window.previaCardGallery = function (count) {
+    return {
+      i: 0,
+      total: count || 1,
+      next: function () {
+        this.i = (this.i + 1) % this.total;
+      },
+      prev: function () {
+        this.i = (this.i - 1 + this.total) % this.total;
+      },
+    };
+  };
+
   // -- Header ----------------------------------------------------------------
   window.previaHeader = function () {
     return {
       scrolled: window.scrollY > 8,
+      // True once the header has actually left the viewport. Kept separate
+      // from `scrolled` (which trips at 8px, purely for the shadow) because
+      // the floating menu button must not appear while the real header is
+      // still on screen — two triggers for the same menu reads as a bug.
+      pastHeader: false,
       menuOpen: false,
       lastFocus: null,
 
       init: function () {
         var self = this;
-        window.addEventListener(
-          'scroll',
-          function () {
-            self.scrolled = window.scrollY > 8;
-          },
-          { passive: true }
-        );
+        var threshold = function () {
+          var h = self.$el ? self.$el.offsetHeight : 0;
+          return h > 0 ? h : 68;
+        };
+        var apply = function () {
+          var y = window.scrollY;
+          self.scrolled = y > 8;
+          self.pastHeader = y > threshold();
+        };
+        apply();
+        window.addEventListener('scroll', apply, { passive: true });
+        window.addEventListener('resize', apply, { passive: true });
       },
 
       openMenu: function () {
@@ -334,6 +361,15 @@
         if (this.provider) this.provider.highlight(id);
       },
 
+      // Centre the map on one listing. Separate from select() because it
+      // moves the viewport as well as opening the popup — select() is also
+      // fired by marker clicks, where moving the map under the cursor would
+      // be disorienting.
+      locate: function (id) {
+        this.selected = id;
+        if (this.provider && this.provider.locate) this.provider.locate(id);
+      },
+
       // Called from a marker click and from a result card.
       select: function (id) {
         this.selected = this.selected === id ? null : id;
@@ -517,10 +553,25 @@
       host.selected = null;
     });
 
+    // Centre the map on one listing and open its popup. Used by the locate
+    // button on each result card, which answers "where is this one?" without
+    // making the visitor hunt for the pin.
+    function locate(id) {
+      var entry = markers[id];
+      if (!entry) return;
+      var target = entry.marker.getLatLng();
+      var zoom = Math.max(map.getZoom(), 14);
+      if (map.flyTo) map.flyTo(target, zoom, { duration: 0.6 });
+      else map.setView(target, zoom);
+      highlight(id);
+      entry.marker.openPopup();
+    }
+
     return {
       setPoints: setPoints,
       highlight: highlight,
       select: select,
+      locate: locate,
       fitAll: fitAll,
       zoomIn: function () {
         map.zoomIn();

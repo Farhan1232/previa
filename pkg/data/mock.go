@@ -773,15 +773,35 @@ func (m *Mock) Country(ctx context.Context, code string) (models.Country, bool) 
 	return models.Country{}, false
 }
 
-// Banner returns the advertising banner for a market.
+// Banner returns the active homepage banner for a market.
+//
+// Retained for callers that predate placements; it is BannerFor with the
+// placement fixed to "home".
 func (m *Mock) Banner(ctx context.Context, code string) (models.Banner, bool) {
+	return m.BannerFor(ctx, code, "home")
+}
+
+// BannerFor returns the banner for a market and placement.
+//
+// A slot that exists but is switched off returns ok=false: the caller renders
+// nothing, while admin still lists the row so it can be turned back on.
+func (m *Mock) BannerFor(ctx context.Context, code, placement string) (models.Banner, bool) {
+	if placement == "" {
+		placement = "home"
+	}
 	for _, b := range banners {
-		if strings.EqualFold(b.CountryCode, code) {
+		if strings.EqualFold(b.CountryCode, code) && b.Slot() == placement {
+			if !b.Active {
+				return b, false
+			}
 			return b, true
 		}
 	}
 	return models.Banner{}, false
 }
+
+// BannersAll lists every configured slot, active or not.
+func (m *Mock) BannersAll(ctx context.Context) []models.Banner { return banners }
 
 // Packages lists the paid listing tiers.
 func (m *Mock) Packages(ctx context.Context) []models.Package { return packages }

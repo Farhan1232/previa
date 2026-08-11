@@ -2,31 +2,44 @@
 {{ $d := .Data }}
 
 {{/* ---------------------------------------------------------------
-     Country-specific advertising banner
-     --------------------------------------------------------------- */}}
-{{ if .HasBanner }}
-<div class="container" style="padding-top:var(--sp-5)">
-  <aside class="cbanner cbanner--{{ .Banner.Theme }}" aria-label="Sponsored offer for {{ .Country.Name }}">
-    <span class="cbanner__icon" aria-hidden="true">{{ template "icon" "card" }}</span>
-    <div class="cbanner__text">
-      <p class="cbanner__sponsor">Sponsored · {{ .Banner.Sponsor }} · {{ .Country.Name }}</p>
-      <p class="cbanner__headline">{{ .Banner.Headline }}</p>
-      <p class="cbanner__body">{{ .Banner.Body }}</p>
-    </div>
-    <a class="btn btn--secondary btn--sm" href="{{ .Banner.CTAHref }}">{{ .Banner.CTALabel }}</a>
-  </aside>
-</div>
-{{ end }}
+     Hero
 
-{{/* ---------------------------------------------------------------
-     Hero and search
+     The hero runs up under the header rather than starting below it: the
+     strip of empty page that used to sit between the two served no purpose.
+     The sponsored banner, when a market has an active one, is laid over the
+     top of the hero instead of pushing it down.
      --------------------------------------------------------------- */}}
-<section class="hero">
+<section class="hero hero--flush">
   <div class="hero__media">
     <img src="/static/img/hero.jpg" alt=""
          srcset="{{ srcset "/static/img/hero.jpg" 800 1400 2000 }}"
          sizes="100vw"
          width="2000" height="1200" fetchpriority="high">
+  </div>
+
+  {{/* Sponsored strip — sits on the hero, and only when the market has an
+       active one. Switched off in admin it simply does not render, and the
+       hero closes up behind it with no gap left over. */}}
+  {{ if .HasBanner }}
+  <div class="container hero__banner-wrap">
+    <aside class="cbanner cbanner--overlay cbanner--{{ .Banner.Theme }}"
+           aria-label="Sponsored offer for {{ .Country.Name }}">
+      <span class="cbanner__icon" aria-hidden="true">{{ template "icon" "card" }}</span>
+      <div class="cbanner__text">
+        <p class="cbanner__sponsor">Sponsored · {{ .Banner.Sponsor }} · {{ .Country.Name }}</p>
+        <p class="cbanner__headline">{{ .Banner.Headline }}</p>
+        <p class="cbanner__body">{{ .Banner.Body }}</p>
+      </div>
+      <a class="btn btn--secondary btn--sm" href="{{ .Banner.CTAHref }}">{{ .Banner.CTALabel }}</a>
+    </aside>
+  </div>
+  {{ end }}
+
+  {{/* Market picker, top-right of the hero (moved off the header). */}}
+  <div class="container hero__market">
+    {{ template "market-picker" dict
+        "Countries" .Countries "Country" .Country
+        "CurrentPath" .CurrentPath "Tone" "light" }}
   </div>
 
   <div class="container">
@@ -150,9 +163,10 @@
       </a>
     </div>
 
-    <div class="grid grid--3">
+    <div class="grid grid--properties">
       {{ range $i, $p := $d.Featured }}
-        {{ template "property-card" dict "Property" $p "Eager" (lt $i 3) }}
+        {{/* Only the first row is eager; the rest lazy-load on scroll. */}}
+        {{ template "property-card" dict "Property" $p "Eager" (lt $i 5) }}
       {{ end }}
     </div>
   </div>

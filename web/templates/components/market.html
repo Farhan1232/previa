@@ -1,0 +1,46 @@
+{{/*
+  Market picker.
+
+  The same control the header used to carry, relocated onto the page banner so
+  it cannot be confused with the language button beside it. Rendered on the
+  homepage hero and above the search results; the header keeps its own copy on
+  every other page.
+
+  Args (dict):
+    Countries    []models.Country  every selectable market
+    Country      models.Country    the active one
+    CurrentPath  string            where to return after switching
+    Tone         "light"|""        light sits on photography, default on a surface
+*/}}
+{{ define "market-picker" }}
+{{ $tone := "" }}{{ if hasField . "Tone" }}{{ $tone = .Tone }}{{ end }}
+<div class="market-picker{{ if $tone }} market-picker--{{ $tone }}{{ end }}"
+     x-data="previaMenu()" @keydown.escape.window="close()">
+  <button type="button" class="market-picker__btn" @click="toggle()" :aria-expanded="open"
+          aria-haspopup="true" aria-label="Change market — currently {{ .Country.Name }}">
+    {{ template "flag" .Country.Code }}
+    <span>{{ .Country.Code }}</span>
+    {{ template "icon" "chevron-down" }}
+  </button>
+
+  <div class="dropdown dropdown--right" x-show="open" x-cloak
+       x-transition.opacity.duration.150ms @click.outside="close()">
+    <div class="menu" role="menu">
+      <p class="menu__label">Choose your market</p>
+      {{ $active := .Country.Code }}{{ $path := .CurrentPath }}
+      {{ range .Countries }}
+      <a class="menu__item {{ if eq .Code $active }}is-active{{ end }}" role="menuitem"
+         href="/set-country?code={{ .Code }}&return={{ $path }}">
+        {{ template "flag" .Code }}
+        <span>{{ .Name }}</span>
+        {{ if eq .Code $active }}<span class="spacer"></span>{{ template "icon" "check" }}{{ end }}
+      </a>
+      {{ end }}
+      <div class="menu__divider"></div>
+      <button type="button" class="menu__item" @click="$dispatch('previa-locate'); close()">
+        {{ template "icon" "map-pin" }} Detect my location
+      </button>
+    </div>
+  </div>
+</div>
+{{ end }}

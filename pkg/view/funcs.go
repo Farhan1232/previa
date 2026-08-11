@@ -45,6 +45,7 @@ func Funcs() template.FuncMap {
 		"queryDrop":   QueryDrop,
 		"propertyURL": PropertyURL,
 		"mapsURL":     MapsURL,
+		"langFlag":    LangFlag,
 		"srcset":      Srcset,
 
 		// logic helpers
@@ -397,6 +398,33 @@ func PropertyURL(p models.Property) string { return "/property/" + p.Slug }
 // MapsURL is an external directions link for the location section.
 func MapsURL(c models.Coordinates) string {
 	return fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", c.Lat, c.Lng)
+}
+
+// langFlags maps an interface language onto the country whose flag represents
+// it. The flag component is keyed by country code, not language code, and the
+// two only coincide by accident — "en" is drawn with the British flag, "cs"
+// with the Czech one.
+var langFlags = map[string]string{
+	"en": "GB",
+	"de": "DE",
+	"es": "ES",
+	"et": "EE",
+	"fi": "FI",
+	"pt": "PT",
+	"nl": "NL",
+	"cs": "CZ",
+}
+
+// LangFlag returns the country code whose flag stands for a language.
+//
+// Falls back to Great Britain rather than an empty string: the flag component
+// renders nothing for an unknown code, which would leave a ragged gap in the
+// language menu instead of a slightly wrong flag.
+func LangFlag(lang string) string {
+	if c, ok := langFlags[strings.ToLower(lang)]; ok {
+		return c
+	}
+	return "GB"
 }
 
 // ---------------------------------------------------------------------------

@@ -34,8 +34,32 @@
           <span class="filter-reopen__count">{{ $d.Filter.ActiveCount }}</span>
           {{ end }}
         </button>
-        <a class="btn btn--quiet btn--sm" href="{{ queryAdd .Query "view" "grid" }}"
-           aria-label="Switch to grid view">{{ template "icon" "grid" }}</a>
+        {{/*
+          List / Grid for the results beside the map.
+
+          Both are real, and both switch in place: the handler only changes a
+          class on the results container, so no request is made and the
+          filters, the market, the map viewport and any open marker popup all
+          survive the switch. The grid button used to be a link to the separate
+          grid page, which threw the map away entirely.
+
+          The active option is marked by background, weight and aria-pressed,
+          not by colour alone.
+        */}}
+        <div class="segmented segmented--sm view-switch" role="group" aria-label="Results layout">
+          {{/* aria-label as well as the visible word: the labels are hidden
+               on a narrow toolbar, leaving icon-only buttons. */}}
+          <button type="button" class="segmented__item" @click="setListMode('list')"
+                  :class="{ 'is-on': listMode === 'list' }"
+                  :aria-pressed="listMode === 'list'" aria-label="Show results as a list">
+            {{ template "icon" "list" }} <span>List</span>
+          </button>
+          <button type="button" class="segmented__item" @click="setListMode('grid')"
+                  :class="{ 'is-on': listMode === 'grid' }"
+                  :aria-pressed="listMode === 'grid'" aria-label="Show results as a grid">
+            {{ template "icon" "grid" }} <span>Grid</span>
+          </button>
+        </div>
         <button type="button" class="icon-btn map-results__collapse" @click="togglePanel()"
                 aria-label="Hide results panel">{{ template "icon" "chevron-left" }}</button>
       </div>

@@ -18,23 +18,27 @@ import (
 func Funcs() template.FuncMap {
 	return template.FuncMap{
 		// formatting
-		"money":        Money,
-		"moneyShort":   MoneyShort,
-		"number":       Number,
-		"area":         Area,
-		"pricePerM2":   PricePerM2,
-		"date":         Date,
-		"dateLong":     DateLong,
-		"timeAgo":      TimeAgo,
-		"pluralize":    Pluralize,
-		"truncate":     Truncate,
-		"initials":     Initials,
-		"percent":      Percent,
+		"money":      Money,
+		"moneyShort": MoneyShort,
+		"number":     Number,
+		"area":       Area,
+		"pricePerM2": PricePerM2,
+		"date":       Date,
+		"dateLong":   DateLong,
+		"timeAgo":    TimeAgo,
+		"pluralize":  Pluralize,
+		"truncate":   Truncate,
+		"initials":   Initials,
+		"percent":    Percent,
 
 		// labels
 		"typeLabel":      data.TypeLabel,
 		"conditionLabel": data.ConditionLabel,
 		"dealLabel":      DealLabel,
+		"dealTypes":      func() any { return models.DealTypes },
+		"propertyTypes":  func() any { return models.PropertyTypes },
+		"placeIcon":      PlaceIcon,
+		"placeLabel":     PlaceLabel,
 		"statusLabel":    StatusLabel,
 		"statusTone":     StatusTone,
 		"paymentTone":    PaymentTone,
@@ -46,13 +50,19 @@ func Funcs() template.FuncMap {
 		"propertyURL": PropertyURL,
 		"mapsURL":     MapsURL,
 		"langFlag":    LangFlag,
+		"flagPath":    FlagPath,
 		"srcset":      Srcset,
 
 		// logic helpers
-		"add":      func(a, b int) int { return a + b },
-		"sub":      func(a, b int) int { return a - b },
-		"mul":      func(a, b int) int { return a * b },
-		"mod":      func(a, b int) int { if b == 0 { return 0 }; return a % b },
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"mul": func(a, b int) int { return a * b },
+		"mod": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a % b
+		},
 		"seq":      Seq,
 		"pctOf":    PctOf,
 		"pctOfF":   PctOfF,
@@ -60,7 +70,12 @@ func Funcs() template.FuncMap {
 		"list":     func(v ...any) []any { return v },
 		"default":  Default,
 		"hasField": HasField,
-		"divf":     func(a, b float64) float64 { if b == 0 { return 0 }; return a / b },
+		"divf": func(a, b float64) float64 {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
 		"maxf":     math.Max,
 		"json":     JSONAttr,
 		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
@@ -240,10 +255,14 @@ func Percent(n int) string { return strconv.Itoa(n) + "%" }
 
 // DealLabel renders the deal type for badges.
 func DealLabel(d models.DealType) string {
-	if d == models.DealRent {
+	switch d {
+	case models.DealRent:
 		return "For rent"
+	case models.DealShortRent:
+		return "Short rent"
+	default:
+		return "For sale"
 	}
-	return "For sale"
 }
 
 // StatusLabel renders a listing status.
@@ -300,12 +319,16 @@ func PaymentTone(s models.PaymentStatus) string {
 // MethodLabel renders a payment provider name.
 func MethodLabel(m string) string {
 	switch m {
+	case "card":
+		return "Credit card"
 	case "stripe":
-		return "Card (Stripe)"
+		return "Stripe"
 	case "paypal":
 		return "PayPal"
 	case "paysera":
-		return "Paysera bank link"
+		return "Paysera bank links"
+	case "crypto":
+		return "Crypto (NOWPayments)"
 	}
 	return m
 }
@@ -520,4 +543,50 @@ func HasField(m map[string]any, key string) bool {
 func JSONAttr(s string) template.JS {
 	r := strings.NewReplacer(`\`, `\\`, `'`, `\'`, `"`, `\"`, "\n", `\n`, "\r", "", "<", `<`, ">", `>`, "&", `&`)
 	return template.JS(r.Replace(s))
+}
+
+// PlaceIcon maps a location-suggestion kind onto an icon name, so a country,
+// a city and a street are distinguishable in the list at a glance rather than
+// only by reading the label.
+func PlaceIcon(kind string) string {
+	switch kind {
+	case models.PlaceCountry:
+		return "globe"
+	case models.PlaceCity:
+		return "building"
+	case models.PlaceDistrict:
+		return "layers"
+	case models.PlaceStreet:
+		return "map"
+	default:
+		return "map-pin"
+	}
+}
+
+// PlaceLabel is the human name for a suggestion kind, shown as the right-hand
+// caption on each row.
+func PlaceLabel(kind string) string {
+	switch kind {
+	case models.PlaceCountry:
+		return "Country"
+	case models.PlaceCity:
+		return "City"
+	case models.PlaceDistrict:
+		return "District"
+	case models.PlaceStreet:
+		return "Street"
+	default:
+		return "Address"
+	}
+}
+
+// FlagPath returns the local SVG flag URL for a country code, or "" when no
+// flag ships for it. The template renders a neutral placeholder for "" rather
+// than an <img> that would 404.
+func FlagPath(code string) string {
+	path, ok := assets.FlagPath(code)
+	if !ok {
+		return ""
+	}
+	return path
 }

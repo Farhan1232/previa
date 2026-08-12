@@ -59,11 +59,18 @@ type PageData struct {
 	CurrentPath string
 	Query       url.Values
 
-	Country     models.Country
-	Countries   []models.Country
-	Languages   []models.Language
-	Banner      models.Banner
-	HasBanner   bool
+	Country   models.Country
+	Countries []models.Country
+	// AllCountries is every selectable market. OtherCountries is that list
+	// without the seeded ones, which is what the selector renders below its
+	// "With listings" group. Countries stays the short seeded set, still used
+	// where a compact list is wanted (the drawer's country pills, the city
+	// datalist).
+	AllCountries   []models.Country
+	OtherCountries []models.Country
+	Languages      []models.Language
+	Banner         models.Banner
+	HasBanner      bool
 
 	// MarketInBanner moves the country selector out of the header and onto the
 	// page's banner. Set by pages that render one (home, search); everywhere
@@ -78,8 +85,8 @@ type PageData struct {
 	User        models.User
 	UnreadCount int
 
-	MapsKey  string
-	HasMaps  bool
+	MapsKey string
+	HasMaps bool
 	// NeedsMap loads Leaflet only on pages that actually render a map, so the
 	// homepage and account screens do not pay for it.
 	NeedsMap bool
@@ -123,21 +130,23 @@ func (h *Handler) base(r *http.Request, nav, title, desc string) PageData {
 			OGType:      "website",
 			Alternates:  alts,
 		},
-		Nav:         nav,
-		Lang:        lang,
-		LangName:    langName(langs, lang),
-		CurrentPath: path,
-		Query:       r.URL.Query(),
-		Country:     country,
-		Countries:   h.Store.Catalog.Countries(ctx),
-		Languages:   langs,
-		Banner:      banner,
-		HasBanner:   hasBanner,
-		User:        h.Store.Account.CurrentUser(ctx),
-		UnreadCount: h.Store.Account.UnreadCount(ctx),
-		MapsKey:     h.Cfg.MapsKey,
-		HasMaps:     h.Cfg.MapsKey != "",
-		Now:         time.Now(),
+		Nav:            nav,
+		Lang:           lang,
+		LangName:       langName(langs, lang),
+		CurrentPath:    path,
+		Query:          r.URL.Query(),
+		Country:        country,
+		Countries:      h.Store.Catalog.Countries(ctx),
+		AllCountries:   h.Store.Catalog.AllCountries(ctx),
+		OtherCountries: h.Store.Catalog.OtherCountries(ctx),
+		Languages:      langs,
+		Banner:         banner,
+		HasBanner:      hasBanner,
+		User:           h.Store.Account.CurrentUser(ctx),
+		UnreadCount:    h.Store.Account.UnreadCount(ctx),
+		MapsKey:        h.Cfg.MapsKey,
+		HasMaps:        h.Cfg.MapsKey != "",
+		Now:            time.Now(),
 	}
 }
 

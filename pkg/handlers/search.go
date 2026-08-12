@@ -60,7 +60,7 @@ func buildMapConfig(items []models.Property, c models.Country, key string) templ
 			ID: p.ID, Title: p.Title,
 			Price: view.MoneyShort(p.Price), Full: view.Money(p.Price),
 			Lat: p.Coords.Lat, Lng: p.Coords.Lng,
-			URL:  view.PropertyURL(p), Type: data.TypeLabel(p.Type), City: p.City,
+			URL: view.PropertyURL(p), Type: data.TypeLabel(p.Type), City: p.City,
 			Rooms: p.Rooms, Area: view.Area(p.Area),
 			Featured: p.IsFeatured, Images: imgs,
 		})
@@ -103,11 +103,13 @@ type SearchData struct {
 	Favourites map[string]bool
 	Countries  []models.Country
 	Cities     []string
-	SortLabel  string
-	TypeOpts   []Option
-	CondOpts   []Option
-	MapConfig  template.JS
-	MapPoints  []models.Property
+	// LocationSuggestions backs the single Location field in the sidebar.
+	LocationSuggestions []models.LocationSuggestion
+	SortLabel           string
+	TypeOpts            []Option
+	CondOpts            []Option
+	MapConfig           template.JS
+	MapPoints           []models.Property
 }
 
 // Option is one checkbox choice in the filter panel. Building these in Go keeps
@@ -120,25 +122,21 @@ type Option struct {
 }
 
 // typeOptions builds the property-type checkboxes with their current state.
+// typeOptions builds the property-type checkboxes with their current state.
+//
+// Property type is a multiple-choice filter: the client asked for House,
+// Modular house and Panelized house to be selectable together, matching any of
+// them. So every catalogue entry reports its own checked state and several can
+// be on at once.
 func typeOptions(f data.PropertyFilter) []Option {
-	defs := []struct{ v models.PropertyType; icon string }{
-		{models.TypeApartment, "building"},
-		{models.TypeHouse, "home"},
-		{models.TypeVilla, "villa"},
-		{models.TypeCommercial, "commercial"},
-		{models.TypeLand, "land"},
-		{models.TypeGarage, "garage"},
+	on := make(map[models.PropertyType]bool, len(f.Types))
+	for _, t := range f.Types {
+		on[t] = true
 	}
-	out := make([]Option, 0, len(defs))
-	for _, d := range defs {
-		on := false
-		for _, t := range f.Types {
-			if t == d.v {
-				on = true
-			}
-		}
+	out := make([]Option, 0, len(models.PropertyTypes))
+	for _, t := range models.PropertyTypes {
 		out = append(out, Option{
-			Value: string(d.v), Label: data.TypeLabel(d.v), Icon: d.icon, Checked: on,
+			Value: string(t.Value), Label: t.Label, Icon: t.Icon, Checked: on[t.Value],
 		})
 	}
 	return out
@@ -185,6 +183,21 @@ func (h *Handler) SearchResults(w http.ResponseWriter, r *http.Request) {
 	pd, sd := h.searchPayload(r)
 	pd.Data = sd
 
+	// Tell the browser to show /search, not this fragment endpoint.
+	//
+	// The filter form pushes the URL it requested, which is /search/results —
+	// so after any filter change the address bar pointed at a fragment, and
+	// reloading or sharing that link returned bare markup with no layout. The
+	// header names the page the query belongs to; the parameters, including
+	// every repeated property_type, are carried across untouched.
+	if isHTMX(r) {
+		push := "/search"
+		if q := r.URL.RawQuery; q != "" {
+			push += "?" + q
+		}
+		w.Header().Set("HX-Push-Url", push)
+	}
+
 	block := "results-region"
 	if sd.View == data.ViewMap || sd.View == data.ViewFull {
 		block = "map-results-region"
@@ -198,6 +211,11 @@ func (h *Handler) searchPayload(r *http.Request) (PageData, SearchData) {
 	q := r.URL.Query()
 
 	f := data.ParseFilter(q, multiFunc(q))
+
+	// The Location box submits one label; turn it into the country/city/
+	// district/address the matcher works with. Done here rather than inside
+	// ParseFilter because it needs the store's suggestion list.
+	data.ApplyLocation(&f, h.Store.Catalog.ResolveLocation)
 
 	// The map views plot every match, so they do not paginate the sidebar as
 	// aggressively as the grid does.
@@ -226,10 +244,13 @@ func (h *Handler) searchPayload(r *http.Request) (PageData, SearchData) {
 	}
 
 	title := "Property search"
-	if f.Deal == models.DealSale {
+	switch f.Deal {
+	case models.DealSale:
 		title = "Property for sale"
-	} else if f.Deal == models.DealRent {
+	case models.DealRent:
 		title = "Property to rent"
+	case models.DealShortRent:
+		title = "Property for short rent"
 	}
 	if f.City != "" {
 		title += " in " + f.City
@@ -250,18 +271,19 @@ func (h *Handler) searchPayload(r *http.Request) (PageData, SearchData) {
 	}
 
 	return pd, SearchData{
-		Result:     result,
-		Filter:     f,
-		Chips:      f.Chips(),
-		View:       mode,
-		Favourites: favs,
-		Countries:  h.Store.Catalog.Countries(ctx),
-		Cities:     cities,
-		SortLabel:  sortLabel(f.Sort),
-		TypeOpts:   typeOptions(f),
-		CondOpts:   conditionOptions(f),
-		MapConfig:  buildMapConfig(result.MapPoints, pd.Country, h.Cfg.MapsKey),
-		MapPoints:  result.MapPoints,
+		Result:              result,
+		Filter:              f,
+		Chips:               f.Chips(),
+		View:                mode,
+		Favourites:          favs,
+		Countries:           h.Store.Catalog.Countries(ctx),
+		Cities:              cities,
+		LocationSuggestions: h.Store.Catalog.LocationSuggestions(ctx),
+		SortLabel:           sortLabel(f.Sort),
+		TypeOpts:            typeOptions(f),
+		CondOpts:            conditionOptions(f),
+		MapConfig:           buildMapConfig(result.MapPoints, pd.Country, h.Cfg.MapsKey),
+		MapPoints:           result.MapPoints,
 	}
 }
 

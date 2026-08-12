@@ -32,8 +32,8 @@ type ViewMode string
 const (
 	ViewGrid ViewMode = "grid"
 	ViewList ViewMode = "list"
-	ViewMap  ViewMode = "map"   // split: results left, map right
-	ViewFull ViewMode = "full"  // full-screen map
+	ViewMap  ViewMode = "map"  // split: results left, map right
+	ViewFull ViewMode = "full" // full-screen map
 )
 
 // PropertyFilter carries every supported search parameter. A SQL provider
@@ -47,35 +47,40 @@ type PropertyFilter struct {
 	// CountryName is filled in by the handler so the active-filter chip can
 	// show "Germany" rather than "DE". It is never used for matching.
 	CountryName string
-	City        string
-	District    string
-	Address     string
-	Types       []models.PropertyType
-	PriceMin    *float64
-	PriceMax    *float64
-	Currency    string
-	Rooms       int
-	Bedrooms    int
-	Bathrooms   int
-	AreaMin     *float64
-	AreaMax     *float64
-	LandAreaMin *float64
-	YearMin     int
-	YearMax     int
-	Conditions  []models.Condition
-	Furnished   bool
-	Parking     bool
-	Balcony     bool
-	Garden      bool
-	Elevator    bool
-	EnergyRating string
-	SellerKind  models.SellerKind
+	// LocationLabel is what the single Location field showed. It is the value
+	// round-tripped in the `location` query parameter and redisplayed in the
+	// field; the City/District/Address fields below are what actually match,
+	// filled in by ResolveLocationInto from the chosen suggestion.
+	LocationLabel  string
+	City           string
+	District       string
+	Address        string
+	Types          []models.PropertyType
+	PriceMin       *float64
+	PriceMax       *float64
+	Currency       string
+	Rooms          int
+	Bedrooms       int
+	Bathrooms      int
+	AreaMin        *float64
+	AreaMax        *float64
+	LandAreaMin    *float64
+	YearMin        int
+	YearMax        int
+	Conditions     []models.Condition
+	Furnished      bool
+	Parking        bool
+	Balcony        bool
+	Garden         bool
+	Elevator       bool
+	EnergyRating   string
+	SellerKind     models.SellerKind
 	NewDevelopment bool
-	FeaturedOnly bool
-	Keyword     string
-	Sort        SortOrder
-	Page        int
-	PerPage     int
+	FeaturedOnly   bool
+	Keyword        string
+	Sort           SortOrder
+	Page           int
+	PerPage        int
 }
 
 // SearchResult is one page of matches plus the metadata the results bar and
@@ -198,6 +203,22 @@ type AccountRepository interface {
 // CatalogRepository serves reference data used across the site.
 type CatalogRepository interface {
 	Countries(ctx context.Context) []models.Country
+	// AllCountries is every selectable market — the seeded ones plus the rest
+	// of the ISO 3166-1 list, which is what the market selector offers.
+	AllCountries(ctx context.Context) []models.Country
+	// OtherCountries is AllCountries without the seeded markets, so a selector
+	// that heads the seeded ones separately does not list them twice.
+	OtherCountries(ctx context.Context) []models.Country
+	// CountryHasListings separates markets with seeded stock from the rest.
+	CountryHasListings(ctx context.Context, code string) bool
+	// LocationSuggestions backs the single Location field used by the homepage
+	// search, the filter sidebar, the map filter and the add-listing form.
+	LocationSuggestions(ctx context.Context) []models.LocationSuggestion
+	// ResolveLocation turns a typed or selected label into a structured place.
+	ResolveLocation(label string) (models.LocationSuggestion, bool)
+	// ReverseGeocode turns a map click into a structured address. Mocked in
+	// this milestone; a Geocoding API call replaces it.
+	ReverseGeocode(lat, lng float64) models.LocationSuggestion
 	Country(ctx context.Context, code string) (models.Country, bool)
 	Banner(ctx context.Context, countryCode string) (models.Banner, bool)
 	// BannerFor returns the banner for a market and placement ("home" or
@@ -251,21 +272,28 @@ type Values interface {
 // degrades to a broader search instead of a failure page.
 func ParseFilter(v Values, multi func(string) []string) PropertyFilter {
 	f := PropertyFilter{
-		Deal:        models.DealType(strings.ToLower(v.Get("deal"))),
-		CountryCode: strings.ToUpper(v.Get("country")),
-		City:        v.Get("city"),
-		District:    v.Get("district"),
-		Address:     v.Get("address"),
-		Currency:    v.Get("currency"),
-		Keyword:     strings.TrimSpace(v.Get("q")),
-		EnergyRating: v.Get("energy"),
-		Sort:        SortOrder(v.Get("sort")),
-		Page:        atoiDefault(v.Get("page"), 1),
-		PerPage:     atoiDefault(v.Get("per_page"), 12),
+		Deal:          models.DealType(strings.ToLower(v.Get("deal"))),
+		CountryCode:   strings.ToUpper(v.Get("country")),
+		LocationLabel: strings.TrimSpace(v.Get("location")),
+		City:          v.Get("city"),
+		District:      v.Get("district"),
+		Address:       v.Get("address"),
+		Currency:      v.Get("currency"),
+		Keyword:       strings.TrimSpace(v.Get("q")),
+		EnergyRating:  v.Get("energy"),
+		Sort:          SortOrder(v.Get("sort")),
+		Page:          atoiDefault(v.Get("page"), 1),
+		PerPage:       atoiDefault(v.Get("per_page"), 12),
 	}
 
-	if f.Deal != models.DealSale && f.Deal != models.DealRent {
-		f.Deal = ""
+	// Deal type always has one of the three selected — the client asked for
+	// Sell to be the state a visitor arrives in. There is no "any deal type":
+	// with the Any option removed, an unset or unrecognised value falls back
+	// to Sell rather than quietly widening the search to everything.
+	switch f.Deal {
+	case models.DealSale, models.DealRent, models.DealShortRent:
+	default:
+		f.Deal = models.DealSale
 	}
 	if f.Sort == "" {
 		f.Sort = SortNewest
@@ -277,14 +305,24 @@ func ParseFilter(v Values, multi func(string) []string) PropertyFilter {
 		f.Page = 1
 	}
 
-	// Property type is a single choice in the UI. A hand-edited or stale URL
-	// carrying several values would leave the radio group showing one thing
-	// while the server filtered on another, so only the first is honoured.
-	for _, t := range multi("type") {
-		if t != "" {
-			f.Types = []models.PropertyType{models.PropertyType(t)}
-			break
+	// Property type is a multiple choice: the client asked for House, Modular
+	// house and Panelized house to be selectable together, so every value is
+	// kept and a listing matches when its type is any one of them (see
+	// containsType in the matcher — OR, not AND).
+	//
+	// The parameter is repeated: property_type=house&property_type=cottage.
+	// `type` is still read so links and bookmarks from the single-select
+	// version keep working; both feed the same field.
+	seenType := map[string]bool{}
+	for _, raw := range append(multi("property_type"), multi("type")...) {
+		v := strings.ToLower(strings.TrimSpace(raw))
+		// An unknown value would filter on nothing and silently return an
+		// empty page, so a hand-edited URL is ignored rather than obeyed.
+		if v == "" || seenType[v] || !models.IsPropertyType(v) {
+			continue
 		}
+		seenType[v] = true
+		f.Types = append(f.Types, models.PropertyType(v))
 	}
 	for _, c := range multi("condition") {
 		if c != "" {
@@ -336,10 +374,13 @@ func (f PropertyFilter) Chips() []ActiveChip {
 		out = append(out, ActiveChip{Label: label, Key: key, Value: value})
 	}
 
-	if f.Deal == models.DealSale {
-		add("For sale", "deal", "")
-	} else if f.Deal == models.DealRent {
-		add("For rent", "deal", "")
+	switch f.Deal {
+	case models.DealSale:
+		add("Sell", "deal", "")
+	case models.DealRent:
+		add("Rent", "deal", "")
+	case models.DealShortRent:
+		add("Short rent", "deal", "")
 	}
 	if f.CountryCode != "" {
 		label := f.CountryName
@@ -354,8 +395,10 @@ func (f PropertyFilter) Chips() []ActiveChip {
 	if f.District != "" {
 		add(f.District, "district", "")
 	}
+	// One chip per selected property type, so any single one can be removed
+	// without clearing the rest of the selection.
 	for _, t := range f.Types {
-		add(TypeLabel(t), "type", string(t))
+		add(TypeLabel(t), "property_type", string(t))
 	}
 	switch {
 	case f.PriceMin != nil && f.PriceMax != nil:
@@ -481,21 +524,13 @@ func formatThousands(f float64) string {
 	return b.String()
 }
 
-// TypeLabel is the human-readable name of a property type.
+// TypeLabel is the human-readable name of a property category, from the single
+// catalogue in package models.
 func TypeLabel(t models.PropertyType) string {
-	switch t {
-	case models.TypeApartment:
-		return "Apartment"
-	case models.TypeHouse:
-		return "House"
-	case models.TypeVilla:
-		return "Villa"
-	case models.TypeCommercial:
-		return "Commercial"
-	case models.TypeLand:
-		return "Land"
-	case models.TypeGarage:
-		return "Garage"
+	for _, pt := range models.PropertyTypes {
+		if pt.Value == t {
+			return pt.Label
+		}
 	}
 	return string(t)
 }

@@ -24,8 +24,11 @@
       {{ template "icon" "file" }} Drafts
       {{ if index $c "drafts" }}<span class="side-nav__badge">{{ index $c "drafts" }}</span>{{ end }}
     </a>
+    {{/* Wording matches the header exactly — "add listing", no plus. The
+         "edit" icon keeps the row aligned with its neighbours without
+         reintroducing the plus the client asked to remove. */}}
     <a class="side-nav__link" href="/add-listing">
-      {{ template "icon" "plus" }} Add listing
+      {{ template "icon" "edit" }} add listing
     </a>
   </div>
 

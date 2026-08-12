@@ -60,3 +60,32 @@ func itoa(n int) string {
 	}
 	return string(b[i:])
 }
+
+// ---------------------------------------------------------------------------
+// Country flags
+// ---------------------------------------------------------------------------
+
+// FlagPath returns the URL of the local SVG flag for an ISO 3166-1 alpha-2
+// country code, and whether one exists.
+//
+// Callers must check ok before rendering an <img>: emitting a src for a code
+// with no file behind it is what produces a broken-image placeholder, which is
+// worse than the neutral fallback the template draws instead.
+func FlagPath(code string) (string, bool) {
+	c := strings.ToUpper(strings.TrimSpace(code))
+	if _, ok := flagSet[c]; !ok {
+		return "", false
+	}
+	return "/static/img/flags/" + strings.ToLower(c) + ".svg", true
+}
+
+// FlagCodes returns every country code with a local flag, for verification.
+func FlagCodes() []string { return flagCodes }
+
+var flagSet = func() map[string]struct{} {
+	m := make(map[string]struct{}, len(flagCodes))
+	for _, c := range flagCodes {
+		m[c] = struct{}{}
+	}
+	return m
+}()

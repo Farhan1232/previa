@@ -35,53 +35,42 @@
           no way back.
         */}}
         {{ if not .MarketInBanner }}
-        <div class="header__desktop-only" x-data="previaMenu()" @keydown.escape.window="close()">
-          <button type="button" class="icon-btn" @click="toggle()" :aria-expanded="open"
-                  aria-haspopup="true" aria-label="Change country — currently {{ .Country.Name }}">
-            {{ template "flag" .Country.Code }}
-            <span class="text-sm">{{ .Country.Code }}</span>
-            {{ template "icon" "chevron-down" }}
-          </button>
-          <div class="dropdown" x-show="open" x-cloak x-transition.opacity.duration.150ms
-               @click.outside="close()">
-            <div class="menu" role="menu">
-              <p class="menu__label">Choose your market</p>
-              {{ range .Countries }}
-              <a class="menu__item {{ if eq .Code $.Country.Code }}is-active{{ end }}"
-                 role="menuitem" href="/set-country?code={{ .Code }}&return={{ $.CurrentPath }}">
-                {{ template "flag" .Code }}
-                <span>{{ .Name }}</span>
-                {{ if eq .Code $.Country.Code }}<span class="spacer"></span>{{ template "icon" "check" }}{{ end }}
-              </a>
-              {{ end }}
-              <div class="menu__divider"></div>
-              <button type="button" class="menu__item" @click="$dispatch('previa-locate'); close()">
-                {{ template "icon" "map-pin" }} Detect my location
-              </button>
-            </div>
-          </div>
+        <div class="header__desktop-only">
+          {{/* The same searchable control the hero and search banner use, so
+               the country list behaves identically wherever it is opened. */}}
+          {{ template "market-picker" dict
+              "Countries" .OtherCountries "Seeded" .Countries "Country" .Country
+              "CurrentPath" .CurrentPath }}
         </div>
         {{ end }}
 
-        {{/* Language selector — flag led, so it reads as a language at a glance */}}
+        {{/*
+          Language selector — flag led, so it reads as a language at a glance.
+
+          Flag and full language name, and nothing else. The two-letter code
+          duplicated what the flag already said, and the translation
+          percentage was progress reporting aimed at whoever maintains the
+          strings, not at a visitor picking a language. Both are gone at the
+          client's request; the percentages still live in the admin languages
+          screen, where they belong.
+        */}}
         <div class="header__desktop-only" x-data="previaMenu()" @keydown.escape.window="close()">
-          <button type="button" class="icon-btn" @click="toggle()" :aria-expanded="open"
+          <button type="button" class="icon-btn icon-btn--lang" @click="toggle()" :aria-expanded="open"
                   aria-haspopup="true" aria-label="Change language — currently {{ .LangName }}">
             {{ template "flag" (langFlag .Lang) }}
-            <span class="text-sm lang-code">{{ .Lang }}</span>
+            <span class="text-sm">{{ .LangName }}</span>
           </button>
           <div class="dropdown" x-show="open" x-cloak x-transition.opacity.duration.150ms
                @click.outside="close()">
-            <div class="menu" role="menu">
+            <div class="menu lang-menu" role="menu">
               <p class="menu__label">Language</p>
               {{ range .Languages }}
               {{ if .IsEnabled }}
               <a class="menu__item {{ if eq .Code $.Lang }}is-active{{ end }}" role="menuitem"
                  href="/{{ .Code }}{{ $.CurrentPath }}">
                 {{ template "flag" (langFlag .Code) }}
-                <span class="lang-code">{{ .Code }}</span>
-                <span>{{ .NativeName }}</span>
-                {{ if not .IsDefault }}<span class="text-xs subtle">{{ .Progress }}%</span>{{ end }}
+                <span>{{ .Name }}</span>
+                {{ if eq .Code $.Lang }}<span class="spacer"></span>{{ template "icon" "check" }}{{ end }}
               </a>
               {{ end }}
               {{ end }}
@@ -104,11 +93,18 @@
             {{ if .UnreadCount }}<span class="icon-btn__dot" aria-hidden="true"></span>{{ end }}
           </a>
 
+          {{/*
+            Account button.
+
+            A rounded rectangle rather than a disc, and no chevron: the client
+            asked for both. The initials alone carry the button, which lines it
+            up with the language, theme and Add listing controls beside it
+            instead of reading as a different species of control.
+          */}}
           <div class="header__desktop-only" x-data="previaMenu()" @keydown.escape.window="close()">
-            <button type="button" class="icon-btn" @click="toggle()" :aria-expanded="open"
-                    aria-haspopup="true" aria-label="Account menu">
-              <span class="avatar avatar--sm">{{ initials .User.Name }}</span>
-              {{ template "icon" "chevron-down" }}
+            <button type="button" class="user-btn" @click="toggle()" :aria-expanded="open"
+                    aria-haspopup="true" aria-label="Account menu — {{ .User.Name }}">
+              <span class="user-btn__initials">{{ initials .User.Name }}</span>
             </button>
             <div class="dropdown dropdown--right" x-show="open" x-cloak
                  x-transition.opacity.duration.150ms @click.outside="close()">
@@ -135,10 +131,19 @@
           <span>add listing</span>
         </a>
 
-        {{/* Mobile menu trigger */}}
-        <button type="button" class="icon-btn header__burger" @click="openMenu()"
-                :aria-expanded="menuOpen" aria-controls="mobile-drawer" aria-label="Open menu">
-          {{ template "icon" "menu" }}
+        {{/*
+          Navigation menu trigger.
+
+          A sidebar/panel icon rather than a hamburger, and transparent rather
+          than the green-bordered box it used to sit in — the client asked for
+          both. The same icon and treatment are used by the floating control
+          below, so the two read as one control that moves rather than two
+          different buttons.
+        */}}
+        <button type="button" class="menu-trigger header__burger" @click="openMenu()"
+                :aria-expanded="menuOpen" aria-controls="mobile-drawer"
+                aria-label="Open navigation menu">
+          {{ template "icon" "sidebar-menu" }}
         </button>
       </div>
     </div>
@@ -154,11 +159,11 @@
     context can clip it.
   */}}
   <template x-teleport="body">
-    <button type="button" class="floating-menu" x-show="pastHeader" x-cloak
+    <button type="button" class="menu-trigger floating-menu" x-show="pastHeader" x-cloak
             x-transition.opacity.duration.200ms
             @click="openMenu()" :aria-expanded="menuOpen"
-            aria-controls="mobile-drawer" aria-label="Open menu">
-      {{ template "icon" "menu" }}
+            aria-controls="mobile-drawer" aria-label="Open navigation menu">
+      {{ template "icon" "sidebar-menu" }}
     </button>
   </template>
 
@@ -183,8 +188,11 @@
 
         <div class="drawer__body">
           <nav class="drawer__nav" aria-label="Mobile">
-            <a class="drawer__link" href="/search?deal=sale">{{ template "icon" "search" }} Buy</a>
+            {{/* The same three deal types as the search filters, so the
+                 wording is identical wherever a visitor meets it. */}}
+            <a class="drawer__link" href="/search?deal=sale">{{ template "icon" "home" }} Sell</a>
             <a class="drawer__link" href="/search?deal=rent">{{ template "icon" "key" }} Rent</a>
+            <a class="drawer__link" href="/search?deal=short_rent">{{ template "icon" "calendar" }} Short rent</a>
             <a class="drawer__link" href="/articles">{{ template "icon" "file" }} Articles</a>
             <a class="drawer__link" href="/brokers">{{ template "icon" "users" }} Brokers</a>
             <a class="drawer__link" href="/developments">{{ template "icon" "building" }} Developments</a>
@@ -227,7 +235,7 @@
         </div>
 
         <div class="drawer__footer">
-          <a class="btn btn--primary btn--block" href="/add-listing">Add listing</a>
+          <a class="btn btn--primary btn--block" href="/add-listing">add listing</a>
         </div>
       </div>
     </div>

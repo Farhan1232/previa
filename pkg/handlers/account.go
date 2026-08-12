@@ -151,12 +151,44 @@ func (h *Handler) Billing(w http.ResponseWriter, r *http.Request) {
 	h.View.Render(w, http.StatusOK, "account/billing", pd)
 }
 
+// PayMethod is one payment choice on the checkout screen.
+type PayMethod struct {
+	Value    string
+	Label    string
+	Hint     string
+	Logo     string // key into the "pay-logo" template
+	Checked  bool
+	Disabled bool
+}
+
+// payMethods is the list the client asked for, in his order.
+//
+// "Credit card" and "Stripe" are separate on purpose. He listed both, and they
+// are two different flows: the first collects the card on Previa with Stripe
+// processing behind it, the second hands the payer to Stripe's hosted checkout.
+// Neither is dropped without him saying which he meant.
+//
+// Nothing here contacts a provider in this milestone — see CheckoutProcess.
+var payMethods = []PayMethod{
+	{Value: "card", Label: "Credit card", Logo: "card", Checked: true,
+		Hint: "Visa, Mastercard or American Express. Processed through Stripe."},
+	{Value: "paypal", Label: "PayPal", Logo: "paypal",
+		Hint: "You'll be redirected to PayPal to approve the payment."},
+	{Value: "stripe", Label: "Stripe", Logo: "stripe",
+		Hint: "Pay on Stripe's own checkout — wallets, saved cards and local methods."},
+	{Value: "paysera", Label: "Paysera bank links", Logo: "paysera",
+		Hint: "Pay directly from an Estonian, Latvian or Lithuanian bank account."},
+	{Value: "crypto", Label: "Crypto", Logo: "crypto",
+		Hint: "Bitcoin, Ethereum and stablecoins through NOWPayments."},
+}
+
 // CheckoutData drives the demonstration payment flow.
 type CheckoutData struct {
 	Package  models.Package
 	Packages []models.Package
 	State    string // "select" | "processing" | "success" | "failed" | "cancelled"
 	Method   string
+	Methods  []PayMethod
 }
 
 // Checkout renders the package checkout screen.
@@ -181,7 +213,20 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 
 	pd := h.base(r, "", "Checkout — Previa", "Complete your Previa listing package purchase.")
 	pd.Meta.NoIndex = true
-	pd.Data = CheckoutData{Package: selected, Packages: pkgs, State: state, Method: q.Get("method")}
+	// Re-check whichever method the visitor last chose, so a failed payment
+	// returns to the same row rather than resetting to the default.
+	methods := make([]PayMethod, len(payMethods))
+	copy(methods, payMethods)
+	if m := q.Get("method"); m != "" {
+		for i := range methods {
+			methods[i].Checked = methods[i].Value == m
+		}
+	}
+
+	pd.Data = CheckoutData{
+		Package: selected, Packages: pkgs, State: state,
+		Method: q.Get("method"), Methods: methods,
+	}
 	h.View.Render(w, http.StatusOK, "account/checkout", pd)
 }
 
@@ -191,15 +236,20 @@ func (h *Handler) CheckoutProcess(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	method := r.FormValue("method")
 	pkg := r.FormValue("package")
+	action := r.FormValue("action")
 
-	// The demo maps the chosen method onto a deterministic outcome so every
-	// payment state is reachable from the UI.
+	// Each outcome is reachable from the UI, deterministically, so the client
+	// can review all three without any provider being involved. Paysera stands
+	// in for a declined payment and the Cancel button for an abandoned one;
+	// everything else succeeds.
+	//
+	// No provider is contacted, no credentials exist and nothing is stored.
 	state := "success"
-	switch method {
-	case "paysera":
-		state = "failed"
-	case "cancel":
+	switch {
+	case action == "cancel":
 		state = "cancelled"
+	case method == "paysera":
+		state = "failed"
 	}
 
 	http.Redirect(w, r,

@@ -24,58 +24,57 @@
   <div class="filter-panel__body">
 
     {{/*
-      Deal type — a single choice. "Any" is a real option so the filter can be
-      cleared without reaching for Clear all.
+      Deal type — the first thing in the panel, and a single choice.
+
+      A native radio group, so only one can be on, arrow keys move between them
+      and the selection survives an HTMX swap without any bespoke state. The
+      labels are the client's: Sell, Rent, Short rent, the same three words used
+      by the homepage search, the map filter and the add-listing form. "Any" is
+      kept as a real option so the filter can be cleared in place.
     */}}
     <fieldset class="field filter-fieldset">
-      <legend class="field__label">I want to</legend>
-      <div class="segmented segmented--full" role="radiogroup" aria-label="Deal type">
+      <legend class="field__label">Deal type</legend>
+      {{/*
+        Exactly the client's three options — no visible "Any".
+
+        "No deal type" is now the absence of a selection rather than a fourth
+        button: none of the three is checked, the parameter is not submitted,
+        and results come back unfiltered. Clear all returns to that state.
+      */}}
+      <div class="segmented segmented--full segmented--deal" role="radiogroup" aria-label="Deal type">
+        {{ range dealTypes }}
         <label class="segmented__item">
-          <input type="radio" name="deal" value="" {{ if eq (printf "%s" $f.Deal) "" }}checked{{ end }}>
-          <span>Any</span>
+          <input type="radio" name="deal" value="{{ .Value }}"
+                 {{ if eq $f.Deal .Value }}checked{{ end }}>
+          <span>{{ .Label }}</span>
         </label>
-        <label class="segmented__item">
-          <input type="radio" name="deal" value="sale" {{ if eq $f.Deal "sale" }}checked{{ end }}>
-          <span>Buy</span>
-        </label>
-        <label class="segmented__item">
-          <input type="radio" name="deal" value="rent" {{ if eq $f.Deal "rent" }}checked{{ end }}>
-          <span>Rent</span>
-        </label>
+        {{ end }}
       </div>
     </fieldset>
 
-    {{/* Location */}}
-    <div class="filter-group" x-data="{ open: true }">
-      <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
-        Location {{ template "icon" "chevron-down" }}
-      </button>
-      <div class="filter-group__content" x-show="open" x-collapse>
-        <div class="field">
-          <label class="field__label" for="f-country">Country</label>
-          <select class="select" id="f-country" name="country">
-            <option value="">All countries</option>
-            {{ range .Countries }}
-            <option value="{{ .Code }}" {{ if eq .Code $f.CountryCode }}selected{{ end }}>
-              {{ .Name }}
-            </option>
-            {{ end }}
-          </select>
-        </div>
-        <div class="field">
-          <label class="field__label" for="f-city">City or region</label>
-          <input class="input" id="f-city" name="city" type="text" list="filter-cities"
-                 value="{{ $f.City }}" placeholder="Any city" autocomplete="off">
-          <datalist id="filter-cities">
-            {{ range .Data.Cities }}<option value="{{ . }}"></option>{{ end }}
-          </datalist>
-        </div>
-        <div class="field">
-          <label class="field__label" for="f-address">Address or district</label>
-          <input class="input" id="f-address" name="address" type="text"
-                 value="{{ $f.Address }}" placeholder="Street or district">
-        </div>
-      </div>
+    {{/*
+      Location — one field.
+
+      This replaced a country select, a city box and an address box. They asked
+      three questions to answer one, and nothing tied them together: a visitor
+      could pick Germany and type a Spanish city and get nothing back with no
+      explanation. One Google-Maps-style box takes a country, a city, a
+      district, a street or a full address and resolves which of those it is.
+
+      `location` is the single query parameter; the handler still splits it into
+      the country/city/address fields the filter matches on, so the underlying
+      repository contract is untouched and a Places-backed replacement only has
+      to fill the same box.
+    */}}
+    {{/*
+      No collapsible group around it any more. A group header exists to fold
+      away several related controls; with one field left, the header just
+      repeated the field's own label and cost a click to reach it.
+    */}}
+    <div class="filter-group filter-group--flat">
+      {{ template "location-field" dict
+          "ID" "f-location" "Name" "location" "Value" $f.LocationLabel
+          "Suggestions" .Data.LocationSuggestions "Label" "Location" }}
     </div>
 
     {{/* Property type */}}
@@ -85,35 +84,24 @@
       </button>
       <div class="filter-group__content" x-show="open" x-collapse>
         {{/*
-          Exactly one property type may be active. A native radio group gives
-          that behaviour for free — selecting House deselects Apartment, every
-          option stays enabled so the user can switch, and arrow keys move
-          between options. "Any type" clears the choice.
+          Several property types may be active at once — the client asked for
+          House, Modular house and Panelized house to be selectable together,
+          returning listings in any of them.
+
+          Native checkboxes, so multiple selection, the checked state, keyboard
+          operation and screen-reader announcement all come from the platform.
+          They submit as a repeated parameter:
+              property_type=house&property_type=modular-house
+
+          "Any type" is not a category. It carries no name so it is never
+          submitted, and previaTypeFilter() keeps it in step with the rest:
+          ticking it clears the specific types, ticking a specific type clears
+          it, and unticking the last specific type brings it back.
 
           Selection is communicated by border, background, weight and a check
-          icon, not by colour alone.
+          icon — not by colour alone.
         */}}
-        <div class="type-check-grid" role="radiogroup" aria-label="Property type">
-          <label class="type-check type-check--any">
-            <input type="radio" name="type" value=""
-                   {{ if not .Data.Filter.Types }}checked{{ end }}>
-            <span class="type-check__box">
-              {{ template "icon" "layers" }}
-              <span>Any type</span>
-              <span class="type-check__tick">{{ template "icon" "check" }}</span>
-            </span>
-          </label>
-          {{ range .Data.TypeOpts }}
-          <label class="type-check">
-            <input type="radio" name="type" value="{{ .Value }}" {{ if .Checked }}checked{{ end }}>
-            <span class="type-check__box">
-              {{ template "icon" .Icon }}
-              <span>{{ .Label }}</span>
-              <span class="type-check__tick">{{ template "icon" "check" }}</span>
-            </span>
-          </label>
-          {{ end }}
-        </div>
+        {{ template "property-type-grid" dict "Options" .Data.TypeOpts "IDPrefix" "f" }}
       </div>
     </div>
 
@@ -139,12 +127,19 @@
             </span>
           </div>
         </div>
+        {{/*
+          Currency — euro only for now, at the client's request.
+
+          The select is left in place with its one option rather than deleted:
+          the filter, the money formatter and the admin currency table all still
+          carry a currency, so re-enabling a second one is adding an <option>
+          back, not rebuilding the control. A single-choice select is still
+          submitted, so the parameter keeps its value on every request.
+        */}}
         <div class="field">
           <label class="field__label" for="f-currency">Currency</label>
           <select class="select" id="f-currency" name="currency">
-            <option value="EUR" {{ if eq $f.Currency "EUR" }}selected{{ end }}>EUR — Euro</option>
-            <option value="CZK" {{ if eq $f.Currency "CZK" }}selected{{ end }}>CZK — Czech koruna</option>
-            <option value="GBP" {{ if eq $f.Currency "GBP" }}selected{{ end }}>GBP — Pound sterling</option>
+            <option value="EUR" selected>€ EUR</option>
           </select>
         </div>
       </div>

@@ -37,29 +37,128 @@ type Coordinates struct {
 	Lng float64
 }
 
+// Place kinds a location suggestion can represent, broad to narrow. These are
+// the five granularities the client asked the single Location field to accept.
+const (
+	PlaceCountry  = "country"
+	PlaceCity     = "city"
+	PlaceDistrict = "district"
+	PlaceStreet   = "street"
+	PlaceAddress  = "address"
+)
+
+// LocationSuggestion is one entry in the Location autocomplete, and also the
+// shape a map click resolves to.
+//
+// It carries both the display label and the structured fields behind it, so a
+// selection can fill a search filter or the add-listing form's read-only
+// address fields without a second lookup. A Google Places result maps onto this
+// struct field for field.
+type LocationSuggestion struct {
+	Kind        string // one of the Place* constants
+	Label       string // what the field shows, e.g. "Kalamaja, Tallinn, Estonia"
+	CountryCode string
+	Country     string
+	State       string
+	City        string
+	District    string
+	Address     string
+	PostalCode  string
+	Lat, Lng    float64
+}
+
 // ---------------------------------------------------------------------------
 // Enumerations
 // ---------------------------------------------------------------------------
 
-// DealType separates the two primary search modes.
+// DealType separates the primary search modes.
+//
+// The client's wording is Sell / Rent / Short rent, used identically in the
+// homepage search, the sidebar filter, the map filter and the add-listing form.
+// The stored values stay lowercase and stable so a URL keeps working when the
+// labels are translated.
 type DealType string
 
 const (
-	DealSale DealType = "sale"
-	DealRent DealType = "rent"
+	DealSale      DealType = "sale"
+	DealRent      DealType = "rent"
+	DealShortRent DealType = "short_rent"
 )
 
+// DealTypes is the canonical ordered list, so every control that offers a deal
+// type offers the same three in the same order.
+var DealTypes = []struct {
+	Value DealType
+	Label string
+}{
+	{DealSale, "Sell"},
+	{DealRent, "Rent"},
+	{DealShortRent, "Short rent"},
+}
+
+// IsRentalDeal reports whether a deal type is one of the renting modes, which
+// is what decides whether a price is shown per month.
+func IsRentalDeal(d DealType) bool { return d == DealRent || d == DealShortRent }
+
 // PropertyType is the physical category of a listing.
+//
+// Villa is gone: the client treats it as the same thing as a house, so those
+// listings were reclassified. The values are lowercase and hyphenated because
+// they travel in the URL — `property_type=modular-house` — and must stay
+// stable when the labels are translated.
 type PropertyType string
 
 const (
-	TypeApartment  PropertyType = "apartment"
-	TypeHouse      PropertyType = "house"
-	TypeVilla      PropertyType = "villa"
-	TypeCommercial PropertyType = "commercial"
-	TypeLand       PropertyType = "land"
-	TypeGarage     PropertyType = "garage"
+	TypeApartment      PropertyType = "apartment"
+	TypeHouse          PropertyType = "house"
+	TypeHousePart      PropertyType = "house-part"
+	TypeCottage        PropertyType = "cottage"
+	TypeModularHouse   PropertyType = "modular-house"
+	TypePanelizedHouse PropertyType = "panelized-house"
+	TypeTrailerHouse   PropertyType = "trailer-house"
+	TypeSauna          PropertyType = "sauna"
+	TypeCommercial     PropertyType = "commercial"
+	TypeIndustrial     PropertyType = "industrial"
+	TypeLand           PropertyType = "land"
+	TypeGarage         PropertyType = "garage"
+	TypeNewDevelopment PropertyType = "new-development"
 )
+
+// PropertyTypes is the catalogue, in the order the client listed it. Every
+// control that offers a property type reads this, so the homepage picker, the
+// filter sidebar, the map filter and the add-listing form cannot drift apart.
+//
+// Icon names refer to web/templates/components/icons.html.
+var PropertyTypes = []struct {
+	Value PropertyType
+	Label string
+	Icon  string
+}{
+	{TypeApartment, "Apartment", "building"},
+	{TypeHouse, "House", "home"},
+	{TypeHousePart, "House part", "house-part"},
+	{TypeCottage, "Cottage", "cottage"},
+	{TypeModularHouse, "Modular house", "modular-house"},
+	{TypePanelizedHouse, "Panelized house", "panelized-house"},
+	{TypeTrailerHouse, "Trailer house", "trailer-house"},
+	{TypeSauna, "Sauna", "sauna"},
+	{TypeCommercial, "Commercial", "commercial"},
+	{TypeIndustrial, "Industrial property", "industrial"},
+	{TypeLand, "Land", "land"},
+	{TypeGarage, "Garage", "garage"},
+	{TypeNewDevelopment, "New development", "development"},
+}
+
+// IsPropertyType reports whether a raw value names a real category. Used when
+// parsing a URL so a hand-edited `property_type` cannot filter on nothing.
+func IsPropertyType(v string) bool {
+	for _, t := range PropertyTypes {
+		if string(t.Value) == v {
+			return true
+		}
+	}
+	return false
+}
 
 // ListingStatus is the moderation/lifecycle state of a listing.
 type ListingStatus string
@@ -124,13 +223,13 @@ type Feature struct {
 // Property is a single listing. It carries every field the search filters can
 // query so the mock provider and a future SQL provider filter identically.
 type Property struct {
-	ID        string
-	Slug      string
-	Title     string
-	Deal      DealType
-	Type      PropertyType
-	Status    ListingStatus
-	Price     Money
+	ID         string
+	Slug       string
+	Title      string
+	Deal       DealType
+	Type       PropertyType
+	Status     ListingStatus
+	Price      Money
 	PricePerM2 float64
 	RentPeriod string // "month" for rentals, empty for sales
 
@@ -145,14 +244,14 @@ type Property struct {
 	Precision   LocationPrecision
 
 	// Dimensions
-	Rooms      int
-	Bedrooms   int
-	Bathrooms  int
-	Area       float64 // m² of interior space
-	LandArea   float64 // m² of plot, 0 when not applicable
-	Floor      int
+	Rooms       int
+	Bedrooms    int
+	Bathrooms   int
+	Area        float64 // m² of interior space
+	LandArea    float64 // m² of plot, 0 when not applicable
+	Floor       int
 	TotalFloors int
-	BuildYear  int
+	BuildYear   int
 
 	// Qualities
 	Condition    Condition
@@ -173,13 +272,13 @@ type Property struct {
 	Images      []Image
 
 	// Relations and flags
-	SellerKind    SellerKind
-	BrokerID      string
-	AgencyID      string
-	DevelopmentID string
-	IsFeatured    bool
+	SellerKind       SellerKind
+	BrokerID         string
+	AgencyID         string
+	DevelopmentID    string
+	IsFeatured       bool
 	IsNewDevelopment bool
-	IsVerified    bool
+	IsVerified       bool
 
 	// Metrics
 	Views     int
@@ -199,7 +298,8 @@ func (p Property) PrimaryImage() Image {
 }
 
 // IsRental reports whether the listing is a rental, used for price suffixes.
-func (p Property) IsRental() bool { return p.Deal == DealRent }
+// Short rentals count: they are quoted per period too.
+func (p Property) IsRental() bool { return IsRentalDeal(p.Deal) }
 
 // ---------------------------------------------------------------------------
 // People and organisations
@@ -208,47 +308,47 @@ func (p Property) IsRental() bool { return p.Deal == DealRent }
 // Broker is an individual agent. "Broker" is the client's confirmed term; do
 // not rename to "agent" in the UI.
 type Broker struct {
-	ID          string
-	Slug        string
-	Name        string
-	Title       string
-	AgencyID    string
-	AgencyName  string
-	Photo       string
-	Phone       string
-	Email       string
-	CountryCode string
-	City        string
-	Languages   []string
-	Specialties []string
-	Bio         string
-	Rating      float64
-	Reviews     int
+	ID             string
+	Slug           string
+	Name           string
+	Title          string
+	AgencyID       string
+	AgencyName     string
+	Photo          string
+	Phone          string
+	Email          string
+	CountryCode    string
+	City           string
+	Languages      []string
+	Specialties    []string
+	Bio            string
+	Rating         float64
+	Reviews        int
 	ActiveListings int
-	SoldCount   int
-	YearsActive int
-	IsPromoted  bool // shown in the country-specific promoted strip
-	IsVerified  bool
+	SoldCount      int
+	YearsActive    int
+	IsPromoted     bool // shown in the country-specific promoted strip
+	IsVerified     bool
 }
 
 // Agency groups brokers under one brand.
 type Agency struct {
-	ID          string
-	Slug        string
-	Name        string
-	Logo        string
-	Cover       string
-	CountryCode string
-	City        string
-	Address     string
-	Phone       string
-	Email       string
-	Website     string
-	Description string
-	BrokerCount int
+	ID           string
+	Slug         string
+	Name         string
+	Logo         string
+	Cover        string
+	CountryCode  string
+	City         string
+	Address      string
+	Phone        string
+	Email        string
+	Website      string
+	Description  string
+	BrokerCount  int
 	ListingCount int
-	Founded     int
-	IsVerified  bool
+	Founded      int
+	IsVerified   bool
 }
 
 // User is the signed-in account. Mocked for this milestone.
@@ -271,16 +371,16 @@ type User struct {
 
 // Article is an editorial piece in the advice section.
 type Article struct {
-	ID        string
-	Slug      string
-	Title     string
-	Excerpt   string
-	Body      []string // paragraphs; a real CMS would supply sanitised HTML
-	Cover     Image
-	Category  string
-	Tags      []string
-	Author    string
-	AuthorRole string
+	ID          string
+	Slug        string
+	Title       string
+	Excerpt     string
+	Body        []string // paragraphs; a real CMS would supply sanitised HTML
+	Cover       Image
+	Category    string
+	Tags        []string
+	Author      string
+	AuthorRole  string
 	AuthorPhoto string
 	ReadMinutes int
 	PublishedAt time.Time
@@ -290,30 +390,30 @@ type Article struct {
 // Development is a new-build project. The client's confirmed term is
 // "Developments", not "Projects".
 type Development struct {
-	ID          string
-	Slug        string
-	Name        string
-	Developer   string
-	CountryCode string
-	Country     string
-	City        string
-	District    string
-	Address     string
-	Coords      Coordinates
-	Description string
-	Cover       Image
-	Images      []Image
-	PriceFrom   Money
-	AreaFrom    float64
-	AreaTo      float64
-	TotalUnits  int
-	AvailableUnits int
-	Floors      int
+	ID                string
+	Slug              string
+	Name              string
+	Developer         string
+	CountryCode       string
+	Country           string
+	City              string
+	District          string
+	Address           string
+	Coords            Coordinates
+	Description       string
+	Cover             Image
+	Images            []Image
+	PriceFrom         Money
+	AreaFrom          float64
+	AreaTo            float64
+	TotalUnits        int
+	AvailableUnits    int
+	Floors            int
 	CompletionQuarter string // e.g. "Q3 2027"
-	IsCompleted bool
-	EnergyRating string
-	Features    []Feature
-	PropertyIDs []string
+	IsCompleted       bool
+	EnergyRating      string
+	Features          []Feature
+	PropertyIDs       []string
 }
 
 // ---------------------------------------------------------------------------
@@ -322,16 +422,20 @@ type Development struct {
 
 // Package is a paid listing tier.
 type Package struct {
-	ID          string
-	Name        string
-	Tagline     string
-	Price       Money
+	ID           string
+	Name         string
+	Tagline      string
+	Price        Money
 	DurationDays int
-	Features    []string
-	IsPopular   bool
-	IsPremium   bool // renders with the gold accent
-	PhotoLimit  int
-	BumpCount   int
+	Features     []string
+	IsPopular    bool
+	IsPremium    bool // renders with the gold accent
+	PhotoLimit   int
+	BumpCount    int
+	// IsEnabled controls whether the package is offered at checkout. A
+	// disabled tier stays in the admin table so its price and features are
+	// not lost — switching it back on is one toggle.
+	IsEnabled bool
 }
 
 // PaymentStatus is the outcome of a mock transaction.
@@ -347,15 +451,15 @@ const (
 
 // Payment is one billing history row.
 type Payment struct {
-	ID          string
-	InvoiceNo   string
-	UserID      string
-	PackageName string
+	ID            string
+	InvoiceNo     string
+	UserID        string
+	PackageName   string
 	PropertyTitle string
-	Amount      Money
-	Method      string // "stripe", "paypal", "paysera"
-	Status      PaymentStatus
-	CreatedAt   time.Time
+	Amount        Money
+	Method        string // "stripe", "paypal", "paysera"
+	Status        PaymentStatus
+	CreatedAt     time.Time
 }
 
 // ---------------------------------------------------------------------------
@@ -364,16 +468,16 @@ type Payment struct {
 
 // SavedSearch stores a filter set the user asked to be notified about.
 type SavedSearch struct {
-	ID        string
-	Name      string
-	Query     string // encoded query string, replayed into the search page
-	Summary   string // human-readable filter description
-	Deal      DealType
-	AlertsOn  bool
-	Frequency string // "instant", "daily", "weekly"
-	NewMatches int
+	ID          string
+	Name        string
+	Query       string // encoded query string, replayed into the search page
+	Summary     string // human-readable filter description
+	Deal        DealType
+	AlertsOn    bool
+	Frequency   string // "instant", "daily", "weekly"
+	NewMatches  int
 	ResultCount int
-	CreatedAt time.Time
+	CreatedAt   time.Time
 }
 
 // Notification is one row in the notification centre.
@@ -390,16 +494,16 @@ type Notification struct {
 
 // Draft is an unfinished add-listing wizard session.
 type Draft struct {
-	ID          string
-	Title       string
-	Deal        DealType
-	Type        PropertyType
-	City        string
-	Step        int
-	TotalSteps  int
-	Completion  int // percent
-	CoverImage  string
-	UpdatedAt   time.Time
+	ID         string
+	Title      string
+	Deal       DealType
+	Type       PropertyType
+	City       string
+	Step       int
+	TotalSteps int
+	Completion int // percent
+	CoverImage string
+	UpdatedAt  time.Time
 }
 
 // ---------------------------------------------------------------------------
@@ -458,12 +562,12 @@ type Testimonial struct {
 
 // AdminStat is one KPI tile on the admin dashboard.
 type AdminStat struct {
-	Label  string
-	Value  string
-	Delta  string
-	Trend  string // "up" | "down" | "flat"
-	Icon   string
-	Hint   string
+	Label string
+	Value string
+	Delta string
+	Trend string // "up" | "down" | "flat"
+	Icon  string
+	Hint  string
 }
 
 // AdminStats aggregates dashboard data.
@@ -491,24 +595,24 @@ type ChartPoint struct {
 
 // ActivityEntry is an admin audit-log row.
 type ActivityEntry struct {
-	Actor     string
-	Action    string
-	Target    string
-	At        time.Time
-	Kind      string // "create" | "approve" | "reject" | "delete" | "login"
+	Actor  string
+	Action string
+	Target string
+	At     time.Time
+	Kind   string // "create" | "approve" | "reject" | "delete" | "login"
 }
 
 // Language is a translation target in Settings → Languages.
 type Language struct {
-	Code        string
-	Name        string
-	NativeName  string
-	Flag        string
-	IsDefault   bool
-	IsEnabled   bool
-	TotalKeys   int
-	Translated  int
-	UpdatedAt   time.Time
+	Code       string
+	Name       string
+	NativeName string
+	Flag       string
+	IsDefault  bool
+	IsEnabled  bool
+	TotalKeys  int
+	Translated int
+	UpdatedAt  time.Time
 }
 
 // Progress returns the completion percentage for the language table.
@@ -548,11 +652,11 @@ type SEOEntry struct {
 // RestrictedCountry blocks map and listing coverage for a market. Nothing is
 // hardcoded — every entry is admin-managed.
 type RestrictedCountry struct {
-	Code     string
-	Name     string
-	Reason   string
-	AddedBy  string
-	AddedAt  time.Time
+	Code    string
+	Name    string
+	Reason  string
+	AddedBy string
+	AddedAt time.Time
 }
 
 // BackupKind separates site backups from database backups.

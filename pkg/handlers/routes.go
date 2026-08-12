@@ -69,6 +69,9 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("POST /contact-broker", h.ContactBroker)
 	mux.HandleFunc("POST /save-search", h.SaveSearch)
 	mux.HandleFunc("POST /reveal-contact", h.RevealContact)
+	// Mock reverse geocoding for the add-listing map. Reads seeded data and
+	// writes nothing; a Geocoding API call replaces the handler body.
+	mux.HandleFunc("GET /mock/reverse-geocode", h.ReverseGeocode)
 
 	// --- Admin --------------------------------------------------------------
 	mux.HandleFunc("GET /admin", h.AdminDashboard)

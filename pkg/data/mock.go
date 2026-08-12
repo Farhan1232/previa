@@ -28,6 +28,9 @@ type Mock struct {
 	developments []models.Development
 	favourites   map[string]bool
 	user         models.User
+	// locations is the Location autocomplete list, derived from the seeded
+	// listings once at construction — see seed_locations.go.
+	locations []models.LocationSuggestion
 }
 
 // NewMock builds the seeded dataset. photoPool is the list of available
@@ -47,11 +50,12 @@ func NewMock(now time.Time) *Mock {
 			ID: "us-01", Name: "Anna Lehtinen", Email: "anna.lehtinen@example.com",
 			Phone: "+372 5566 7788", Role: "user", CountryCode: "EE", Language: "en",
 			MemberSince: now.AddDate(-2, -4, 0), IsVerified: true,
-			Avatar:      "",
+			Avatar: "",
 		},
 	}
 	m.properties = buildProperties(now, pool)
 	m.linkDevelopments()
+	m.locations = buildLocationSuggestions(m.properties)
 
 	// A handful of listings start favourited so the account screens have content.
 	for _, id := range []string{"pr-002", "pr-007", "pr-013", "pr-019"} {
@@ -707,10 +711,14 @@ func (m *Mock) ToggleFavourite(ctx context.Context, id string) bool {
 }
 
 // SavedSearches returns the user's stored searches.
-func (m *Mock) SavedSearches(ctx context.Context) []models.SavedSearch { return buildSavedSearches(m.now) }
+func (m *Mock) SavedSearches(ctx context.Context) []models.SavedSearch {
+	return buildSavedSearches(m.now)
+}
 
 // Notifications returns the notification centre rows.
-func (m *Mock) Notifications(ctx context.Context) []models.Notification { return buildNotifications(m.now) }
+func (m *Mock) Notifications(ctx context.Context) []models.Notification {
+	return buildNotifications(m.now)
+}
 
 // UnreadCount is the header badge value.
 func (m *Mock) UnreadCount(ctx context.Context) int {
@@ -760,12 +768,38 @@ func (m *Mock) Payments(ctx context.Context) []models.Payment { return buildPaym
 // CatalogRepository
 // ---------------------------------------------------------------------------
 
-// Countries lists the markets Previa covers.
+// Countries lists the markets that carry seeded stock.
+//
+// This is the short, curated list — the one the mobile drawer's country pills
+// and the city datalist are built from. The selector uses AllCountries.
 func (m *Mock) Countries(ctx context.Context) []models.Country { return countries }
 
-// Country finds one market by ISO code.
+// AllCountries lists every selectable market: the seeded eight followed by the
+// rest of the world. The market selector offers this list so the control is
+// exercised at the size the production catalogue will be.
+func (m *Mock) AllCountries(ctx context.Context) []models.Country { return allCountries }
+
+// LocationSuggestions is the Location autocomplete list: countries, cities,
+// districts, streets and exact addresses drawn from the seeded stock.
+func (m *Mock) LocationSuggestions(ctx context.Context) []models.LocationSuggestion {
+	return m.locations
+}
+
+// OtherCountries is AllCountries minus the seeded markets. The selector heads
+// the seeded ones separately, so it needs the tail without them.
+func (m *Mock) OtherCountries(ctx context.Context) []models.Country { return otherCountries }
+
+// CountryHasListings reports whether a market carries seeded stock, so the
+// selector can group the live markets above the rest.
+func (m *Mock) CountryHasListings(ctx context.Context, code string) bool {
+	return hasListings(strings.ToUpper(code))
+}
+
+// Country finds one market by ISO code, across the full list — a visitor who
+// picks a market with no seeded stock still gets a real country back, and the
+// pages render their ordinary empty state rather than bouncing to the default.
 func (m *Mock) Country(ctx context.Context, code string) (models.Country, bool) {
-	for _, c := range countries {
+	for _, c := range allCountries {
 		if strings.EqualFold(c.Code, code) {
 			return c, true
 		}

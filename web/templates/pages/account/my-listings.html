@@ -27,7 +27,7 @@
             Rejected <span class="tab__count numeric">{{ index $d.Counts "rejected" }}</span>
           </a>
         </div>
-        <a class="btn btn--primary btn--sm" href="/add-listing">{{ template "icon" "plus" }} Add listing</a>
+        <a class="btn btn--primary btn--sm" href="/add-listing">add listing</a>
       </div>
 
       {{ if $d.Listings }}
@@ -79,7 +79,7 @@
         {{ template "empty-state" dict "Icon" "home"
            "Title" "Nothing here yet"
            "Text" "No listings match this status. Publish a property to get started."
-           "ActionHref" "/add-listing" "ActionLabel" "Add listing" }}
+           "ActionHref" "/add-listing" "ActionLabel" "add listing" }}
       {{ end }}
     </div>
   </div>

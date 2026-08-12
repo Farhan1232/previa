@@ -1,48 +1,58 @@
 package handlers
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 
 	"previa/pkg/models"
 )
 
-// WizardStep is one entry in the vertical publishing progression.
+// WizardStep is one waypoint in the vertical publishing navigation.
+//
+// The form is a single continuous page, so a waypoint is an anchor rather than
+// a separate screen: Number and Label name it, Key is its section id.
 type WizardStep struct {
 	Number int
 	Key    string
 	Label  string
-	State  string // "done" | "current" | "todo" | "error"
+	State  string // "todo" | "error" — the active one is tracked in the browser
 }
 
-// AddListingData drives the add-listing wizard.
+// AddListingData drives the add-listing form.
 type AddListingData struct {
 	Steps      []WizardStep
-	Current    WizardStep
-	CurrentNum int
 	TotalSteps int
 	Packages   []models.Package
 	Countries  []models.Country
 	SampleImgs []string
-	PrevStep   int
-	NextStep   int
-	Progress   int
-	WizardMap  template.JS
+	// Anchor is the section a "?step=" or "#" deep link should open on. Empty
+	// when the visitor simply opened /add-listing.
+	Anchor              string
+	LocationSuggestions []models.LocationSuggestion
+	WizardMap           template.JS
 }
 
+// wizardSteps is the waypoint list, in page order.
+//
+// Two of the client's changes are baked in here:
+//   - waypoint 1 is "Deal type", matching the search filters and the homepage
+//   - the old "Public location display" waypoint is gone, folded into Location,
+//     and "Package and promotion" is gone, folded into Publish
+//
+// Numbering is derived from position, so removing a waypoint renumbers the rest
+// on its own and no anchor has to be renumbered by hand.
 var wizardSteps = []struct{ key, label string }{
-	{"deal", "Sale or rent"},
+	{"deal", "Deal type"},
 	{"category", "Property category"},
-	{"location", "Address and map pin"},
-	{"privacy", "Public location display"},
+	{"location", "Location"},
 	{"details", "Property information"},
 	{"rooms", "Rooms and dimensions"},
 	{"features", "Features and amenities"},
 	{"description", "Description"},
-	{"media", "Photos and media"},
+	{"media", "Photos & videos"},
 	{"price", "Price"},
 	{"contact", "Contact details"},
-	{"package", "Package and promotion"},
 	{"preview", "Preview"},
 	{"publish", "Publish"},
 }
@@ -60,22 +70,32 @@ func (h *Handler) AddListing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	total := len(wizardSteps)
-	cur := clampInt(atoi(r.URL.Query().Get("step"), 1), 1, total)
 
 	steps := make([]WizardStep, 0, total)
 	for i, s := range wizardSteps {
 		state := "todo"
-		switch {
-		case i+1 < cur:
-			state = "done"
-		case i+1 == cur:
-			state = "current"
-		}
-		// One step is shown in the error state so the design covers it.
-		if i+1 == 6 && cur > 6 {
+		// The rooms section is shown needing attention so the design covers
+		// that state; which section it is follows the list, not a hard number.
+		if s.key == "rooms" {
 			state = "error"
 		}
 		steps = append(steps, WizardStep{Number: i + 1, Key: s.key, Label: s.label, State: state})
+	}
+
+	// Deep links. "?step=6" used to load a separate screen; now it names the
+	// section to open on, so older links keep working.
+	anchor := ""
+	if q := r.URL.Query().Get("step"); q != "" {
+		if n := atoi(q, 0); n >= 1 && n <= total {
+			anchor = wizardSteps[n-1].key
+		}
+	}
+	if q := r.URL.Query().Get("section"); q != "" {
+		for _, s := range wizardSteps {
+			if s.key == q {
+				anchor = q
+			}
+		}
 	}
 
 	var imgs []string
@@ -86,18 +106,17 @@ func (h *Handler) AddListing(w http.ResponseWriter, r *http.Request) {
 	pd := h.base(r, "", "Add a listing — Previa",
 		"Publish your property on Previa in a few guided steps.")
 	pd.Meta.NoIndex = true
-	pd.NeedsMap = cur == 3 // only the address step shows a map
+	// Every section is on the page at once now, so the Location map is always
+	// present and Leaflet is always needed.
+	pd.NeedsMap = true
 	pd.Data = AddListingData{
-		Steps:      steps,
-		Current:    steps[cur-1],
-		CurrentNum: cur,
-		TotalSteps: total,
-		Packages:   h.Store.Catalog.Packages(ctx),
-		Countries:  h.Store.Catalog.Countries(ctx),
-		SampleImgs: imgs,
-		PrevStep:   clampInt(cur-1, 1, total),
-		NextStep:   clampInt(cur+1, 1, total),
-		Progress:   cur * 100 / total,
+		Steps:               steps,
+		TotalSteps:          total,
+		Packages:            h.Store.Catalog.Packages(ctx),
+		Countries:           h.Store.Catalog.Countries(ctx),
+		SampleImgs:          imgs,
+		Anchor:              anchor,
+		LocationSuggestions: h.Store.Catalog.LocationSuggestions(ctx),
 		// A single draggable pin centred on the market being listed in.
 		WizardMap: buildMapConfig([]models.Property{{
 			ID: "draft", Title: "Your property", City: pd.Country.Name,
@@ -165,4 +184,30 @@ func clampInt(v, lo, hi int) int {
 		return hi
 	}
 	return v
+}
+
+// ReverseGeocode answers a map click with a structured address.
+//
+// A frontend mock, in the same family as /favourite and /set-country: it reads
+// from the seeded catalogue and writes nothing. The second milestone swaps the
+// body for a Google Geocoding call; the response shape and this URL stay put,
+// so the add-listing form does not change with it.
+func (h *Handler) ReverseGeocode(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	lat := parseFloatOr(q.Get("lat"), 0)
+	lng := parseFloatOr(q.Get("lng"), 0)
+
+	place := h.Store.Catalog.ReverseGeocode(lat, lng)
+
+	// Country name and ISO code come from the catalogue so the read-only
+	// fields agree with the market selector.
+	if c, ok := h.Store.Catalog.Country(r.Context(), place.CountryCode); ok {
+		place.Country = c.Name
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	if err := json.NewEncoder(w).Encode(place); err != nil {
+		http.Error(w, "encode", http.StatusInternalServerError)
+	}
 }

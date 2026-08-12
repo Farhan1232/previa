@@ -1,57 +1,37 @@
 {{/*
-  Country flags as inline SVG rather than emoji.
+  Country flags.
 
-  Emoji flags render inconsistently across platforms (and not at all on many
-  Linux and Windows configurations), so they are unreliable as interface
-  elements. These are drawn to the correct proportions and colours, sized by
-  CSS, and always decorative — the country name or code is adjacent in text.
+  Local SVG files under /static/img/flags, one per ISO 3166-1 alpha-2 code, in
+  the project's own repository. Nothing is fetched from a CDN and nothing is
+  hotlinked. Emoji flags are not used: they render inconsistently across
+  platforms and not at all on many Linux and Windows configurations.
+
+  These replace the handful of hand-drawn inline SVGs that used to live here —
+  nine countries had a flag and the other one hundred and eighty-seven fell
+  through to a grey rectangle.
+
+  Sizing, the corner radius and the absence of any frame come from `.flag` in
+  components.css, so every flag in the interface matches: the market selector,
+  the language menu, map cards, the locate control and the drawer pills.
+
+  The code is checked against the generated manifest before an <img> is
+  emitted. A code with no file behind it draws a neutral placeholder instead,
+  because a broken-image icon is worse than a plain one.
+
+  Always decorative: the country name or code is adjacent in text, so alt is
+  empty and the image is hidden from assistive technology.
 
   Usage: {{ template "flag" "EE" }}
 */}}
 {{ define "flag" }}
-<svg class="flag" viewBox="0 0 21 15" width="21" height="15" aria-hidden="true" focusable="false">
-{{- if eq . "EE" }}
-  <rect width="21" height="5" y="0" fill="#4891D9"/>
-  <rect width="21" height="5" y="5" fill="#0A0A0A"/>
-  <rect width="21" height="5" y="10" fill="#FFF"/>
-{{- else if eq . "DE" }}
-  <rect width="21" height="5" y="0" fill="#1A1A1A"/>
-  <rect width="21" height="5" y="5" fill="#D7141A"/>
-  <rect width="21" height="5" y="10" fill="#FFCE00"/>
-{{- else if eq . "ES" }}
-  <rect width="21" height="15" fill="#AA151B"/>
-  <rect width="21" height="7.5" y="3.75" fill="#F1BF00"/>
-{{- else if eq . "FI" }}
-  <rect width="21" height="15" fill="#FFF"/>
-  <rect width="21" height="3.6" y="5.7" fill="#003580"/>
-  <rect width="3.6" height="15" x="5.4" fill="#003580"/>
-{{- else if eq . "PT" }}
-  <rect width="21" height="15" fill="#DA291C"/>
-  <rect width="8.4" height="15" fill="#046A38"/>
-  <circle cx="8.4" cy="7.5" r="3.1" fill="#FFE600" stroke="#DA291C" stroke-width="0.5"/>
-  <circle cx="8.4" cy="7.5" r="1.5" fill="#DA291C"/>
-{{- else if eq . "NL" }}
-  <rect width="21" height="5" y="0" fill="#AE1C28"/>
-  <rect width="21" height="5" y="5" fill="#FFF"/>
-  <rect width="21" height="5" y="10" fill="#21468B"/>
-{{- else if eq . "AT" }}
-  <rect width="21" height="5" y="0" fill="#ED2939"/>
-  <rect width="21" height="5" y="5" fill="#FFF"/>
-  <rect width="21" height="5" y="10" fill="#ED2939"/>
-{{- else if eq . "CZ" }}
-  <rect width="21" height="7.5" y="0" fill="#FFF"/>
-  <rect width="21" height="7.5" y="7.5" fill="#D7141A"/>
-  <path d="M0 0 10.5 7.5 0 15Z" fill="#11457E"/>
-{{- else if eq . "GB" }}
-  <rect width="21" height="15" fill="#012169"/>
-  <path d="M0 0 21 15M21 0 0 15" stroke="#FFF" stroke-width="3"/>
-  <path d="M0 0 21 15M21 0 0 15" stroke="#C8102E" stroke-width="1.8"/>
-  <path d="M10.5 0v15M0 7.5h21" stroke="#FFF" stroke-width="5"/>
-  <path d="M10.5 0v15M0 7.5h21" stroke="#C8102E" stroke-width="3"/>
-{{- else }}
-  <rect width="21" height="15" fill="#DDE3E7"/>
-  <path d="M0 0 21 15" stroke="#C4CDD4" stroke-width="1"/>
-{{- end }}
-  <rect width="21" height="15" fill="none" stroke="rgba(10,34,56,.16)" stroke-width="1"/>
+{{- $src := flagPath . -}}
+{{- if $src -}}
+<img class="flag" src="{{ $src }}" alt="" aria-hidden="true" loading="lazy" decoding="async"
+     width="22" height="16">
+{{- else -}}
+{{/* Unknown or missing code — a plain tile, never a broken image. */}}
+<svg class="flag flag--unknown" viewBox="0 0 22 16" aria-hidden="true" focusable="false">
+  <rect width="22" height="16" fill="currentColor" opacity="0.14"/>
 </svg>
+{{- end -}}
 {{ end }}

@@ -1,0 +1,50 @@
+{{/*
+  Property-type multi-select.
+
+  One component for every search surface — the filter sidebar, the mobile
+  filter drawer and the map filter all render this, so the behaviour and the
+  markup cannot drift between them. The add-listing form deliberately does not
+  use it: a listing has exactly one type, so that stays a radio group.
+
+  Checkboxes are native. That is what gives multiple selection, the checked
+  state, keyboard operation and correct screen-reader announcement for free,
+  and it is what makes the values submit as a repeated `property_type`.
+
+  Args (dict):
+    Options   []handlers.Option   the catalogue with its current checked state
+    IDPrefix  string              unique per instance, so ids stay unique
+*/}}
+{{ define "property-type-grid" }}
+{{ $p := .IDPrefix }}
+{{/* Any type is on exactly when nothing specific is. */}}
+{{ $anyOn := true }}{{ range .Options }}{{ if .Checked }}{{ $anyOn = false }}{{ end }}{{ end }}
+<div class="type-check-grid" x-data="previaTypeFilter()"
+     role="group" aria-label="Property type">
+
+  {{/*
+    Any type. No `name`, so it never reaches the server as a category — it
+    means "no property-type filter", which is the absence of the parameter.
+  */}}
+  <label class="type-check type-check--any">
+    <input type="checkbox" id="{{ $p }}-type-any" data-any
+           {{ if $anyOn }}checked{{ end }} @change="pickAny()">
+    <span class="type-check__box">
+      {{ template "icon" "layers" }}
+      <span>Any type</span>
+      <span class="type-check__tick">{{ template "icon" "check" }}</span>
+    </span>
+  </label>
+
+  {{ range .Options }}
+  <label class="type-check">
+    <input type="checkbox" id="{{ $p }}-type-{{ .Value }}" name="property_type"
+           value="{{ .Value }}" {{ if .Checked }}checked{{ end }} @change="pickType()">
+    <span class="type-check__box">
+      {{ template "icon" .Icon }}
+      <span>{{ .Label }}</span>
+      <span class="type-check__tick">{{ template "icon" "check" }}</span>
+    </span>
+  </label>
+  {{ end }}
+</div>
+{{ end }}

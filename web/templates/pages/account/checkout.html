@@ -107,11 +107,15 @@
     </div>
 
     <div class="checkout-grid">
-      <form class="stack stack--lg" action="/checkout/process" method="post">
+      {{/* `method` tracks the chosen payment row so the panel below the list
+           can show what that choice actually involves. */}}
+      <form class="stack stack--lg" action="/checkout/process" method="post"
+            x-data="{ method: '{{ (index $d.Methods 0).Value }}' }"
+            @change="method = ($event.target.name === 'method' ? $event.target.value : method)">
         <input type="hidden" name="package" value="{{ $p.ID }}">
 
         <section class="card">
-          <div class="card__header"><h2 class="card__title">1. Your package</h2></div>
+          <div class="card__header"><h2 class="card__title">Choose package</h2></div>
           <div class="card__body stack">
             {{ range $d.Packages }}
             <label class="option-row">
@@ -129,34 +133,99 @@
         </section>
 
         <section class="card">
-          <div class="card__header"><h2 class="card__title">2. Payment method</h2></div>
+          <div class="card__header"><h2 class="card__title">Payment method</h2></div>
           <div class="card__body stack">
-            <label class="option-row">
-              <input type="radio" name="method" value="stripe" checked>
+            {{/*
+              The five choices the client listed, in his order.
+
+              Credit card and Stripe are deliberately separate rows. He asked
+              for both, and they are not the same thing here: the first is a
+              card form shown on Previa with Stripe processing it behind the
+              scenes, the second hands the payer to Stripe's own hosted
+              checkout (wallets, local methods, saved cards). Merging them
+              would drop one of the two flows, so both stay until he says
+              otherwise.
+
+              Logos are local SVGs — no provider script is loaded and no
+              external asset is fetched.
+            */}}
+            {{ range $d.Methods }}
+            <label class="option-row pay-option{{ if .Disabled }} is-disabled{{ end }}">
+              <input type="radio" name="method" value="{{ .Value }}"
+                     {{ if .Checked }}checked{{ end }} {{ if .Disabled }}disabled{{ end }}>
               <span style="flex:1">
-                <span class="strong">{{ template "icon" "card" }} Card</span>
-                <span class="text-sm muted">Visa, Mastercard or American Express, processed by Stripe.</span>
+                <span class="row row--between" style="gap:var(--sp-3)">
+                  <span class="strong pay-option__name">
+                    <span class="pay-logo" aria-hidden="true">{{ template "pay-logo" .Logo }}</span>
+                    {{ .Label }}
+                  </span>
+                  {{ if .Disabled }}<span class="badge badge--neutral">Coming soon</span>{{ end }}
+                </span>
+                <span class="text-sm muted">{{ .Hint }}</span>
               </span>
             </label>
-            <label class="option-row">
-              <input type="radio" name="method" value="paypal">
-              <span style="flex:1">
-                <span class="strong">{{ template "icon" "globe" }} PayPal</span>
-                <span class="text-sm muted">You'll be redirected to PayPal to approve the payment.</span>
-              </span>
-            </label>
-            <label class="option-row">
-              <input type="radio" name="method" value="paysera">
-              <span style="flex:1">
-                <span class="strong">{{ template "icon" "building" }} Paysera bank link</span>
-                <span class="text-sm muted">Pay directly from an Estonian, Latvian or Lithuanian bank account.</span>
-              </span>
-            </label>
+            {{ end }}
+
+            {{/*
+              What separates Credit card from Stripe, shown rather than only
+              described. The client listed both, and they are two flows:
+
+                Credit card  the card is entered here and Stripe processes it
+                Stripe       the payer leaves for Stripe's hosted checkout
+
+              Both panels are demonstrations. The card fields are permanently
+              disabled and pre-filled with an obvious dummy number: nothing is
+              typed, nothing is submitted and no card details are collected
+              anywhere in this milestone. The second milestone replaces this
+              block with a real Stripe Elements mount.
+            */}}
+            <div class="pay-detail" x-show="method === 'card'" x-cloak>
+              <p class="pay-detail__head">
+                {{ template "icon" "lock" }}
+                Card details are entered here and processed by Stripe
+              </p>
+              <div class="grid grid--2" style="gap:var(--sp-3)">
+                <div class="field" style="grid-column:1/-1">
+                  <label class="field__label" for="ck-card">Card number</label>
+                  <input class="input" id="ck-card" value="4242 4242 4242 4242" disabled
+                         autocomplete="off" aria-describedby="ck-card-note">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="ck-exp">Expiry</label>
+                  <input class="input" id="ck-exp" value="04 / 29" disabled autocomplete="off">
+                </div>
+                <div class="field">
+                  <label class="field__label" for="ck-cvc">Security code</label>
+                  <input class="input" id="ck-cvc" value="•••" disabled autocomplete="off">
+                </div>
+              </div>
+              <p class="field__hint" id="ck-card-note">
+                Demonstration only — these fields are disabled and no card details
+                are collected or sent anywhere.
+              </p>
+            </div>
+
+            <div class="pay-detail" x-show="method === 'stripe'" x-cloak>
+              <p class="pay-detail__head">
+                {{ template "icon" "external" }}
+                You'll continue on Stripe's own checkout page
+              </p>
+              <div class="pay-detail__hosted" aria-hidden="true">
+                <span class="pay-logo">{{ template "pay-logo" "stripe" }}</span>
+                <span class="pay-detail__bar"></span>
+                <span class="pay-detail__bar pay-detail__bar--short"></span>
+                <span class="pay-detail__btn">Pay {{ money $p.Price }}</span>
+              </div>
+              <p class="field__hint">
+                Wallets, saved cards and local methods are offered there.
+                Demonstration only — no redirect happens in this build.
+              </p>
+            </div>
           </div>
         </section>
 
         <section class="card">
-          <div class="card__header"><h2 class="card__title">3. Billing details</h2></div>
+          <div class="card__header"><h2 class="card__title">Billing details</h2></div>
           <div class="card__body">
             <div class="grid grid--2" style="gap:var(--sp-4)">
               <div class="field">
@@ -195,7 +264,13 @@
           <button class="btn btn--primary btn--lg" type="submit">
             Pay {{ money $p.Price }}
           </button>
-          <button class="btn btn--ghost" type="submit" name="method" value="cancel">
+          {{/*
+            Named "action", not "method". Sharing the name with the payment
+            radios meant the form submitted method=<radio>&method=cancel and
+            the server read the radio — so Cancel could never cancel once a
+            method was selected, which was always.
+          */}}
+          <button class="btn btn--ghost" type="submit" name="action" value="cancel">
             Cancel
           </button>
         </div>
@@ -217,10 +292,11 @@
               <span>Up to {{ $p.PhotoLimit }} photos</span>
               <span>Included</span>
             </div>
-            <div class="row row--between text-sm muted">
-              <span>VAT (22%)</span>
-              <span class="numeric">Added at payment</span>
-            </div>
+            {{/*
+              No VAT line. The client asked for it out of the summary, so the
+              total is simply the package price — nothing is added later and
+              the figure here is the figure charged.
+            */}}
             <div class="row row--between checkout-total">
               <span class="strong">Total</span>
               <span class="strong numeric">{{ money $p.Price }}</span>

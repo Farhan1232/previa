@@ -19,6 +19,16 @@ type HomeData struct {
 	Types        []TypeTile
 	Testimonials []models.Testimonial
 	TotalCount   int
+	// LocationSuggestions backs the hero's single Location field, the same
+	// component and the same list the search sidebar uses.
+	LocationSuggestions []models.LocationSuggestion
+	// TypeOpts backs the hero's property-type picker — the same component and
+	// the same catalogue the filter sidebar renders.
+	TypeOpts []Option
+	// Favourites is keyed by property ID, the same shape the search page uses.
+	// Without it every card on the homepage drew an empty heart even for a
+	// listing already saved, and the first press appeared to do nothing.
+	Favourites map[string]bool
 }
 
 // TypeTile backs the "browse by property type" section.
@@ -41,34 +51,44 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	pd := h.base(r, "home",
 		"Previa — Property for sale and rent worldwide",
-		"Search apartments, houses, villas, commercial property and land across Europe. Verified brokers, accurate maps and new listings every day.")
+		"Search apartments, houses, cottages, commercial property and land across Europe. Verified brokers, accurate maps and new listings every day.")
 
 	// The hero carries the market picker on this page, so the header drops it.
 	pd.MarketInBanner = true
 
+	// Browse-by-type tiles, straight from the shared catalogue so a category
+	// added there appears here without a second edit.
 	counts := h.Store.Properties.CountByType(ctx, "")
-	tiles := []TypeTile{
-		{models.TypeApartment, "Apartments", "building", counts[models.TypeApartment]},
-		{models.TypeHouse, "Houses", "home", counts[models.TypeHouse]},
-		{models.TypeVilla, "Villas", "villa", counts[models.TypeVilla]},
-		{models.TypeCommercial, "Commercial", "commercial", counts[models.TypeCommercial]},
-		{models.TypeLand, "Land", "land", counts[models.TypeLand]},
-		{models.TypeGarage, "Garages", "garage", counts[models.TypeGarage]},
+	tiles := make([]TypeTile, 0, len(models.PropertyTypes))
+	for _, t := range models.PropertyTypes {
+		tiles = append(tiles, TypeTile{t.Value, t.Label, t.Icon, counts[t.Value]})
 	}
 
 	all, _ := h.Store.Properties.Search(ctx, data.PropertyFilter{PerPage: 1})
 
+	featured := h.Store.Properties.Featured(ctx, pd.Country.Code, 10)
+	recent := h.Store.Properties.Recent(ctx, pd.Country.Code, 8)
+
+	favs := map[string]bool{}
+	for _, p := range append(append([]models.Property{}, featured...), recent...) {
+		favs[p.ID] = h.Store.Account.IsFavourite(ctx, p.ID)
+	}
+
 	pd.Data = HomeData{
 		// Ten fills two complete rows at the five-across desktop density.
-		Featured:     h.Store.Properties.Featured(ctx, pd.Country.Code, 10),
-		Recent:       h.Store.Properties.Recent(ctx, pd.Country.Code, 8),
-		Developments: take(h.Store.Content.Developments(ctx, pd.Country.Code), 3),
-		Brokers:      h.Store.Brokers.Promoted(ctx, pd.Country.Code, 4),
-		Articles:     take(h.Store.Content.Articles(ctx), 3),
-		Locations:    h.Store.Properties.PopularLocations(ctx, pd.Country.Code, 8),
-		Types:        tiles,
-		Testimonials: h.Store.Catalog.Testimonials(ctx),
-		TotalCount:   all.Total,
+		Featured:            featured,
+		Recent:              recent,
+		Developments:        take(h.Store.Content.Developments(ctx, pd.Country.Code), 3),
+		Brokers:             h.Store.Brokers.Promoted(ctx, pd.Country.Code, 4),
+		Articles:            take(h.Store.Content.Articles(ctx), 3),
+		Locations:           h.Store.Properties.PopularLocations(ctx, pd.Country.Code, 8),
+		Types:               tiles,
+		Testimonials:        h.Store.Catalog.Testimonials(ctx),
+		TotalCount:          all.Total,
+		Favourites:          favs,
+		LocationSuggestions: h.Store.Catalog.LocationSuggestions(ctx),
+		// Nothing preselected: the homepage always opens on "Any type".
+		TypeOpts: typeOptions(data.PropertyFilter{}),
 	}
 
 	h.View.Render(w, http.StatusOK, "home", pd)

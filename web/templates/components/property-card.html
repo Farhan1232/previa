@@ -16,7 +16,13 @@
 {{ $img := $p.PrimaryImage }}
 
 {{ $shots := $p.Images }}
-{{ $multi := and (gt (len $shots) 1) (ne $v "row") }}
+{{/*
+  The carousel applies to the standard and compact cards only. The row variant
+  has no room for it, and the map variant sits inside the map's own Alpine
+  scope — nesting another x-data there would shadow it for no benefit, since
+  the pager and click zones are hidden on map cards anyway.
+*/}}
+{{ $multi := and (gt (len $shots) 1) (ne $v "row") (ne $v "map") }}
 <article class="pcard{{ if $v }} pcard--{{ $v }}{{ end }}{{ if $p.IsFeatured }} pcard--featured{{ end }}"
          {{ if $multi }}x-data="previaCardGallery({{ len $shots }})"{{ end }}
          data-property-id="{{ $p.ID }}"
@@ -32,39 +38,58 @@
     */}}
     {{ if $multi }}
     {{/*
-      All shots are in the DOM but only the current one is displayed, so
-      stepping through them costs no request after the first paint. Only the
-      first is eager; the rest stay lazy, so a grid of cards does not pull
-      hundreds of images up front.
+      Image track.
+
+      Every shot sits in one flex row that slides horizontally, so changing
+      picture is a transform rather than a swap — toggling visibility, as this
+      did before, read as a jump. Only the first is eager; the rest stay lazy
+      so a grid of cards does not pull hundreds of images up front.
     */}}
-    {{ range $i, $im := $shots }}
-    <img src="{{ $im.URL }}" alt="{{ if eq $i 0 }}{{ $im.Alt }}{{ end }}"
-         srcset="{{ srcset $im.URL 400 800 1200 }}"
-         sizes="(max-width: 600px) 92vw, (max-width: 1024px) 45vw, 260px"
-         width="{{ $im.Width }}" height="{{ $im.Height }}"
-         x-show="i === {{ $i }}" {{ if ne $i 0 }}x-cloak{{ end }}
-         {{ if and $eager (eq $i 0) }}fetchpriority="high"{{ else }}loading="lazy" decoding="async"{{ end }}>
-    {{ end }}
+    <div class="pcard__track" :style="'transform: translate3d(-' + (i * 100) + '%,0,0)'">
+      {{ range $i, $im := $shots }}
+      <img class="pcard__slide" src="{{ $im.URL }}" alt="{{ if eq $i 0 }}{{ $im.Alt }}{{ end }}"
+           srcset="{{ srcset $im.URL 400 800 1200 }}"
+           sizes="(max-width: 600px) 92vw, (max-width: 1024px) 45vw, 260px"
+           width="{{ $im.Width }}" height="{{ $im.Height }}"
+           {{ if and $eager (eq $i 0) }}fetchpriority="high"{{ else }}loading="lazy" decoding="async"{{ end }}>
+      {{ end }}
+    </div>
 
     {{/*
-      Image arrows. Buttons, not overlaid links: the card is wrapped in a link
-      to the listing, and a nested anchor would be invalid and would navigate
-      instead of paging. stop keeps the click off the card link.
+      Paging zones over the outer thirds of the photograph. Transparent, so the
+      image stays unobstructed, and each carries a directional cursor so the
+      behaviour is discoverable before clicking. The middle third is left to the
+      link below, which is what a click in the centre should do.
     */}}
-    <button type="button" class="pcard__arrow pcard__arrow--prev"
-            @click.prevent.stop="prev()" tabindex="-1" aria-hidden="true">
-      {{ template "icon" "chevron-left" }}
-    </button>
-    <button type="button" class="pcard__arrow pcard__arrow--next"
-            @click.prevent.stop="next()" tabindex="-1" aria-hidden="true">
-      {{ template "icon" "chevron-right" }}
-    </button>
+    <button type="button" class="pcard__zone pcard__zone--prev"
+            @click.prevent.stop="prev()" tabindex="-1" aria-hidden="true"></button>
+    <button type="button" class="pcard__zone pcard__zone--next"
+            @click.prevent.stop="next()" tabindex="-1" aria-hidden="true"></button>
 
-    {{/* Position dots, capped so a 20-image listing does not draw 20 dots. */}}
-    <div class="pcard__dots" aria-hidden="true">
-      {{ range $i, $im := $shots }}{{ if lt $i 6 }}
-      <span class="pcard__dot" :class="{ 'is-on': i === {{ $i }} }"></span>
-      {{ end }}{{ end }}
+    {{/*
+      Pager capsule — arrows either side of the dots, matching the reference.
+      Real buttons, so it works by keyboard and by tap, and the dots jump
+      straight to a picture. Capped at six: beyond that a counter replaces the
+      dots rather than drawing twenty of them.
+    */}}
+    <div class="pcard__pager">
+      <button type="button" class="pcard__pager-arrow" @click.prevent.stop="prev()"
+              aria-label="Previous photo">{{ template "icon" "chevron-left" }}</button>
+
+      {{ if le (len $shots) 6 }}
+      <span class="pcard__pager-dots">
+        {{ range $i, $im := $shots }}
+        <button type="button" class="pcard__dot" @click.prevent.stop="go({{ $i }})"
+                :class="{ 'is-on': i === {{ $i }} }"
+                aria-label="Show photo {{ add $i 1 }}"></button>
+        {{ end }}
+      </span>
+      {{ else }}
+      <span class="pcard__pager-count numeric"><span x-text="i + 1"></span>/{{ len $shots }}</span>
+      {{ end }}
+
+      <button type="button" class="pcard__pager-arrow" @click.prevent.stop="next()"
+              aria-label="Next photo">{{ template "icon" "chevron-right" }}</button>
     </div>
     {{ else }}
     <img src="{{ $img.URL }}" alt="{{ $img.Alt }}"

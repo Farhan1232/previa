@@ -1,0 +1,100 @@
+{{/*
+  Location field — one control, used everywhere a place is entered.
+
+  The client asked for a single Google-Maps-style Location box in place of the
+  three separate fields (country, city, address) the sidebar used to carry, and
+  for the same control on the homepage search and the map filter.
+
+  It accepts and resolves five granularities — country, city, district, street
+  and exact address — from the mock suggestion list in pkg/data/seed_locations.go.
+  Swapping in Google Places later means replacing where `Suggestions` comes from
+  and the two lines in previaLocation() that read it; the markup, the submitted
+  `location` parameter and every caller stay exactly as they are.
+
+  Args (dict):
+    ID           string   input id, unique per page
+    Name         string   query-parameter name, normally "location"
+    Value        string   current label, redisplayed after a search
+    Suggestions  []models.LocationSuggestion
+    Label        string   visible field label
+    Placeholder  string   optional
+
+  Picking a suggestion dispatches `previa-location-picked` with the label and
+  kind, so a caller that needs to react — the add-listing map, for one — listens
+  for it. Callers that do not simply never bind the event.
+*/}}
+{{ define "location-field" }}
+{{ $id := .ID }}
+{{/*
+  A shorter default placeholder than the field once carried: the long form was
+  cut off in the sidebar and the mobile drawer, and half a sentence explains
+  less than a whole short one. Callers with more room pass their own.
+*/}}
+{{ $ph := "Country, city or address" }}{{ if hasField . "Placeholder" }}{{ $ph = .Placeholder }}{{ end }}
+<div class="field location-field" x-data="previaLocation()"
+     @keydown.escape.stop="close()">
+  <label class="field__label" for="{{ $id }}">{{ .Label }}</label>
+
+  <span class="input-icon location-field__control">
+    {{ template "icon" "map-pin" }}
+    {{/*
+      role=combobox with aria-expanded and aria-activedescendant, so the
+      suggestion list is announced rather than being a silent visual extra.
+      autocomplete=off keeps the browser's own history list from covering ours.
+    */}}
+    {{/*
+      data-placeholder-full is the wording this caller would like; the field
+      falls back to shorter forms when its width cannot show it. The attribute
+      is the source of truth so a resize can go back to the longer text.
+    */}}
+    <input class="input" id="{{ $id }}" name="{{ .Name }}" type="text"
+           value="{{ .Value }}" placeholder="{{ $ph }}" data-placeholder-full="{{ $ph }}"
+           autocomplete="off" role="combobox" aria-autocomplete="list"
+           aria-controls="{{ $id }}-list" :aria-expanded="open"
+           :aria-activedescendant="active >= 0 ? '{{ $id }}-opt-' + active : null"
+           x-ref="input"
+           @input="filter()" @focus="filter()"
+           @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)"
+           @keydown.enter="pick($event)" @keydown.tab="close()"
+           @click.outside="close()">
+    <button type="button" class="location-field__clear" x-show="hasValue" x-cloak
+            @click="clear()" aria-label="Clear location">
+      {{ template "icon" "close" }}
+    </button>
+  </span>
+
+  {{/*
+    Every suggestion is server-rendered and filtered in the browser. The list is
+    small enough (it is drawn from seeded stock) that this costs nothing, and it
+    means the field still shows its options with JavaScript disabled.
+  */}}
+  <div class="location-field__list" id="{{ $id }}-list" role="listbox"
+       x-show="open" x-cloak x-ref="list" aria-label="Location suggestions">
+    {{ range $i, $s := .Suggestions }}
+    {{/*
+      The structured place travels on the button as data attributes, so a
+      caller reacting to previa-location-picked can move a map and fill in
+      address fields without a second lookup. A Places result populates the
+      same attributes.
+    */}}
+    <button type="button" class="location-field__option" role="option"
+            id="{{ $id }}-opt-{{ $i }}" data-label="{{ $s.Label }}"
+            data-kind="{{ $s.Kind }}"
+            data-lat="{{ $s.Lat }}" data-lng="{{ $s.Lng }}"
+            data-country="{{ $s.CountryCode }}" data-city="{{ $s.City }}"
+            data-district="{{ $s.District }}" data-address="{{ $s.Address }}"
+            :class="{ 'is-active': active === {{ $i }} }"
+            :aria-selected="active === {{ $i }}"
+            @click.prevent="choose($el)">
+      <span class="location-field__kind location-field__kind--{{ $s.Kind }}"
+            aria-hidden="true">{{ template "icon" (placeIcon $s.Kind) }}</span>
+      <span class="location-field__label">{{ $s.Label }}</span>
+      <span class="location-field__type">{{ placeLabel $s.Kind }}</span>
+    </button>
+    {{ end }}
+    <p class="location-field__empty" x-show="empty" x-cloak>
+      No place matches “<span x-text="q"></span>”.
+    </p>
+  </div>
+</div>
+{{ end }}

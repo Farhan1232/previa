@@ -347,6 +347,18 @@
 .segmented--full { width: 100%; }
 .segmented--full .segmented__item { flex: 1; }
 
+/*
+  Deal type carries four options — Any, Sell, Rent, Short rent — inside a
+  ~300px sidebar. At the default size "Short rent" wrapped to two lines and
+  made the whole control a row taller than its neighbours, so this trims the
+  type and the side padding to keep all four on one line.
+*/
+.segmented--deal .segmented__item {
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
 /* Selected: raised white surface + teal ink + weight change, so the state is
    not carried by colour alone. */
 .segmented__item:has(input:checked) {
@@ -424,6 +436,7 @@
   color: var(--text);
 }
 .chip__remove {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -431,6 +444,20 @@
   border-radius: 50%;
   color: var(--text-muted);
   transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+/*
+  The drawn control stays 22px so the chip row keeps its density, but the area
+  a finger has to hit is 32px. Property type can now put several chips in a
+  row, so these are pressed far more often than when there was one.
+*/
+.chip__remove::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
 }
 .chip__remove:hover { background: var(--surface); color: var(--error); }
 .chip__remove svg { width: 12px; height: 12px; }
@@ -503,8 +530,22 @@
   flex-wrap: wrap;
   gap: var(--sp-2);
   max-width: calc(100% - 76px);
+  /* Labels, not controls. Without this they sit above the paging zones and
+     the card link and swallow clicks aimed at the photograph beneath them. */
+  pointer-events: none;
 }
 
+/*
+  Favourite control, Airbnb style.
+
+  The white disc behind the heart made it the loudest thing on the card. The
+  disc is gone; what remains is the glyph itself — a translucent dark fill with
+  a white outline, which stays legible over both a bright sky and a dark
+  interior without needing a plate behind it.
+
+  The button keeps a 36px box for the tap target even though only the ~22px
+  glyph is drawn.
+*/
 .pcard__fav {
   position: absolute;
   top: var(--sp-3); right: var(--sp-3);
@@ -512,22 +553,34 @@
   align-items: center;
   justify-content: center;
   width: 36px; height: 36px;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 50%;
-  color: var(--slate);
-  box-shadow: var(--shadow-sm);
-  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease),
-              transform var(--dur-fast) var(--ease);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.52);
+  transition: color var(--dur) var(--ease), transform var(--dur-fast) var(--ease);
 }
-.pcard__fav:hover { background: #fff; color: var(--error); transform: scale(1.08); }
-.pcard__fav svg { width: 18px; height: 18px; }
+/*
+  The white outline is what defines the shape; the translucent body behind it
+  is only there so the outline still reads against a bright sky or a white
+  wall. A 2px stroke on a 22px glyph swallowed the body entirely and the heart
+  came out looking solid white, which is the reference's *selected* weight —
+  hence 1.5.
+*/
+.pcard__fav svg {
+  width: 22px; height: 22px;
+  fill: currentColor;          /* the tinted body of the heart */
+  stroke: #fff;                /* the outline that lifts it off the photo */
+  stroke-width: 1.5;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+.pcard__fav:hover { transform: scale(1.08); }
 .pcard__fav[aria-pressed='true'] { color: var(--error); }
-.pcard__fav[aria-pressed='true'] svg { fill: currentColor; }
-.pcard__fav:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.pcard__fav:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 50%; }
 
 .pcard__count {
   position: absolute;
   bottom: var(--sp-3); right: var(--sp-3);
+  pointer-events: none;   /* decorative, same reasoning as the badges */
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -613,9 +666,16 @@
   color: var(--text-muted);
 }
 
-/* Favourite/actions must sit above the card-wide click overlay. */
+/*
+  Controls that must stay above the media overlays.
+
+  The heart has to clear the paging zones as well as the link, and those sit at
+  z-index 2, so 4 is the floor for it — see the stacking note in the carousel
+  section. The badges are labels with pointer-events: none, so 2 is enough to
+  keep them drawn over the photograph.
+*/
 .pcard__fav,
-.pcard__actions,
+.pcard__actions { z-index: 4; }
 .pcard__badges { z-index: 2; }
 
 /* --- Horizontal list card ------------------------------------------------- */
@@ -1190,65 +1250,141 @@
 .toast svg { flex: none; width: 18px; height: 18px; margin-top: 1px; }
 
 /* --------------------------------------------------------------------------
-   Card image arrows and position dots
+   Card image carousel
 
-   The client asked to page through a listing's photographs without leaving
-   the results. Arrows are hidden until the card is hovered or focused on
-   pointer devices, and always visible on touch, where there is no hover.
+   Three ways to change picture, as asked: the pager arrows, a dot, or a click
+   on the left/right third of the photograph. A click in the middle falls
+   through to the card link and opens the listing.
    -------------------------------------------------------------------------- */
 
-.pcard__arrow {
+/* The track slides; the media box clips it.
+
+   220ms is the client's "fast, smooth" brief (he asked for 180–250ms). The
+   easing decelerates, so the picture arrives rather than stopping dead. */
+.pcard__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.pcard__slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The zoom-on-hover belongs to single-image cards; on a track it would fight
+   the slide transform. */
+.pcard:hover .pcard__track .pcard__slide { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pcard__track { transition: none; }
+}
+
+/* --- Click zones ----------------------------------------------------------
+
+   Stacking order over the photograph, lowest first:
+     1  .pcard__title a::after  the card-wide link, so the middle opens the listing
+     2  .pcard__zone            the outer thirds, paging instead
+     3  .pcard__pager           arrows and dots
+     4  .pcard__fav             the heart, which must stay clickable everywhere
+
+   The heart sits inside the right-hand paging zone, so without a higher layer
+   than the zone it cannot be pressed at all — which is exactly what happened
+   before it was raised to 4.
+   -------------------------------------------------------------------------- */
+
+.pcard__zone {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  bottom: 34px;              /* clear of the pager, so it stays clickable */
+  width: 30%;
   z-index: 2;
+  border: none;
+  background: none;
+}
+/* Directional cursors, so the outer thirds read as paging rather than as more
+   of the link underneath them. */
+.pcard__zone--prev { left: 0; cursor: w-resize; }
+.pcard__zone--next { right: 0; cursor: e-resize; }
+
+/* --- Pager capsule -------------------------------------------------------- */
+
+.pcard__pager {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px;
+  border-radius: 999px;
+  background: rgba(8, 20, 32, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.pcard:hover .pcard__pager,
+.pcard:focus-within .pcard__pager { opacity: 1; }
+
+/* No hover on touch: show it rather than never showing it. */
+@media (hover: none) {
+  .pcard__pager { opacity: 1; }
+}
+
+/*
+  Arrows and dots are green, as asked, and the capsule behind them is dark, so
+  the green keeps its contrast over a bright photograph as well as a dark one.
+  --success-on-dark is a lightened green defined for exactly this: the base
+  --success is tuned for text on white and goes muddy on the capsule.
+*/
+.pcard__pager-arrow {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 20px; height: 20px;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--navy);
-  box-shadow: var(--shadow-sm);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  background: none;
+  color: var(--success-on-dark);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
-.pcard__arrow svg { width: 16px; height: 16px; }
-.pcard__arrow--prev { left: 8px; }
-.pcard__arrow--next { right: 8px; }
-.pcard__arrow:hover { background: #fff; }
+.pcard__pager-arrow svg { width: 14px; height: 14px; stroke-width: 2.4; }
+.pcard__pager-arrow:hover { color: #fff; background: rgba(255, 255, 255, 0.16); }
+.pcard__pager-arrow:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
-.pcard:hover .pcard__arrow,
-.pcard:focus-within .pcard__arrow { opacity: 1; }
+.pcard__pager-dots { display: inline-flex; align-items: center; gap: 4px; padding: 0 2px; }
 
-/* No hover on touch: show them permanently rather than never. */
-@media (hover: none) {
-  .pcard__arrow { opacity: 1; }
-}
-
-.pcard__dots {
-  position: absolute;
-  left: 0; right: 0;
-  bottom: 8px;
-  z-index: 2;
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  pointer-events: none;
-}
 .pcard__dot {
-  width: 5px; height: 5px;
+  width: 6px; height: 6px;
+  padding: 0;
+  border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
-  transition: background-color var(--dur-fast) var(--ease);
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
-.pcard__dot.is-on { background: #fff; }
+.pcard__dot:hover { background: rgba(255, 255, 255, 0.85); }
+.pcard__dot.is-on { background: var(--success-on-dark); transform: scale(1.25); }
+.pcard__dot:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
-/* The map variant is already dense; arrows would crowd it. */
-.pcard--map .pcard__arrow,
-.pcard--map .pcard__dots { display: none; }
+.pcard__pager-count {
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* Map cards opt out of the carousel entirely (see property-card.html), so
+   these rules only guard against a variant being added later. */
+.pcard--map .pcard__pager,
+.pcard--map .pcard__zone { display: none; }
 
 /* --------------------------------------------------------------------------
    Map-list locate control
@@ -1298,7 +1434,6 @@
   letter-spacing: 0.02em;
   color: var(--text);
 }
-.pcard__market .flag { width: 16px; height: 11px; border-radius: 1px; }
 
 /*
   The locate control takes the top-right corner on map cards, where the
@@ -1307,3 +1442,302 @@
   the right edge.
 */
 .pcard--map .pcard__fav { top: 44px; right: 8px; left: auto; }
+
+/* --------------------------------------------------------------------------
+   Flags
+
+   One rule for every flag in the interface, so the language menu, the market
+   picker, the card badges and the drawer pills all draw the same shape. The
+   client asked for the frame around them removed and for the rounded corners
+   used in the supplied reference; the SVG itself no longer strokes an outline,
+   and the radius is applied here. `overflow: hidden` is already the initial
+   value for an outermost <svg>, so the radius clips the stripes inside.
+
+   The selector is doubled so this beats the generic `.menu__item svg` and
+   `.btn svg` rules, which would otherwise square the flag off at 16x16 and
+   throw away its 7:5 proportions.
+   -------------------------------------------------------------------------- */
+.flag.flag {
+  display: inline-block;
+  flex: none;
+  width: 22px;
+  height: 16px;
+  border-radius: 3px;
+  vertical-align: middle;
+  /*
+    The source flags are 4:3 and the slot is 11:8 — a 3% difference. `cover`
+    fills the slot by trimming a quarter-pixel off the top and bottom rather
+    than stretching the flag, so proportions stay true. Without this the <img>
+    would squash to fit.
+  */
+  object-fit: cover;
+  /* A hair of contrast so a white-edged flag (Japan, Poland, Finland) still
+     reads as a shape against a white surface. Not a frame — no gold, no rule. */
+  box-shadow: inset 0 0 0 1px rgba(10, 34, 56, 0.10);
+}
+[data-theme='dark'] .flag.flag { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16); }
+
+/* Placeholder for a code with no flag file. Should never appear — every market
+   country ships one — but it keeps an unknown code from breaking the layout. */
+.flag--unknown { color: var(--text-muted); }
+
+/* --------------------------------------------------------------------------
+   Language menu
+
+   Flag plus the language's full name, nothing else: the client asked for the
+   two-letter codes and the translation percentages taken out. Both were
+   author-facing detail that meant nothing to a visitor choosing a language.
+   -------------------------------------------------------------------------- */
+.lang-menu .menu__item { gap: var(--sp-3); }
+.lang-menu .menu__item > span { white-space: nowrap; }
+
+/* --------------------------------------------------------------------------
+   Location field
+
+   One box in place of the three the sidebar used to carry. The suggestion list
+   is absolutely positioned so it overlays whatever follows rather than pushing
+   the form around as it opens and closes.
+   -------------------------------------------------------------------------- */
+.location-field { position: relative; }
+/*
+  The control is a block, not the flex row `.input-icon` normally makes, because
+  the suggestion list is a sibling that has to span the full width. That means
+  `.input-icon`'s `align-items: center` no longer reaches the pin, so the icon
+  is centred explicitly here — without this it fell to the top of the line box
+  and sat above the text rather than beside it.
+*/
+.location-field__control { position: relative; display: block; }
+.location-field__control > svg {
+  top: 50%;
+  transform: translateY(-50%);
+  left: var(--sp-3);
+}
+
+/*
+  Room for the text.
+
+  The pin and the clear button were reserving 98px of a ~276px field in the
+  sidebar, which left barely enough for "Kalamaja, Tallinn, Estonia" — the
+  value was clipped mid-word on a phone. Both gutters are now sized to what the
+  control actually occupies plus one step of breathing room.
+*/
+.location-field__control .input {
+  padding-left: calc(var(--sp-3) + 18px + var(--sp-2));   /* 38px */
+  padding-right: calc(var(--sp-2) + 22px + var(--sp-2));  /* 38px */
+  /* A value longer than the field trails off rather than being sliced through
+     a letter. Applies when the field is not focused; typing still scrolls. */
+  text-overflow: ellipsis;
+}
+
+.location-field__clear {
+  position: absolute;
+  top: 50%;
+  right: var(--sp-2);
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.location-field__clear:hover { background: var(--surface-3); color: var(--text); }
+.location-field__clear:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 1px; }
+.location-field__clear svg { width: 13px; height: 13px; }
+/* The drawn button stays small; the area a finger has to find is 32px. */
+.location-field__clear::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+}
+
+.location-field__list {
+  position: absolute;
+  z-index: 50;   /* over the fields below it, under the header and drawers */
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 292px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-1);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.location-field__option {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: none;
+  border-radius: var(--r-sm);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.location-field__option[hidden] { display: none; }
+.location-field__option:hover,
+.location-field__option.is-active { background: var(--surface-3); }
+.location-field__option:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -2px; }
+
+.location-field__kind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-muted);
+}
+.location-field__kind svg { width: 15px; height: 15px; }
+/* A country reads as the broadest match, so it carries the accent. */
+.location-field__kind--country { background: var(--navy-tint); color: var(--navy); }
+[data-theme='dark'] .location-field__kind--country { background: var(--surface-3); color: var(--gold); }
+
+.location-field__label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.location-field__type {
+  flex: none;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.location-field__empty {
+  padding: var(--sp-4) var(--sp-3);
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Payment method options
+   -------------------------------------------------------------------------- */
+
+.pay-option__name { display: inline-flex; align-items: center; gap: var(--sp-3); }
+
+.pay-logo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+.pay-logo__svg {
+  width: 40px;
+  height: 26px;
+  border-radius: 4px;
+}
+
+/* A provider that is present in the design but not yet connected. */
+.pay-option.is-disabled { opacity: 0.55; cursor: not-allowed; }
+.pay-option.is-disabled input { cursor: not-allowed; }
+
+/* Mock processing: the button reports the request is in flight rather than
+   leaving the page apparently idle. */
+.pay-option.is-processing { border-color: var(--navy); }
+
+/* The switch's text label, next to its track — used in the admin tables where
+   the state has to be readable as a word as well as a position. */
+.switch__label { font-size: var(--fs-sm); color: var(--text-muted); }
+
+/*
+  Touch targets for the card pager.
+
+  The dot is 6px and the arrow 20px by design — the client asked for small
+  controls. A transparent pseudo-element gives each one a finger-sized hit area
+  without changing what is drawn, so the pager stays discreet and still stays
+  usable on a phone.
+*/
+.pcard__dot,
+.pcard__pager-arrow,
+.map-popup__dot,
+.map-popup__arrow { position: relative; }
+
+.pcard__dot::after,
+.pcard__pager-arrow::after,
+.map-popup__dot::after,
+.map-popup__arrow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+}
+
+/* --------------------------------------------------------------------------
+   Payment method detail panels
+
+   What the chosen method actually involves, shown under the list. Credit card
+   draws a disabled card form (entered here, processed by Stripe); Stripe draws
+   a sketch of the hosted page the payer would be sent to. Both are
+   demonstrations — see the note in each panel.
+   -------------------------------------------------------------------------- */
+.pay-detail {
+  margin-top: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.pay-detail__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.pay-detail__head svg { flex: none; width: 15px; height: 15px; color: var(--text-muted); }
+.pay-detail .field__hint { margin-top: var(--sp-3); }
+
+/* A sketch of Stripe's hosted page — deliberately abstract, not a facsimile. */
+.pay-detail__hosted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.pay-detail__bar {
+  height: 10px;
+  width: 100%;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+}
+.pay-detail__bar--short { width: 55%; }
+.pay-detail__btn {
+  align-self: flex-start;
+  margin-top: var(--sp-2);
+  padding: 6px var(--sp-4);
+  border-radius: var(--r-sm);
+  background: #635BFF;              /* Stripe's own violet, for recognition */
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}

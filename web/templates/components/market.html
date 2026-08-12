@@ -6,18 +6,30 @@
   homepage hero and above the search results; the header keeps its own copy on
   every other page.
 
+  The list is the full ISO 3166-1 set, so it needs a search box: the client
+  asked for the selector to work at roughly 192 entries. Every country is
+  server-rendered as an ordinary link, which means the control still works with
+  no JavaScript at all — the filtering, the clear button and the empty state are
+  enhancements layered on top by previaMarketPicker().
+
+  Markets carrying seeded listings are grouped first, because those are the ones
+  that return results in this milestone.
+
   Args (dict):
     Countries    []models.Country  every selectable market
+    Seeded       []models.Country  the subset with listings (optional)
     Country      models.Country    the active one
     CurrentPath  string            where to return after switching
     Tone         "light"|""        light sits on photography, default on a surface
 */}}
 {{ define "market-picker" }}
 {{ $tone := "" }}{{ if hasField . "Tone" }}{{ $tone = .Tone }}{{ end }}
+{{ $active := .Country.Code }}{{ $path := .CurrentPath }}
 <div class="market-picker{{ if $tone }} market-picker--{{ $tone }}{{ end }}"
-     x-data="previaMenu()" @keydown.escape.window="close()">
-  <button type="button" class="market-picker__btn" @click="toggle()" :aria-expanded="open"
-          aria-haspopup="true" aria-label="Change market — currently {{ .Country.Name }}">
+     x-data="previaMarketPicker()" @keydown.escape.window="close()">
+  <button type="button" class="market-picker__btn" x-ref="trigger" @click="toggle()"
+          :aria-expanded="open" aria-haspopup="true"
+          aria-label="Change market — currently {{ .Country.Name }}">
     {{ template "flag" .Country.Code }}
     <span>{{ .Country.Code }}</span>
     {{ template "icon" "chevron-down" }}
@@ -25,17 +37,68 @@
 
   <div class="dropdown dropdown--right" x-show="open" x-cloak
        x-transition.opacity.duration.150ms @click.outside="close()">
-    <div class="menu" role="menu">
-      <p class="menu__label">Choose your market</p>
-      {{ $active := .Country.Code }}{{ $path := .CurrentPath }}
-      {{ range .Countries }}
-      <a class="menu__item {{ if eq .Code $active }}is-active{{ end }}" role="menuitem"
-         href="/set-country?code={{ .Code }}&return={{ $path }}">
-        {{ template "flag" .Code }}
-        <span>{{ .Name }}</span>
-        {{ if eq .Code $active }}<span class="spacer"></span>{{ template "icon" "check" }}{{ end }}
-      </a>
-      {{ end }}
+    <div class="menu market-menu">
+      <p class="menu__label" id="market-menu-label">Choose your market</p>
+
+      {{/*
+        Search. type="search" so a phone offers the right keyboard and the
+        browser's own clear affordance appears where the platform has one; the
+        explicit button covers the platforms that do not.
+      */}}
+      <div class="market-menu__search">
+        {{ template "icon" "search" }}
+        <input class="input market-menu__input" type="search" x-ref="q"
+               x-model="q" @input="filter()" @keydown.down.prevent="move(1)"
+               @keydown.up.prevent="move(-1)" @keydown.enter.prevent="choose()"
+               placeholder="Search country or code" autocomplete="off"
+               aria-label="Search countries by name or code"
+               aria-describedby="market-menu-label">
+        <button type="button" class="market-menu__clear" x-show="q" x-cloak
+                @click="clear()" aria-label="Clear search">
+          {{ template "icon" "close" }}
+        </button>
+      </div>
+
+      {{/*
+        The list scrolls; the search box and the locate button above and below
+        it stay put, so a long list never pushes them out of reach.
+      */}}
+      <div class="market-menu__list" x-ref="list" role="listbox"
+           aria-label="Countries">
+
+        {{ if hasField . "Seeded" }}
+        <p class="market-menu__group" data-market-group>With listings</p>
+        {{ range .Seeded }}
+        <a class="menu__item market-menu__item {{ if eq .Code $active }}is-active{{ end }}"
+           role="option" {{ if eq .Code $active }}aria-selected="true"{{ end }}
+           data-market-name="{{ .Name }}" data-market-code="{{ .Code }}"
+           data-market-seeded="yes"
+           href="/set-country?code={{ .Code }}&return={{ $path }}">
+          {{ template "flag" .Code }}
+          <span>{{ .Name }}</span>
+          {{ if eq .Code $active }}<span class="spacer"></span>{{ template "icon" "check" }}{{ end }}
+        </a>
+        {{ end }}
+        <p class="market-menu__group" data-market-group>All countries</p>
+        {{ end }}
+
+        {{ range .Countries }}
+        <a class="menu__item market-menu__item {{ if eq .Code $active }}is-active{{ end }}"
+           role="option" {{ if eq .Code $active }}aria-selected="true"{{ end }}
+           data-market-name="{{ .Name }}" data-market-code="{{ .Code }}"
+           href="/set-country?code={{ .Code }}&return={{ $path }}">
+          {{ template "flag" .Code }}
+          <span>{{ .Name }}</span>
+          {{ if eq .Code $active }}<span class="spacer"></span>{{ template "icon" "check" }}{{ end }}
+        </a>
+        {{ end }}
+      </div>
+
+      {{/* Empty state — only ever shown once a query has excluded everything. */}}
+      <p class="market-menu__empty" x-show="empty" x-cloak>
+        No country matches “<span x-text="q"></span>”.
+      </p>
+
       <div class="menu__divider"></div>
       <button type="button" class="menu__item" @click="$dispatch('previa-locate'); close()">
         {{ template "icon" "map-pin" }} Detect my location

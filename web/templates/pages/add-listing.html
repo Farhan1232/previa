@@ -1,22 +1,36 @@
 {{ define "content" }}
 {{ $d := .Data }}
-{{ $step := $d.CurrentNum }}
 
 {{/*
-  Add-listing wizard.
+  Add a listing — one continuous form.
 
-  The vertical publishing progression sits on the right on desktop, as the
-  client asked, with deliberately compact step markers. Every step writes to
-  localStorage as you type, so leaving the page and coming back resumes where
-  you were; unfinished listings show up under Drafts.
+  This was a fourteen-screen wizard with Back and Continue buttons. The client
+  asked for a single scrollable form with the waypoint list kept on the right,
+  so the whole shape of the listing is visible at once and no field is more
+  than a scroll away.
+
+  How the two halves stay in step:
+    - every section is <section id="ls-{key}"> with a stable id, so waypoints,
+      deep links and older "?step=N" URLs all resolve to an anchor
+    - scrolling updates the active waypoint (IntersectionObserver, not a scroll
+      handler, so there is no per-frame work and no feedback loop)
+    - clicking a waypoint scrolls the form smoothly; the observer is muted for
+      the duration of that scroll so the highlight cannot chase the viewport
+
+  Autosave is unchanged: every field still calls touch(), which debounces a
+  POST to /add-listing/save. Nothing is persisted server-side this milestone.
 */}}
 <div class="container" style="padding:var(--sp-7) 0 var(--sp-11)"
-     x-data="previaWizard({{ $step }}, {{ $d.TotalSteps }})">
+     x-data="previaListingForm({{ $d.TotalSteps }}, '{{ $d.Anchor }}')">
 
   <div class="row row--between" style="margin-bottom:var(--sp-6)">
     <div>
       <h1 class="display display--h2">Add a listing</h1>
-      <p class="muted">Step {{ $step }} of {{ $d.TotalSteps }} · {{ $d.Current.Label }}</p>
+      <p class="muted">
+        <span x-text="activeLabel"></span>
+        · section <span class="numeric" x-text="activeIndex + 1"></span>
+        of <span class="numeric">{{ $d.TotalSteps }}</span>
+      </p>
     </div>
     <div class="row row--tight">
       <span class="autosave" :class="{ 'is-saving': state === 'saving', 'is-saved': state === 'saved' }"
@@ -29,166 +43,211 @@
     </div>
   </div>
 
+  {{/* Progress reflects how far down the form you are, not a step counter. */}}
   <div class="progress" style="margin-bottom:var(--sp-7)">
-    <div class="progress__bar" style="width:{{ $d.Progress }}%"></div>
+    <div class="progress__bar" :style="'width:' + progressPct + '%'"></div>
+  </div>
+
+  {{/*
+    Mobile waypoint control.
+
+    The right-hand rail is hidden below 1024px, so this takes over: a native
+    <select> is the most accessible compact navigation on a phone — it gets the
+    platform's own picker, screen-reader support and keyboard handling free.
+  */}}
+  <div class="listing-nav-compact">
+    <label class="field__label" for="ls-jump">Jump to section</label>
+    <select class="select" id="ls-jump" @change="goTo($event.target.value)">
+      {{ range $d.Steps }}
+      <option value="{{ .Key }}" :selected="activeKey === '{{ .Key }}'">
+        {{ .Number }}. {{ .Label }}
+      </option>
+      {{ end }}
+    </select>
   </div>
 
   <div class="wizard">
-    {{/* ---------------- step content ---------------- */}}
-    <div class="wizard-card">
-      <div class="wizard-card__body">
+    {{/* ---------------- the form ---------------- */}}
+    <form class="wizard-card" x-ref="form" @input="touch()" @change="touch()"
+          @submit.prevent>
+      <div class="wizard-card__body listing-sections">
 
-        {{ if eq $step 1 }}
-          <h2 class="display display--h3">Are you selling or renting out?</h2>
-          <p class="muted">This decides which fields you'll be asked for next.</p>
-          <div class="option-grid">
+        {{/* --- 1. Deal type ------------------------------------------------ */}}
+        <section class="listing-section" id="ls-deal" aria-labelledby="ls-deal-h" x-ref="sec-deal">
+          <h2 class="display display--h3" id="ls-deal-h">Deal type</h2>
+          {{/*
+            The same three choices, in the same order and with the same words,
+            as the homepage search and the filter sidebar.
+          */}}
+          <div class="option-grid" role="radiogroup" aria-labelledby="ls-deal-h">
+            {{ range $i, $dt := dealTypes }}
             <label class="option-tile">
-              <input type="radio" name="deal" value="sale" checked @change="touch()">
-              {{ template "icon" "home" }}
-              <span class="option-tile__label">For sale</span>
-              <span class="option-tile__hint">One-off sale price</span>
-            </label>
-            <label class="option-tile">
-              <input type="radio" name="deal" value="rent" @change="touch()">
-              {{ template "icon" "key" }}
-              <span class="option-tile__label">For rent</span>
-              <span class="option-tile__hint">Monthly rent</span>
-            </label>
-          </div>
-
-        {{ else if eq $step 2 }}
-          <h2 class="display display--h3">What kind of property is it?</h2>
-          <div class="option-grid">
-            {{ $cats := list "apartment" "house" "villa" "commercial" "land" "garage" }}
-            {{ $icons := list "building" "home" "villa" "commercial" "land" "garage" }}
-            {{ $names := list "Apartment" "House" "Villa" "Commercial" "Land" "Garage" }}
-            {{ range $i, $c := $cats }}
-            <label class="option-tile">
-              <input type="radio" name="type" value="{{ $c }}" {{ if eq $i 0 }}checked{{ end }} @change="touch()">
-              {{ template "icon" (index $icons $i) }}
-              <span class="option-tile__label">{{ index $names $i }}</span>
+              <input type="radio" name="deal" value="{{ $dt.Value }}"
+                     {{ if eq $i 0 }}checked{{ end }}>
+              {{ if eq $dt.Value "sale" }}{{ template "icon" "home" }}
+              {{ else if eq $dt.Value "rent" }}{{ template "icon" "key" }}
+              {{ else }}{{ template "icon" "calendar" }}{{ end }}
+              <span class="option-tile__label">{{ $dt.Label }}</span>
             </label>
             {{ end }}
           </div>
+        </section>
 
-        {{ else if eq $step 3 }}
-          <h2 class="display display--h3">Where is the property?</h2>
-          <p class="muted">
-            Search for the address, or drop the pin directly on the map. The map
-            is the source of truth — the address fields fill in from it.
-          </p>
-          <div class="field">
-            <label class="field__label" for="w-address">Address search</label>
-            <span class="input-icon">
-              {{ template "icon" "search" }}
-              <input class="input" id="w-address" type="text" @input="touch()"
-                     placeholder="Start typing a street address…"
-                     value="Pikk 42, Tallinn">
-            </span>
-            <span class="field__hint">
-              Powered by Google Maps address autocomplete when a key is configured.
-            </span>
+        {{/* --- 2. Property category ---------------------------------------- */}}
+        <section class="listing-section" id="ls-category" aria-labelledby="ls-category-h">
+          <h2 class="display display--h3" id="ls-category-h">What kind of property is it?</h2>
+          {{/*
+            One listing, one property type — so this stays a radio group even
+            though the search filters are now multiple-choice. There is no
+            "Any type" here either: a listing has to be something.
+
+            The options come from the shared catalogue, so a category added
+            there appears here without a second edit.
+          */}}
+          <div class="option-grid" role="radiogroup" aria-labelledby="ls-category-h">
+            {{ range $i, $t := propertyTypes }}
+            <label class="option-tile">
+              <input type="radio" name="type" value="{{ $t.Value }}" {{ if eq $i 0 }}checked{{ end }}>
+              {{ template "icon" $t.Icon }}
+              <span class="option-tile__label">{{ $t.Label }}</span>
+            </label>
+            {{ end }}
           </div>
+        </section>
 
-          <div class="detail-map" x-data="previaMap({{ $d.WizardMap }})">
+        {{/* --- 3. Location -------------------------------------------------
+             Replaces the old "Address and map pin" and "Public location
+             display" pair. Two ways in — type in the search bar, or click the
+             map — and both fill the same read-only fields underneath. The only
+             editable line is the public display address at the bottom.
+             ---------------------------------------------------------------- */}}
+        <section class="listing-section" id="ls-location" aria-labelledby="ls-location-h"
+                 x-data="previaListingLocation()">
+          <h2 class="display display--h3" id="ls-location-h">Location</h2>
+          <p class="muted">
+            Search for the place, or click straight on the map. Everything below
+            fills in from whichever you use.
+          </p>
+
+          {{ template "location-field" dict
+              "ID" "w-location" "Name" "location" "Value" ""
+              "Suggestions" $d.LocationSuggestions "Label" "Search for a location"
+              "Placeholder" "Country, city, district, street or exact address" }}
+
+          <div class="detail-map listing-map" x-data="previaMap({{ $d.WizardMap }})"
+               @previa-location-picked.window="$dispatch('listing-map-goto', $event.detail)">
             {{ template "map-surface" . }}
           </div>
-          <p class="text-xs muted">
-            {{ template "icon" "map-pin" }} Drag the pin to correct the exact position.
+          <p class="text-xs muted map-hint">
+            {{ template "icon" "map-pin" }}
+            <span>Click anywhere on the map to move the pin. The fields below follow it.</span>
           </p>
 
-          <div class="grid grid--2" style="gap:var(--sp-4)">
+          {{/*
+            System-generated, and not editable: these come from the map, so
+            letting them be typed over would let them disagree with the pin.
+            readonly rather than disabled, so they are still announced and can
+            be copied.
+          */}}
+          <p class="overline" style="margin-top:var(--sp-5)">From the map</p>
+          <div class="grid grid--2 readonly-grid" style="gap:var(--sp-4)">
             <div class="field">
               <label class="field__label" for="w-country">Country</label>
-              <select class="select" id="w-country" @change="touch()">
-                {{ range $d.Countries }}<option>{{ .Name }}</option>{{ end }}
-              </select>
+              <input class="input" id="w-country" type="text" readonly x-model="place.country">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-country-code">Country code</label>
+              <input class="input" id="w-country-code" type="text" readonly x-model="place.countryCode">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-state">State / region</label>
+              <input class="input" id="w-state" type="text" readonly x-model="place.state">
             </div>
             <div class="field">
               <label class="field__label" for="w-city">City</label>
-              <input class="input" id="w-city" type="text" value="Tallinn" @input="touch()">
+              <input class="input" id="w-city" type="text" readonly x-model="place.city">
             </div>
             <div class="field">
               <label class="field__label" for="w-district">District</label>
-              <input class="input" id="w-district" type="text" value="Vanalinn" @input="touch()">
+              <input class="input" id="w-district" type="text" readonly x-model="place.district">
             </div>
             <div class="field">
-              <label class="field__label" for="w-postal">Postal code</label>
-              <input class="input" id="w-postal" type="text" value="10133" @input="touch()">
+              <label class="field__label" for="w-street">Street / address</label>
+              <input class="input" id="w-street" type="text" readonly x-model="place.address">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-lat">Latitude</label>
+              <input class="input numeric" id="w-lat" type="text" readonly x-model="place.lat">
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-lng">Longitude</label>
+              <input class="input numeric" id="w-lng" type="text" readonly x-model="place.lng">
             </div>
           </div>
 
-        {{ else if eq $step 4 }}
-          <h2 class="display display--h3">How precisely should the location appear?</h2>
-          <p class="muted">
-            You control what the public sees. Enquiries still reach you either way,
-            and the exact position is only ever shared with people you reply to.
-          </p>
-          <div class="stack">
-            <label class="option-row">
-              <input type="radio" name="precision" value="exact" checked @change="touch()">
-              <span>
-                <span class="strong">Exact address and pin</span>
-                <span class="text-sm muted">Shows the full street address. Attracts the most enquiries.</span>
-              </span>
+          {{/*
+            The one editable location field, marked green so it is obviously
+            the exception among the read-only ones above.
+          */}}
+          <div class="field field--editable-location">
+            <label class="field__label" for="w-public-address">
+              {{ template "icon" "edit" }}
+              Edit your location as you want other users to see it
             </label>
-            <label class="option-row">
-              <input type="radio" name="precision" value="street" @change="touch()">
-              <span>
-                <span class="strong">Street only</span>
-                <span class="text-sm muted">Shows the street name and an approximate pin, not the house number.</span>
-              </span>
-            </label>
-            <label class="option-row">
-              <input type="radio" name="precision" value="area" @change="touch()">
-              <span>
-                <span class="strong">District only</span>
-                <span class="text-sm muted">Shows a circle over the district. Most private, fewest enquiries.</span>
-              </span>
-            </label>
+            <input class="input" id="w-public-address" name="public_address" type="text"
+                   x-model="publicAddress"
+                   placeholder="For example: Old Town, Tallinn — exact address on request">
+            <span class="field__hint">
+              This is the address shown on the public listing. The coordinates above
+              stay as they are.
+            </span>
           </div>
+        </section>
 
-        {{ else if eq $step 5 }}
-          <h2 class="display display--h3">Property information</h2>
+        {{/* --- 4. Property information ------------------------------------- */}}
+        <section class="listing-section" id="ls-details" aria-labelledby="ls-details-h">
+          <h2 class="display display--h3" id="ls-details-h">Property information</h2>
           <div class="grid grid--2" style="gap:var(--sp-4)">
             <div class="field">
               <label class="field__label" for="w-year">Construction year</label>
-              <input class="input" id="w-year" type="number" min="1700" max="2030" value="1897" @input="touch()">
+              <input class="input" id="w-year" type="number" min="1700" max="2030" value="1897">
             </div>
             <div class="field">
               <label class="field__label" for="w-cond">Condition</label>
-              <select class="select" id="w-cond" @change="touch()">
+              <select class="select" id="w-cond">
                 <option>Newly built</option><option selected>Renovated</option>
                 <option>Good</option><option>Satisfactory</option><option>Needs work</option>
               </select>
             </div>
             <div class="field">
               <label class="field__label" for="w-energy">Energy rating</label>
-              <select class="select" id="w-energy" @change="touch()">
+              <select class="select" id="w-energy">
                 {{ range list "A" "B" "C" "D" "E" "F" "G" }}<option>{{ . }}</option>{{ end }}
               </select>
             </div>
             <div class="field">
               <label class="field__label" for="w-ownership">Ownership</label>
-              <select class="select" id="w-ownership" @change="touch()">
+              <select class="select" id="w-ownership">
                 <option>Freehold</option><option>Leasehold</option><option>Co-operative</option>
               </select>
             </div>
           </div>
+        </section>
 
-        {{ else if eq $step 6 }}
-          <h2 class="display display--h3">Rooms and dimensions</h2>
+        {{/* --- 5. Rooms and dimensions ------------------------------------- */}}
+        <section class="listing-section" id="ls-rooms" aria-labelledby="ls-rooms-h">
+          <h2 class="display display--h3" id="ls-rooms-h">Rooms and dimensions</h2>
           {{/* One field is shown in its error state so the design covers validation */}}
           <div class="grid grid--2" style="gap:var(--sp-4)">
             <div class="field">
               <label class="field__label" for="w-rooms">Total rooms <span class="req">*</span></label>
-              <input class="input" id="w-rooms" type="number" min="1" value="4" @input="touch()">
+              <input class="input" id="w-rooms" type="number" min="1" value="4">
             </div>
             <div class="field is-invalid">
               <label class="field__label" for="w-area">Living area <span class="req">*</span></label>
               <span class="input-unit">
                 <input class="input" id="w-area" type="number" value="" placeholder="e.g. 118"
-                       aria-invalid="true" aria-describedby="w-area-err" @input="touch()">
+                       aria-invalid="true" aria-describedby="w-area-err">
                 <span class="input-unit__suffix">m²</span>
               </span>
               <p class="field__error" id="w-area-err">
@@ -197,24 +256,26 @@
             </div>
             <div class="field">
               <label class="field__label" for="w-beds">Bedrooms</label>
-              <input class="input" id="w-beds" type="number" min="0" value="2" @input="touch()">
+              <input class="input" id="w-beds" type="number" min="0" value="2">
             </div>
             <div class="field">
               <label class="field__label" for="w-baths">Bathrooms</label>
-              <input class="input" id="w-baths" type="number" min="0" value="2" @input="touch()">
+              <input class="input" id="w-baths" type="number" min="0" value="2">
             </div>
             <div class="field">
               <label class="field__label" for="w-floor">Floor</label>
-              <input class="input" id="w-floor" type="number" value="3" @input="touch()">
+              <input class="input" id="w-floor" type="number" value="3">
             </div>
             <div class="field">
               <label class="field__label" for="w-floors">Floors in building</label>
-              <input class="input" id="w-floors" type="number" value="4" @input="touch()">
+              <input class="input" id="w-floors" type="number" value="4">
             </div>
           </div>
+        </section>
 
-        {{ else if eq $step 7 }}
-          <h2 class="display display--h3">Features and amenities</h2>
+        {{/* --- 6. Features -------------------------------------------------- */}}
+        <section class="listing-section" id="ls-features" aria-labelledby="ls-features-h">
+          <h2 class="display display--h3" id="ls-features-h">Features and amenities</h2>
           <p class="muted">Tick everything that applies — these become search filters.</p>
           <div class="grid grid--2" style="gap:0 var(--sp-6)">
             {{ $feats := list "Parking" "Balcony" "Terrace" "Garden" "Elevator" "Sauna"
@@ -222,74 +283,136 @@
                               "Fireplace" "Alarm system" }}
             {{ range $feats }}
             <label class="check">
-              <input type="checkbox" @change="touch()">
+              <input type="checkbox">
               <span class="check__text">{{ . }}</span>
             </label>
             {{ end }}
           </div>
+        </section>
 
-        {{ else if eq $step 8 }}
-          <h2 class="display display--h3">Describe the property</h2>
+        {{/* --- 7. Description ----------------------------------------------- */}}
+        <section class="listing-section" id="ls-description" aria-labelledby="ls-description-h">
+          <h2 class="display display--h3" id="ls-description-h">Describe the property</h2>
           <div class="field">
             <label class="field__label" for="w-title">Listing title <span class="req">*</span></label>
-            <input class="input" id="w-title" type="text" @input="touch()"
+            <input class="input" id="w-title" type="text"
                    value="Restored merchant's apartment in Tallinn Old Town">
             <span class="field__hint">Lead with what makes it distinctive. Around 60 characters works best.</span>
           </div>
           <div class="field">
             <label class="field__label" for="w-desc">Description <span class="req">*</span></label>
-            <textarea class="textarea" id="w-desc" rows="10" @input="touch()">A rare limestone-walled apartment on one of the Old Town's best-preserved merchant streets. The 2022 restoration kept the original beamed ceilings and Baltic pine floors while adding underfloor heating, triple glazing and a fully rebuilt service core.</textarea>
+            <textarea class="textarea" id="w-desc" rows="10">A rare limestone-walled apartment on one of the Old Town's best-preserved merchant streets. The 2022 restoration kept the original beamed ceilings and Baltic pine floors while adding underfloor heating, triple glazing and a fully rebuilt service core.</textarea>
             <span class="field__hint">Cover condition, layout, the neighbourhood and what's included.</span>
           </div>
+        </section>
 
-        {{ else if eq $step 9 }}
-          <h2 class="display display--h3">Photos and media</h2>
-          <div class="uploader">
+        {{/* --- 8. Photos & videos ------------------------------------------- */}}
+        <section class="listing-section" id="ls-media" aria-labelledby="ls-media-h"
+                 x-data="previaMediaUploader()">
+          <h2 class="display display--h3" id="ls-media-h">Photos &amp; videos</h2>
+
+          <div class="uploader" :class="{ 'is-dragover': dragover }"
+               @dragover.prevent="dragover = true" @dragleave="dragover = false"
+               @drop.prevent="dropFiles($event)">
             <span class="empty__icon">{{ template "icon" "upload" }}</span>
-            <p class="strong">Drag photos here, or choose files</p>
-            <p class="text-sm muted">JPEG or PNG, up to 10 MB each. The first photo becomes the cover.</p>
-            <button type="button" class="btn btn--secondary btn--sm"
-                    @click="previaToast('File uploads are mocked in this build.', 'warning')">
+            <p class="strong">Drag photos and videos here, or choose files</p>
+            <p class="text-sm muted">
+              Images and videos. Videos up to 15 MB each. The first item becomes the cover.
+            </p>
+            {{/*
+              A real file input, so the platform's own picker and its file-type
+              filtering are used. Nothing is uploaded in this milestone — the
+              chosen files are validated and previewed locally.
+            */}}
+            <input class="visually-hidden" type="file" id="w-media" x-ref="file" multiple
+                   accept="image/jpeg,image/png,image/webp,image/avif,image/gif,video/mp4,video/webm,video/quicktime"
+                   @change="addFiles($event.target.files)">
+            <button type="button" class="btn btn--secondary btn--sm" @click="$refs.file.click()">
               Choose files
             </button>
+            <p class="field__error" x-show="error" x-cloak role="alert">
+              {{ template "icon" "alert" }} <span x-text="error"></span>
+            </p>
           </div>
 
-          <div class="photo-grid" style="margin-top:var(--sp-5)">
-            {{ range $i, $img := $d.SampleImgs }}
-            <div class="photo-thumb">
-              <img src="{{ $img }}" alt="Uploaded photo {{ add $i 1 }}" loading="lazy">
-              {{ if eq $i 0 }}<span class="photo-thumb__badge">Cover</span>{{ end }}
-              <button type="button" class="photo-thumb__remove" aria-label="Remove photo {{ add $i 1 }}"
-                      @click="previaToast('Photo removed from this demonstration.', 'success')">
-                {{ template "icon" "close" }}
-              </button>
-            </div>
-            {{ end }}
-          </div>
+          {{/*
+            Two seeded photographs so the ordering controls, the cover marker
+            and the removal confirmation have something to act on before any
+            file is chosen. previaMediaUploader() reads these on init.
+          */}}
+          {{ range $i, $img := $d.SampleImgs }}{{ if lt $i 2 }}
+          <span hidden data-sample-image="{{ $img }}"
+                data-sample-name="Photo {{ add $i 1 }}"></span>
+          {{ end }}{{ end }}
 
-        {{ else if eq $step 10 }}
-          <h2 class="display display--h3">Set your price</h2>
+          <p class="text-sm muted" style="margin-top:var(--sp-4)">
+            Drag a tile to reorder, or use the arrows on a tile — the first is the cover.
+          </p>
+
+          <div class="photo-grid" style="margin-top:var(--sp-3)" role="list">
+            <template x-for="(item, i) in items" :key="item.id">
+              <div class="photo-thumb" role="listitem" draggable="true"
+                   :class="{ 'is-dragging': draggingId === item.id }"
+                   @dragstart="startDrag(item.id)" @dragend="draggingId = null"
+                   @dragover.prevent="dragOver(i)" @drop.prevent="endDrag()">
+                <img :src="item.url" :alt="item.name" loading="lazy" x-show="item.kind === 'image'">
+                <div class="photo-thumb__video" x-show="item.kind === 'video'" x-cloak>
+                  {{ template "icon" "camera" }}
+                  <span class="photo-thumb__name" x-text="item.name"></span>
+                </div>
+
+                <span class="photo-thumb__badge" x-show="i === 0">Cover</span>
+                <span class="photo-thumb__kind" x-show="item.kind === 'video'" x-cloak>Video</span>
+
+                {{/*
+                  Keyboard-accessible reordering, as an alternative to dragging.
+                  Real buttons with names, so this works by tab and Enter.
+                */}}
+                <div class="photo-thumb__move">
+                  <button type="button" @click="move(i, -1)" :disabled="i === 0"
+                          :aria-label="'Move ' + item.name + ' earlier'">
+                    {{ template "icon" "chevron-left" }}
+                  </button>
+                  <button type="button" @click="move(i, 1)" :disabled="i === items.length - 1"
+                          :aria-label="'Move ' + item.name + ' later'">
+                    {{ template "icon" "chevron-right" }}
+                  </button>
+                </div>
+
+                <button type="button" class="photo-thumb__remove"
+                        :aria-label="'Remove ' + item.name" @click="remove(item.id)">
+                  {{ template "icon" "close" }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        {{/* --- 9. Price ------------------------------------------------------ */}}
+        <section class="listing-section" id="ls-price" aria-labelledby="ls-price-h">
+          <h2 class="display display--h3" id="ls-price-h">Set your price</h2>
           <div class="grid grid--2" style="gap:var(--sp-4)">
             <div class="field">
               <label class="field__label" for="w-price">Asking price <span class="req">*</span></label>
               <span class="input-unit">
-                <input class="input" id="w-price" type="number" value="429000" @input="touch()">
+                <input class="input" id="w-price" type="number" value="429000">
                 <span class="input-unit__suffix">EUR</span>
               </span>
             </div>
             <div class="field">
+              {{/* Euro only for now, matching the search filter's currency control. */}}
               <label class="field__label" for="w-currency">Currency</label>
-              <select class="select" id="w-currency" @change="touch()">
-                <option>EUR — Euro</option><option>CZK — Czech koruna</option><option>GBP — Pound sterling</option>
+              <select class="select" id="w-currency">
+                <option selected>€ EUR</option>
               </select>
             </div>
           </div>
           <label class="check">
-            <input type="checkbox" @change="touch()">
+            <input type="checkbox">
             <span class="check__text">Price negotiable</span>
           </label>
           <label class="check">
-            <input type="checkbox" @change="touch()">
+            <input type="checkbox">
             <span class="check__text">Hide the price and show “Price on application”</span>
           </label>
           <div class="alert alert--info">
@@ -297,54 +420,38 @@
             <p>Comparable renovated apartments in Vanalinn are listed between
                €3 200 and €4 100 per m². At €429 000 this works out at €3 636/m².</p>
           </div>
+        </section>
 
-        {{ else if eq $step 11 }}
-          <h2 class="display display--h3">How should buyers reach you?</h2>
+        {{/* --- 10. Contact --------------------------------------------------- */}}
+        <section class="listing-section" id="ls-contact" aria-labelledby="ls-contact-h">
+          <h2 class="display display--h3" id="ls-contact-h">How should buyers reach you?</h2>
           <div class="grid grid--2" style="gap:var(--sp-4)">
             <div class="field">
               <label class="field__label" for="w-cname">Contact name</label>
-              <input class="input" id="w-cname" type="text" value="{{ .User.Name }}" @input="touch()">
+              <input class="input" id="w-cname" type="text" value="{{ .User.Name }}">
             </div>
             <div class="field">
               <label class="field__label" for="w-cphone">Phone</label>
-              <input class="input" id="w-cphone" type="tel" value="{{ .User.Phone }}" @input="touch()">
+              <input class="input" id="w-cphone" type="tel" value="{{ .User.Phone }}">
             </div>
           </div>
           <div class="field">
             <label class="field__label" for="w-cemail">Email</label>
-            <input class="input" id="w-cemail" type="email" value="{{ .User.Email }}" @input="touch()">
+            <input class="input" id="w-cemail" type="email" value="{{ .User.Email }}">
           </div>
           <label class="check">
-            <input type="checkbox" checked @change="touch()">
+            <input type="checkbox" checked>
             <span class="check__text">Show my phone number on the listing</span>
           </label>
           <label class="check">
-            <input type="checkbox" checked @change="touch()">
+            <input type="checkbox" checked>
             <span class="check__text">Let buyers message me through Previa</span>
           </label>
+        </section>
 
-        {{ else if eq $step 12 }}
-          <h2 class="display display--h3">Choose a package</h2>
-          <div class="stack">
-            {{ range $d.Packages }}
-            <label class="option-row">
-              <input type="radio" name="package" value="{{ .ID }}" {{ if .IsPopular }}checked{{ end }} @change="touch()">
-              <span style="flex:1">
-                <span class="row row--between">
-                  <span class="strong">{{ .Name }}
-                    {{ if .IsPopular }}<span class="badge badge--info">Popular</span>{{ end }}
-                    {{ if .IsPremium }}<span class="badge badge--featured">Best exposure</span>{{ end }}
-                  </span>
-                  <span class="strong numeric">{{ money .Price }}</span>
-                </span>
-                <span class="text-sm muted">{{ .Tagline }} · {{ .DurationDays }} days · up to {{ .PhotoLimit }} photos</span>
-              </span>
-            </label>
-            {{ end }}
-          </div>
-
-        {{ else if eq $step 13 }}
-          <h2 class="display display--h3">Preview your listing</h2>
+        {{/* --- 11. Preview --------------------------------------------------- */}}
+        <section class="listing-section" id="ls-preview" aria-labelledby="ls-preview-h">
+          <h2 class="display display--h3" id="ls-preview-h">Preview your listing</h2>
           <p class="muted">This is exactly how buyers will see it in search results.</p>
           <div class="preview-frame">
             <div class="grid grid--3">
@@ -372,16 +479,60 @@
             {{ template "icon" "alert-triangle" }}
             <div>
               <p class="alert__title">One field still needs attention</p>
-              <p>Living area is empty. <a href="/add-listing?step=6" class="strong">Go back to step 6</a> to add it.</p>
+              <p>Living area is empty.
+                 <button type="button" class="linklike" @click="goTo('rooms')">
+                   Go to Rooms and dimensions
+                 </button> to add it.</p>
             </div>
           </div>
+        </section>
 
-        {{ else }}
-          <div class="publish-done">
+        {{/* --- 12. Publish ---------------------------------------------------
+             The package choice and the promotion options used to be their own
+             waypoint. The client asked for them here, where the listing is
+             actually paid for and published.
+             ------------------------------------------------------------------ */}}
+        <section class="listing-section" id="ls-publish" aria-labelledby="ls-publish-h">
+          <h2 class="display display--h3" id="ls-publish-h">Publish</h2>
+
+          <h3 class="card__title" style="margin-top:var(--sp-4)">Choose package</h3>
+          <div class="stack">
+            {{ range $d.Packages }}
+            <label class="option-row">
+              <input type="radio" name="package" value="{{ .ID }}" {{ if .IsPopular }}checked{{ end }}>
+              <span style="flex:1">
+                <span class="row row--between">
+                  <span class="strong">{{ .Name }}
+                    {{ if .IsPopular }}<span class="badge badge--info">Popular</span>{{ end }}
+                    {{ if .IsPremium }}<span class="badge badge--featured">Best exposure</span>{{ end }}
+                  </span>
+                  <span class="strong numeric">{{ money .Price }}</span>
+                </span>
+                <span class="text-sm muted">{{ .Tagline }} · {{ .DurationDays }} days · up to {{ .PhotoLimit }} photos</span>
+              </span>
+            </label>
+            {{ end }}
+          </div>
+
+          <h3 class="card__title" style="margin-top:var(--sp-6)">Promotion</h3>
+          <label class="check">
+            <input type="checkbox">
+            <span class="check__text">Feature this listing on the homepage</span>
+          </label>
+          <label class="check">
+            <input type="checkbox">
+            <span class="check__text">Bump to the top of search results weekly</span>
+          </label>
+          <label class="check">
+            <input type="checkbox">
+            <span class="check__text">Highlight in the weekly market newsletter</span>
+          </label>
+
+          <div class="publish-done" style="margin-top:var(--sp-6)">
             <span class="empty__icon" style="background:var(--success-bg);color:var(--success)">
               {{ template "icon" "check-circle" }}
             </span>
-            <h2 class="display display--h3">Ready to publish</h2>
+            <h3 class="display display--h3">Ready to publish</h3>
             <p class="muted" style="max-width:52ch">
               Your listing will be checked automatically and appear in search
               results within a few minutes. You can edit it at any time from
@@ -394,42 +545,32 @@
               <a class="btn btn--secondary btn--lg" href="/drafts">Save as draft</a>
             </div>
           </div>
-        {{ end }}
+        </section>
       </div>
+    </form>
 
-      <div class="wizard-card__foot">
-        {{ if gt $step 1 }}
-        <a class="btn btn--quiet" href="/add-listing?step={{ $d.PrevStep }}">
-          {{ template "icon" "chevron-left" }} Back
-        </a>
-        {{ else }}
-        <a class="btn btn--quiet" href="/">Cancel</a>
-        {{ end }}
-
-        {{ if lt $step $d.TotalSteps }}
-        <a class="btn btn--primary" href="/add-listing?step={{ $d.NextStep }}">
-          Continue {{ template "icon" "chevron-right" }}
-        </a>
-        {{ else }}
-        <a class="btn btn--gold" href="/checkout?package=pk-standard">Pay and publish</a>
-        {{ end }}
-      </div>
-    </div>
-
-    {{/* ---------------- vertical stepper (right, compact) ---------------- */}}
-    <nav class="stepper" aria-label="Listing progress">
+    {{/* ---------------- waypoint navigation (right) ---------------- */}}
+    <nav class="stepper" aria-label="Listing sections">
       <p class="overline" style="margin-bottom:var(--sp-4)">Your progress</p>
       <ol class="stepper__list">
         {{ range $d.Steps }}
-        <li class="stepper__item is-{{ .State }}">
-          <a class="stepper__marker" href="/add-listing?step={{ .Number }}"
-             aria-label="Step {{ .Number }}: {{ .Label }}{{ if eq .State "error" }} — needs attention{{ end }}"
-             {{ if eq .State "current" }}aria-current="step"{{ end }}>
-            {{ if eq .State "done" }}{{ template "icon" "check" }}
-            {{ else if eq .State "error" }}!
-            {{ else }}{{ .Number }}{{ end }}
-          </a>
-          <a class="stepper__label" href="/add-listing?step={{ .Number }}">{{ .Label }}</a>
+        <li class="stepper__item" :class="'is-' + stateOf('{{ .Key }}', '{{ .State }}')">
+          {{/*
+            Buttons, not links: the form never navigates, so an href would be a
+            lie and a middle-click would open a page that scrolls nowhere.
+          */}}
+          <button type="button" class="stepper__marker" @click="goTo('{{ .Key }}')"
+                  :aria-current="activeKey === '{{ .Key }}' ? 'true' : null"
+                  aria-label="Go to section {{ .Number }}: {{ .Label }}{{ if eq .State "error" }} — needs attention{{ end }}">
+            <span x-show="activeKey !== '{{ .Key }}' && '{{ .State }}' !== 'error'">{{ .Number }}</span>
+            <span x-show="'{{ .State }}' === 'error'" x-cloak>!</span>
+            <span x-show="activeKey === '{{ .Key }}' && '{{ .State }}' !== 'error'" x-cloak>
+              {{ template "icon" "check" }}
+            </span>
+          </button>
+          <button type="button" class="stepper__label" @click="goTo('{{ .Key }}')" tabindex="-1">
+            {{ .Label }}
+          </button>
         </li>
         {{ end }}
       </ol>

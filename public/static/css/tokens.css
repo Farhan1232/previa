@@ -38,6 +38,9 @@
 
   /* --- Status ----------------------------------------------------------- */
   --success: #2E7D5B;
+  /* For green marks sitting on a dark overlay (card pager, map popup):
+     --success is tuned for text on white and goes muddy there. */
+  --success-on-dark: #4ED08F;
   --success-bg: #E9F4EF;
   --success-border: #A9D3C1;
   --warning: #C77919;
@@ -202,6 +205,7 @@
   --gold-border: #4A3C1E;
 
   --success: #57BC92;
+  --success-on-dark: #4ED08F;
   --success-bg: #102A21;
   --success-border: #235C46;
   --warning: #E0A44F;

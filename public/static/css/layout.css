@@ -183,33 +183,50 @@
 .icon-btn__flag { font-size: 16px; line-height: 1; }
 
 /*
-  Menu trigger. Larger, heavier and green rather than the muted grey it was —
-  at 18px in --text-muted it read as decoration instead of a control.
-  --success is the palette's green and is already defined for both themes,
-  so this needs no new token.
+  Navigation menu trigger.
+
+  One class for every control that opens the drawer — the header's and the
+  floating one that takes over after the header scrolls away — so they cannot
+  drift apart.
+
+  Transparent, at the client's request: no green disc, no coloured fill, no
+  border, no gradient, no shadow behind the glyph. The icon carries itself in
+  currentColor, which means it inherits the right ink in both themes without a
+  second rule.
+
+  The glyph is 26px inside a 44px box: comfortably tappable and comfortably
+  above the 44px accessibility floor, while the drawn mark stays modest.
 */
-.header__burger { display: none; }
-.header__burger,
-.floating-menu {
-  color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 34%, transparent);
+.menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease),
+              background-color var(--dur-fast) var(--ease);
 }
-.header__burger svg,
-.floating-menu svg {
-  width: 24px;
-  height: 24px;
-  stroke-width: 2.4;
+.menu-trigger svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 1.9;   /* clear at 26px without going heavy */
 }
-.header__burger:hover,
-.floating-menu:hover {
-  color: var(--success);
-  background: color-mix(in srgb, var(--success) 12%, transparent);
+/* Hover is a faint neutral wash, not a colour change — the icon is the only
+   thing drawn, so tinting it would read as a state change rather than a hover. */
+.menu-trigger:hover { background: var(--surface-3); }
+.menu-trigger:active { transform: translateY(1px); }
+.menu-trigger:focus-visible {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
 }
 
-/* Fallback for engines without color-mix: a visible border either way. */
-@supports not (color: color-mix(in srgb, red 50%, transparent)) {
-  .header__burger, .floating-menu { border-color: var(--border-strong); }
-}
+.header__burger { display: none; }
 
 /*
   Floating menu button — appears only after the header has scrolled out of
@@ -221,19 +238,26 @@
   top: max(var(--sp-4), env(safe-area-inset-top));
   right: max(var(--sp-4), env(safe-area-inset-right));
   z-index: calc(var(--z-header) - 1);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border: 1px solid color-mix(in srgb, var(--success) 34%, transparent);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-md);
-  transition: background-color var(--dur-fast) var(--ease),
-    transform var(--dur-fast) var(--ease);
+  /*
+    Transparent, like the header's control — no disc, no border, no shadow.
+
+    It only appears once the header has scrolled away, by which point what is
+    behind it is the page's own background rather than the hero photograph, so
+    the icon reads without a plate. The one place that is not true is the map
+    screen, where it would sit over tiles; there it takes a plain surface (see
+    the rule below) purely so it stays visible.
+  */
+  background: none;
 }
-.floating-menu:active { transform: translateY(1px); }
+
+/* The map fills the viewport, so the floating control has imagery behind it
+   rather than page background. A plain surface — no colour, no border — is the
+   least that keeps it legible over tiles. */
+.map-shell ~ template .floating-menu,
+body:has(.map-shell) .floating-menu {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
 
 @media (max-width: 1080px) {
   .header__nav,
@@ -511,6 +535,8 @@ body.is-locked { overflow: hidden; }
 .filter-group__toggle svg { width: 16px; height: 16px; color: var(--text-muted); transition: transform var(--dur) var(--ease); }
 .filter-group__toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
 .filter-group__content { display: flex; flex-direction: column; gap: var(--sp-4); }
+/* A group with no fold — one field, its own label, no header above it. */
+.filter-group--flat { padding-top: var(--sp-1); }
 
 /* Rail button that reopens a collapsed panel. */
 .filter-rail {
@@ -774,4 +800,58 @@ body.is-locked { overflow: hidden; }
   border-radius: var(--r-pill);
   font-size: var(--fs-2xs);
   font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+   Section directly under the hero
+
+   The hero already ends in generous space, so a full --section-y on top of it
+   left an empty band before the first listing. Roughly half brings the
+   featured block up without letting it crowd the search panel.
+   -------------------------------------------------------------------------- */
+.section--after-hero { padding-top: calc(var(--section-y) * 0.35); }
+/* The heading sits closer to its cards too — the default 40px suits a section
+   that opens after a rule, not one tucked straight under the search panel. */
+.section--after-hero .section__head { margin-bottom: var(--sp-6); }
+
+/*
+  Compact heading block. The default gap suits headings that stand alone; an
+  eyebrow, title and one line of subtitle read better tucked together, and the
+  title's own line-height already provides most of the separation.
+*/
+.section__head-text--tight { gap: 2px; }
+.section__head-text--tight .section__title { line-height: 1.15; margin-top: 2px; }
+.section__head-text--tight .section__subtitle { margin-top: 4px; }
+.section__head-text--tight .overline { margin-bottom: 0; }
+
+/* --------------------------------------------------------------------------
+   Account button
+
+   Rounded rectangle, initials only. It shares the 40px height of the icon
+   buttons either side of it so the header row stays on one baseline, and it
+   drops the chevron the client asked to remove — aria-expanded still tells a
+   screen reader that it opens a menu.
+   -------------------------------------------------------------------------- */
+.user-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  min-width: 44px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+.user-btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+.user-btn:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 2px; }
+.user-btn__initials {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
 }

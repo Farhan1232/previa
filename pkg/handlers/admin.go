@@ -155,7 +155,7 @@ func (h *Handler) AdminBanners(w http.ResponseWriter, r *http.Request) {
 
 // AdminPackages renders package administration.
 func (h *Handler) AdminPackages(w http.ResponseWriter, r *http.Request) {
-	pd, ad := h.adminBase(r, "packages", "Listing packages")
+	pd, ad := h.adminBase(r, "packages", "Price packages")
 	ad.Packages = h.Store.Catalog.Packages(r.Context())
 	pd.Data = ad
 	h.View.Render(w, http.StatusOK, "admin/packages", pd)

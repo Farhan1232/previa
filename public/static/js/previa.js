@@ -64,6 +64,10 @@
       prev: function () {
         this.i = (this.i - 1 + this.total) % this.total;
       },
+      // Jump straight to one image, from a dot.
+      go: function (n) {
+        if (n >= 0 && n < this.total) this.i = n;
+      },
     };
   };
 
@@ -126,6 +130,479 @@
     };
   };
 
+  // -- Location autocomplete -------------------------------------------------
+  // One Google-Maps-style Location box, shared by the homepage search, the
+  // filter sidebar, the map filter and the add-listing form.
+  //
+  // The options are server-rendered buttons; this filters them, drives keyboard
+  // selection, and fires an optional expression after a pick so a caller can
+  // move a map or fill its own fields. Replacing the mock with Places means
+  // replacing where the options come from — nothing here changes shape.
+  window.previaLocation = function () {
+    return {
+      open: false,
+      q: '',
+      empty: false,
+      active: -1,
+      hasValue: false,
+      options: [],
+
+      init: function () {
+        var self = this;
+        var list = this.$refs.list;
+        this.options = list
+          ? Array.prototype.map.call(list.querySelectorAll('[data-label]'), function (el) {
+              return { el: el, hay: (el.getAttribute('data-label') || '').toLowerCase() };
+            })
+          : [];
+        this.q = this.$refs.input ? this.$refs.input.value : '';
+        this.hasValue = !!this.q;
+
+        // Fit the placeholder to the field it actually got.
+        //
+        // A placeholder cannot ellipsis, so one that is a few pixels too long
+        // is simply sliced — which is what happened in the filter sidebar:
+        // "Country, city or address" fitted the width by 25px in one browser
+        // and overflowed it in another. Rather than guessing a string short
+        // enough for every font, zoom level and container, the field measures
+        // the candidates and takes the longest that fits.
+        this.fitPlaceholder();
+        window.addEventListener('resize', function () {
+          clearTimeout(self.fitTimer);
+          self.fitTimer = setTimeout(function () { self.fitPlaceholder(); }, 120);
+        });
+        // Webfonts change the metrics after first paint, so measure again once
+        // they have settled.
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(function () { self.fitPlaceholder(); });
+        }
+      },
+
+      fitPlaceholder: function () {
+        var input = this.$refs.input;
+        if (!input) return;
+
+        // The caller's own wording first, then progressively shorter fallbacks.
+        var full = input.getAttribute('data-placeholder-full') || input.placeholder;
+        var options = [full, 'Country, city or address', 'City or address', 'Location'];
+
+        var cs = window.getComputedStyle(input);
+        var space = input.clientWidth
+          - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        if (!(space > 0)) return;
+
+        // Canvas text metrics rather than a probe element: no layout, no
+        // reflow, and it accounts for the real font once it has loaded.
+        var canvas = previaLocation._canvas ||
+          (previaLocation._canvas = document.createElement('canvas'));
+        var ctx = canvas.getContext('2d');
+        ctx.font = cs.font || (cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily);
+
+        for (var i = 0; i < options.length; i++) {
+          // A couple of pixels of slack so a rounding difference cannot clip it.
+          if (ctx.measureText(options[i]).width <= space - 2) {
+            input.placeholder = options[i];
+            return;
+          }
+        }
+        input.placeholder = options[options.length - 1];
+      },
+
+      // Matches a word prefix anywhere in the label, so "Tallinn" finds
+      // "Kalamaja, Tallinn, Estonia" as well as "Tallinn, Estonia", while
+      // "all" does not drag in every label containing those letters.
+      matches: function (hay, needle) {
+        if (hay.indexOf(needle) === 0) return true;
+        var parts = hay.split(/[\s,\-]+/);
+        for (var i = 0; i < parts.length; i++) {
+          if (parts[i].indexOf(needle) === 0) return true;
+        }
+        return false;
+      },
+
+      filter: function () {
+        this.q = this.$refs.input ? this.$refs.input.value : '';
+        this.hasValue = !!this.q;
+        var needle = this.q.trim().toLowerCase();
+        var shown = 0;
+        for (var i = 0; i < this.options.length; i++) {
+          // Cap the visible list: with no query at all, showing every address
+          // in the catalogue is noise, so only the broadest entries lead.
+          var hit = needle ? this.matches(this.options[i].hay, needle) : shown < 8;
+          this.options[i].el.hidden = !hit;
+          if (hit) shown++;
+        }
+        this.empty = needle !== '' && shown === 0;
+        this.open = true;
+        this.active = -1;
+      },
+
+      visible: function () {
+        return this.options.filter(function (o) { return !o.el.hidden; });
+      },
+
+      move: function (step) {
+        if (!this.open) this.filter();
+        var vis = this.visible();
+        if (!vis.length) return;
+        this.active += step;
+        if (this.active < 0) this.active = vis.length - 1;
+        if (this.active >= vis.length) this.active = 0;
+        // Track the index within the full option list, which is what the
+        // aria-activedescendant ids and the :class bindings are keyed on.
+        this.active = this.options.indexOf(vis[this.active]);
+        vis = this.options[this.active];
+        if (vis && vis.el.scrollIntoView) vis.el.scrollIntoView({ block: 'nearest' });
+      },
+
+      // Enter takes the highlighted row if there is one. With nothing
+      // highlighted it lets the keypress through so the form submits, which is
+      // what someone who typed a place and hit Enter expects.
+      pick: function (ev) {
+        if (!this.open || this.active < 0) return;
+        ev.preventDefault();
+        this.choose(this.options[this.active].el);
+      },
+
+      choose: function (el) {
+        var label = el.getAttribute('data-label') || '';
+        if (this.$refs.input) {
+          this.$refs.input.value = label;
+          // Let HTMX and any listening form see a real change event.
+          this.$refs.input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        this.q = label;
+        this.hasValue = true;
+        this.close();
+        // The whole structured place, so a listener can move a map and fill
+        // address fields without looking anything up again.
+        this.$dispatch('previa-location-picked', {
+          label: label,
+          kind: el.getAttribute('data-kind') || '',
+          lat: parseFloat(el.getAttribute('data-lat')) || 0,
+          lng: parseFloat(el.getAttribute('data-lng')) || 0,
+          countryCode: el.getAttribute('data-country') || '',
+          city: el.getAttribute('data-city') || '',
+          district: el.getAttribute('data-district') || '',
+          address: el.getAttribute('data-address') || '',
+        });
+      },
+
+      clear: function () {
+        if (this.$refs.input) {
+          this.$refs.input.value = '';
+          this.$refs.input.dispatchEvent(new Event('change', { bubbles: true }));
+          this.$refs.input.focus();
+        }
+        this.q = '';
+        this.hasValue = false;
+        this.empty = false;
+        this.filter();
+      },
+
+      close: function () {
+        this.open = false;
+        this.active = -1;
+      },
+    };
+  };
+
+  // -- Property-type multi-select --------------------------------------------
+  //
+  // Property type is a multiple choice: House, Modular house and Panelized
+  // house can all be on at once and results are the union of them.
+  //
+  // The checkboxes are native and are the source of truth — this only enforces
+  // the relationship between "Any type" and the rest, which HTML has no way to
+  // express on its own:
+  //
+  //   * Any type on   -> no specific type is on (no filter at all)
+  //   * a type goes on -> Any type goes off
+  //   * the last type goes off -> Any type comes back
+  //
+  // "Any type" carries no `name`, so whatever it does here it is never
+  // submitted as a category.
+  window.previaTypeFilter = function () {
+    return {
+      init: function () {
+        // Reconcile once on load, so a URL like ?property_type=house arrives
+        // with Any type already off even though the server rendered both.
+        this.reconcile();
+      },
+
+      // $root is the component's own element. $el would be whichever element
+      // the expression fired on — the checkbox, not the grid — which returned
+      // null for every lookup and left Any type permanently ticked.
+      grid: function () {
+        return this.$root;
+      },
+
+      anyBox: function () {
+        var g = this.grid();
+        return g ? g.querySelector('input[data-any]') : null;
+      },
+
+      typeBoxes: function () {
+        var g = this.grid();
+        return g
+          ? Array.prototype.slice.call(g.querySelectorAll('input[name="property_type"]'))
+          : [];
+      },
+
+      // Any type clears every specific choice.
+      pickAny: function () {
+        var any = this.anyBox();
+        if (!any) return;
+        if (any.checked) {
+          this.typeBoxes().forEach(function (b) { b.checked = false; });
+        } else {
+          // Unticking Any type on its own would leave nothing selected at all,
+          // which is the same filter with a worse-looking control — so it
+          // stays on until a specific type takes over.
+          any.checked = true;
+        }
+        this.announce();
+      },
+
+      // A specific type was toggled.
+      pickType: function () {
+        this.reconcile();
+        this.announce();
+      },
+
+      reconcile: function () {
+        var any = this.anyBox();
+        if (!any) return;
+        var on = this.typeBoxes().filter(function (b) { return b.checked; });
+        any.checked = on.length === 0;
+      },
+
+      // Ticking Any type clears the others by script, which fires no change
+      // event of its own — so HTMX would never hear that the filter changed.
+      // One synthetic event on the grid tells it, and the homepage picker
+      // listens to the same event to update its summary.
+      announce: function () {
+        var g = this.grid();
+        if (g) g.dispatchEvent(new Event('change', { bubbles: true }));
+      },
+    };
+  };
+
+  // -- Homepage property-type picker -----------------------------------------
+  //
+  // Wraps the shared checkbox grid in a dropdown, because the hero has room
+  // for one field-sized control rather than a twelve-tile grid. The trigger
+  // summarises the selection; the checkboxes inside are the real inputs and
+  // submit with the form.
+  window.previaTypePicker = function () {
+    return {
+      open: false,
+      summary: 'Any type',
+
+      init: function () {
+        var self = this;
+        this.refresh();
+        // The grid inside manages its own Any-type bookkeeping; this only
+        // needs to re-read the result afterwards.
+        this.$el.addEventListener('change', function () { self.refresh(); });
+      },
+
+      refresh: function () {
+        var on = Array.prototype.slice
+          .call(this.$el.querySelectorAll('input[name="property_type"]'))
+          .filter(function (b) { return b.checked; });
+
+        if (on.length === 0) {
+          this.summary = 'Any type';
+        } else if (on.length === 1) {
+          // The label lives in the tile beside the input.
+          var label = on[0].closest('.type-check').querySelector('.type-check__box span');
+          this.summary = label ? label.textContent.trim() : '1 type';
+        } else {
+          this.summary = on.length + ' types';
+        }
+      },
+    };
+  };
+
+  // -- Market picker ---------------------------------------------------------
+  // A dropdown over the full country list, so it needs a filter.
+  //
+  // The countries are server-rendered links; this only hides and shows them.
+  // That keeps the control usable with JavaScript off and means the filter
+  // never has to agree with a second copy of the list held in the client.
+  window.previaMarketPicker = function () {
+    return {
+      open: false,
+      q: '',
+      empty: false,
+      items: [],   // { el, hay } for every country row
+      groups: [],  // the "With listings" / "All countries" captions
+      cursor: -1,  // index into the visible rows, for arrow-key navigation
+
+      init: function () {
+        var list = this.$refs.list;
+        if (!list) return;
+        this.items = Array.prototype.map.call(
+          list.querySelectorAll('[data-market-name]'),
+          function (el, i) {
+            var name = (el.getAttribute('data-market-name') || '').toLowerCase();
+            return {
+              el: el,
+              order: i,   // the curated order, restored when the query clears
+              name: name,
+              code: (el.getAttribute('data-market-code') || '').toLowerCase(),
+              // Split on spaces and punctuation so "Herzegovina" finds Bosnia
+              // and "Kingdom" finds the United Kingdom.
+              words: name.split(/[\s\-'’(),.]+/).filter(Boolean),
+            };
+          }
+        );
+        this.groups = Array.prototype.slice.call(list.querySelectorAll('[data-market-group]'));
+      },
+
+      toggle: function () {
+        this.open = !this.open;
+        if (this.open) {
+          // Focus the field so typing filters immediately. $nextTick because
+          // x-show has not revealed the dropdown yet at this point.
+          var self = this;
+          this.$nextTick(function () { if (self.$refs.q) self.$refs.q.focus(); });
+        }
+      },
+
+      close: function () {
+        if (!this.open) return;
+        this.open = false;
+        this.clear();
+        // Return focus to the trigger rather than leaving it on a hidden field.
+        if (this.$refs.trigger) this.$refs.trigger.focus();
+      },
+
+      // How well a country answers the query. Lower is better; -1 is no match.
+      //
+      // The ranking exists because filtering alone put Estonia above Spain for
+      // "ES" — Estonia is a seeded market so it came first in the list, and its
+      // name starts with those letters. But ES *is* Spain's country code, and
+      // that is the stronger signal, so an exact code match now outranks
+      // everything else.
+      //
+      //   0  the query is exactly the country code   ES -> Spain
+      //   1  the query is exactly the country name   Spain -> Spain
+      //   2  the code starts with the query
+      //   3  the name starts with the query          Ger -> Germany
+      //   4  a word inside the name starts with it   Kingdom -> United Kingdom
+      //   5  the name merely contains it             ustri -> Austria
+      score: function (item, needle) {
+        if (item.code === needle) return 0;
+        if (item.name === needle) return 1;
+        if (item.code.indexOf(needle) === 0) return 2;
+        if (item.name.indexOf(needle) === 0) return 3;
+        for (var w = 0; w < item.words.length; w++) {
+          if (item.words[w].indexOf(needle) === 0) return 4;
+        }
+        if (item.name.indexOf(needle) !== -1) return 5;
+        return -1;
+      },
+
+      filter: function () {
+        var needle = this.q.trim().toLowerCase();
+        var list = this.$refs.list;
+        var i;
+
+        if (!needle) {
+          // No query: every country, back in its curated order — the seeded
+          // markets first, then the rest of the world alphabetically.
+          var restore = this.items.slice().sort(function (a, b) { return a.order - b.order; });
+          for (i = 0; i < restore.length; i++) {
+            restore[i].el.hidden = false;
+            if (list) list.appendChild(restore[i].el);
+          }
+          // Put the group captions back where they belong.
+          for (var g0 = 0; g0 < this.groups.length; g0++) {
+            this.groups[g0].hidden = false;
+          }
+          this.regroup();
+          this.empty = false;
+          this.cursor = -1;
+          if (list) list.scrollTop = 0;
+          return;
+        }
+
+        var hits = [];
+        for (i = 0; i < this.items.length; i++) {
+          var s = this.score(this.items[i], needle);
+          this.items[i].el.hidden = s < 0;
+          if (s >= 0) hits.push({ item: this.items[i], score: s });
+        }
+
+        // Best first, and within a score the curated order, so results never
+        // jump around between two keystrokes that score the same.
+        hits.sort(function (a, b) {
+          return a.score - b.score || a.item.order - b.item.order;
+        });
+        for (i = 0; i < hits.length; i++) {
+          if (list) list.appendChild(hits[i].item.el);
+        }
+
+        // The group captions only make sense while the whole list is showing;
+        // once a query is narrowing things they just fragment the results.
+        for (var g = 0; g < this.groups.length; g++) {
+          this.groups[g].hidden = true;
+        }
+
+        this.empty = hits.length === 0;
+        this.cursor = -1;
+        if (list) list.scrollTop = 0;
+      },
+
+      // Move the captions back above the runs they head, after a filter has
+      // reordered the rows underneath them.
+      regroup: function () {
+        var list = this.$refs.list;
+        if (!list || this.groups.length < 2) return;
+        var rows = list.querySelectorAll('[data-market-name]');
+        // The first caption leads the list; the second leads the first row
+        // that is not one of the seeded markets.
+        list.insertBefore(this.groups[0], rows[0]);
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i].getAttribute('data-market-seeded') !== 'yes') {
+            list.insertBefore(this.groups[1], rows[i]);
+            return;
+          }
+        }
+      },
+
+      clear: function () {
+        this.q = '';
+        this.filter();
+        if (this.open && this.$refs.q) this.$refs.q.focus();
+      },
+
+      visible: function () {
+        return this.items.filter(function (it) { return !it.el.hidden; });
+      },
+
+      move: function (step) {
+        var vis = this.visible();
+        if (!vis.length) return;
+        this.cursor += step;
+        if (this.cursor < 0) this.cursor = vis.length - 1;
+        if (this.cursor >= vis.length) this.cursor = 0;
+        vis[this.cursor].el.focus();
+      },
+
+      // Enter picks the highlighted row, or the only remaining match when the
+      // query has narrowed the list to one — the common case after typing.
+      choose: function () {
+        var vis = this.visible();
+        if (!vis.length) return;
+        var pick = this.cursor >= 0 && this.cursor < vis.length ? vis[this.cursor] : vis[0];
+        pick.el.click();
+      },
+    };
+  };
+
   // -- Search layout ---------------------------------------------------------
   // Controls the filter panel in both of its forms: a collapsible sidebar on
   // large screens and an off-canvas drawer below 1024px. The collapsed
@@ -139,6 +616,17 @@
         try {
           this.collapsed = localStorage.getItem('previa-filters-collapsed') === '1';
         } catch (e) {}
+
+        // Arriving from the homepage's "Advanced filters" button. The whole
+        // point of that button is to land with the panel open, so it overrides
+        // the remembered collapsed preference for this visit — without writing
+        // it back, so the preference survives for the next ordinary search.
+        if (new URLSearchParams(location.search).get('filters') === 'open') {
+          this.collapsed = false;
+          // Below 1024px the panel is an off-canvas drawer rather than a
+          // sidebar, so "open" has to mean the drawer there.
+          if (window.matchMedia('(max-width: 1023px)').matches) this.drawer = true;
+        }
       },
 
       collapse: function () {
@@ -217,20 +705,141 @@
   // Autosaves each step to localStorage as the user types, so a listing can be
   // abandoned and resumed. The real backend will persist drafts server-side;
   // the indicator states are identical either way.
-  window.previaWizard = function (step, total) {
+  // -- Add-listing form ------------------------------------------------------
+  //
+  // One continuous form with a waypoint rail beside it. This owns three things:
+  // autosave, which section is active, and moving between sections.
+  //
+  // Activity is tracked with an IntersectionObserver rather than a scroll
+  // handler: no work per frame, and — because clicking a waypoint mutes the
+  // observer until its smooth scroll settles — no loop where the scroll updates
+  // the highlight which re-triggers the scroll.
+  window.previaListingForm = function (total, anchor) {
     return {
       state: 'idle', // idle | saving | saved
-      step: step,
       total: total,
       timer: null,
+      sections: [],
+      activeKey: '',
+      activeLabel: '',
+      activeIndex: 0,
+      progressPct: 0,
+      observer: null,
+      muted: false,     // true while a click-driven scroll is running
+      muteTimer: null,
 
       init: function () {
-        // Restore anything typed on this step previously.
+        var self = this;
+
+        this.sections = Array.prototype.map.call(
+          document.querySelectorAll('.listing-section'),
+          function (el) {
+            var head = el.querySelector('h2');
+            return {
+              key: el.id.replace(/^ls-/, ''),
+              el: el,
+              label: head ? head.textContent.trim() : el.id,
+            };
+          }
+        );
+        if (!this.sections.length) return;
+        this.setActive(0);
+
+        // Scroll-spy. rootMargin biases the "current" section towards the top
+        // third of the viewport, which is where a reader's attention sits —
+        // without it the last section can never become active on a short page.
+        this.observer = new IntersectionObserver(
+          function (entries) {
+            if (self.muted) return;
+            var best = null;
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return;
+              if (!best || entry.intersectionRatio > best.intersectionRatio) best = entry;
+            });
+            if (!best) return;
+            var i = self.sections.findIndex(function (sec) { return sec.el === best.target; });
+            if (i >= 0) self.setActive(i);
+          },
+          { rootMargin: '-12% 0px -60% 0px', threshold: [0, 0.15, 0.5, 1] }
+        );
+        this.sections.forEach(function (sec) { self.observer.observe(sec.el); });
+
+        // A deep link ("?step=6", or a #hash) opens on that section.
+        var target = anchor || (location.hash || '').replace(/^#ls-/, '');
+        if (target) {
+          this.$nextTick(function () { self.goTo(target, true); });
+        }
+
+        // Restore anything typed previously.
         try {
           var raw = localStorage.getItem('previa-draft');
           if (raw) this.draft = JSON.parse(raw);
         } catch (e) {
           this.draft = {};
+        }
+      },
+
+      destroy: function () {
+        if (this.observer) this.observer.disconnect();
+      },
+
+      setActive: function (i) {
+        var sec = this.sections[i];
+        if (!sec) return;
+        this.activeIndex = i;
+        this.activeKey = sec.key;
+        this.activeLabel = sec.label;
+        this.progressPct = Math.round(((i + 1) / this.total) * 100);
+      },
+
+      // Marker state for a waypoint: the section's own state wins (an error
+      // stays an error), otherwise everything above the active one is done.
+      stateOf: function (key, base) {
+        if (base === 'error') return 'error';
+        if (key === this.activeKey) return 'current';
+        var i = this.sections.findIndex(function (s) { return s.key === key; });
+        return i >= 0 && i < this.activeIndex ? 'done' : 'todo';
+      },
+
+      goTo: function (key, instant) {
+        var self = this;
+        var i = this.sections.findIndex(function (s) { return s.key === key; });
+        if (i < 0) return;
+
+        // Update the rail immediately so the click feels answered, then mute
+        // the observer while the smooth scroll runs past intervening sections.
+        //
+        // The mute has to outlast the scroll. A fixed timer cannot know how
+        // long that is — a jump from the first section to the last is far
+        // slower than to the next one — so this waits for `scrollend` and
+        // keeps a generous timer only as a fallback for browsers without it.
+        // Getting this wrong left the rail highlighting whichever section the
+        // scroll happened to be passing when the timer expired.
+        this.setActive(i);
+        this.muted = true;
+        clearTimeout(this.muteTimer);
+
+        var settle = function () {
+          clearTimeout(self.muteTimer);
+          window.removeEventListener('scrollend', settle);
+          self.setActive(i);   // re-assert: the scroll may have overshot
+          self.muted = false;
+        };
+        window.addEventListener('scrollend', settle, { once: true });
+        this.muteTimer = setTimeout(settle, 1400);
+
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        this.sections[i].el.scrollIntoView({
+          behavior: instant || reduce ? 'auto' : 'smooth',
+          block: 'start',
+        });
+
+        // Move focus to the section so keyboard and screen-reader users land
+        // where the scroll went, not where they were.
+        var head = this.sections[i].el.querySelector('h2');
+        if (head) {
+          head.setAttribute('tabindex', '-1');
+          head.focus({ preventScroll: true });
         }
       },
 
@@ -254,8 +863,8 @@
 
         try {
           var existing = JSON.parse(localStorage.getItem('previa-draft') || '{}');
-          existing['step' + this.step] = data;
-          existing.lastStep = this.step;
+          existing.fields = data;
+          existing.lastSection = this.activeKey;
           existing.updatedAt = new Date().toISOString();
           localStorage.setItem('previa-draft', JSON.stringify(existing));
         } catch (e) {
@@ -268,6 +877,187 @@
           if (self.state === 'saved') self.state = 'idle';
         }, 2500);
       },
+    };
+  };
+
+  // -- Add-listing location --------------------------------------------------
+  //
+  // Holds the structured place behind the Location section. Two inputs feed it:
+  // a pick from the Location search box, and a click on the map. Both land here
+  // and fill the same read-only fields, so the two can never disagree.
+  //
+  // Map clicks are resolved by /mock/reverse-geocode, which reads the seeded
+  // catalogue. Swapping in the Google Geocoding API is a change to that
+  // endpoint's body — the response shape and everything below stay as they are.
+  window.previaListingLocation = function () {
+    return {
+      place: {
+        country: '', countryCode: '', state: '', city: '',
+        district: '', address: '', lat: '', lng: '',
+      },
+      publicAddress: '',
+
+      init: function () {
+        var self = this;
+
+        // From the search box.
+        window.addEventListener('previa-location-picked', function (e) {
+          var d = e.detail || {};
+          self.apply({
+            Country: '', CountryCode: d.countryCode, City: d.city,
+            District: d.district, Address: d.address, Lat: d.lat, Lng: d.lng,
+          }, d.label);
+          // Resolve the rest (country name, postcode) from the same endpoint
+          // the map uses, so both routes end up with identical fields.
+          if (d.lat || d.lng) self.lookup(d.lat, d.lng, d.label);
+        });
+
+        // From a click on the map.
+        window.addEventListener('previa-map-click', function (e) {
+          var d = e.detail || {};
+          self.lookup(d.lat, d.lng);
+        });
+      },
+
+      lookup: function (lat, lng, keepLabel) {
+        var self = this;
+        fetch('/mock/reverse-geocode?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng))
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (p) { if (p) self.apply(p, keepLabel); })
+          .catch(function () { /* offline: the fields simply keep their values */ });
+      },
+
+      apply: function (p, label) {
+        this.place = {
+          country: p.Country || this.place.country || '',
+          countryCode: p.CountryCode || '',
+          state: p.State || '',
+          city: p.City || '',
+          district: p.District || '',
+          address: p.Address || '',
+          lat: p.Lat ? Number(p.Lat).toFixed(6) : '',
+          lng: p.Lng ? Number(p.Lng).toFixed(6) : '',
+        };
+        // Seed the public display address the first time only — after that it
+        // is the seller's text and must not be overwritten by a map nudge.
+        if (!this.publicAddress) {
+          this.publicAddress = label || [p.District, p.City, p.Country]
+            .filter(Boolean).join(', ');
+        }
+      },
+    };
+  };
+
+  // -- Add-listing media -----------------------------------------------------
+  //
+  // Photos and videos for a listing: local previews, ordering, and the cover.
+  //
+  // Nothing is uploaded in this milestone. Files are read as object URLs and
+  // held in memory, which is enough to design and test the ordering, the cover
+  // marker, the validation message and the removal confirmation. The second
+  // milestone replaces addFiles() with a real upload and keeps the rest.
+  window.previaMediaUploader = function () {
+    var MAX_VIDEO_BYTES = 15 * 1024 * 1024; // the client's 15 MB video ceiling
+
+    return {
+      items: [],
+      error: '',
+      dragover: false,
+      draggingId: null,
+      overIndex: -1,
+      nextId: 1,
+
+      init: function () {
+        // Two sample photographs, so the ordering controls have something to
+        // act on before anything is chosen.
+        var samples = Array.prototype.slice.call(
+          document.querySelectorAll('[data-sample-image]')
+        );
+        var self = this;
+        samples.forEach(function (el) {
+          self.items.push({
+            id: self.nextId++,
+            url: el.getAttribute('data-sample-image'),
+            name: el.getAttribute('data-sample-name') || 'Photo',
+            kind: 'image',
+          });
+        });
+      },
+
+      dropFiles: function (e) {
+        this.dragover = false;
+        if (e.dataTransfer && e.dataTransfer.files) this.addFiles(e.dataTransfer.files);
+      },
+
+      addFiles: function (fileList) {
+        this.error = '';
+        var files = Array.prototype.slice.call(fileList || []);
+        var rejected = [];
+
+        for (var i = 0; i < files.length; i++) {
+          var f = files[i];
+          var isVideo = f.type.indexOf('video/') === 0;
+          var isImage = f.type.indexOf('image/') === 0;
+
+          if (!isVideo && !isImage) {
+            rejected.push(f.name + ' is not an image or a video');
+            continue;
+          }
+          if (isVideo && f.size > MAX_VIDEO_BYTES) {
+            // Rounded up, and to two places when one would read as exactly the
+            // limit: a file one byte over 15 MB reporting "15.0 MB — must be
+            // 15 MB or less" looks like the validator is wrong.
+            var mb = f.size / 1024 / 1024;
+            var shown = mb.toFixed(1) === '15.0' ? (Math.ceil(mb * 100) / 100).toFixed(2)
+                                                 : mb.toFixed(1);
+            rejected.push(
+              f.name + ' is ' + shown + ' MB — videos must be 15 MB or less'
+            );
+            continue;
+          }
+
+          this.items.push({
+            id: this.nextId++,
+            url: URL.createObjectURL(f),
+            name: f.name,
+            kind: isVideo ? 'video' : 'image',
+          });
+        }
+
+        if (rejected.length) this.error = rejected.join('. ') + '.';
+      },
+
+      remove: function (id) {
+        var item = this.items.find(function (it) { return it.id === id; });
+        if (!item) return;
+        if (!window.confirm('Remove ' + item.name + ' from this listing?')) return;
+        if (item.url.indexOf('blob:') === 0) URL.revokeObjectURL(item.url);
+        this.items = this.items.filter(function (it) { return it.id !== id; });
+      },
+
+      // Keyboard-accessible reordering — the alternative to dragging.
+      move: function (i, step) {
+        var j = i + step;
+        if (j < 0 || j >= this.items.length) return;
+        var copy = this.items.slice();
+        var moved = copy.splice(i, 1)[0];
+        copy.splice(j, 0, moved);
+        this.items = copy;
+      },
+
+      startDrag: function (id) { this.draggingId = id; },
+
+      dragOver: function (i) {
+        if (this.draggingId === null) return;
+        var from = this.items.findIndex(function (it) { return it.id === this.draggingId; }, this);
+        if (from < 0 || from === i) return;
+        var copy = this.items.slice();
+        var moved = copy.splice(from, 1)[0];
+        copy.splice(i, 0, moved);
+        this.items = copy;
+      },
+
+      endDrag: function () { this.draggingId = null; },
     };
   };
 
@@ -293,7 +1083,36 @@
       mapVisible: false, // small screens: list or map
       provider: null,
 
+      // How the results beside the map are laid out: 'list' shows each
+      // property with its location and facts, 'grid' packs two to a row with
+      // fewer details. Switching is purely a class on the results container —
+      // no request, so the filters, the market and the map viewport are
+      // untouched, and the open popup stays open.
+      listMode: 'list',
+
+      initListMode: function () {
+        try {
+          var saved = localStorage.getItem('previa-map-list-mode');
+          if (saved === 'grid' || saved === 'list') this.listMode = saved;
+        } catch (e) {}
+      },
+
+      setListMode: function (mode) {
+        if (mode !== 'grid' && mode !== 'list') return;
+        this.listMode = mode;
+        try {
+          localStorage.setItem('previa-map-list-mode', mode);
+        } catch (e) {}
+        // The panel's width does not change, but the browser may have been
+        // mid-layout; let Leaflet re-measure so tiles never come back short.
+        var self = this;
+        setTimeout(function () {
+          if (self.provider && self.provider.invalidate) self.provider.invalidate();
+        }, 60);
+      },
+
       init: function () {
+        this.initListMode();
         var self = this;
         // Leaflet needs the container to have a size; on the split view the
         // pane is laid out by grid, so wait a frame before measuring.
@@ -465,14 +1284,59 @@
       });
     }
 
+    // Popup markup.
+    //
+    // The photograph keeps its size; everything below it was tightened at the
+    // client's request — price, title and location now read as one block and
+    // the facts sit on a single line, so the popup covers much less map.
+    //
+    // The image carries the same pager as a property card: green dots with a
+    // small green arrow either side. Leaflet builds popups from an HTML string
+    // rather than from the Alpine-managed DOM, so the paging is wired up by
+    // hand in bindPopupCarousel() once the popup opens.
     function popupHtml(p) {
-      var img = p.images && p.images.length
-        ? '<img src="' + p.images[0] + '" alt="" width="300" height="188" loading="lazy">'
+      var shots = p.images || [];
+      var slides = shots
+        .map(function (src, i) {
+          return (
+            '<img class="map-popup__slide" src="' + src + '" alt="" width="300" height="188"' +
+            (i === 0 ? '' : ' loading="lazy"') + '>'
+          );
+        })
+        .join('');
+
+      var pager = '';
+      if (shots.length > 1) {
+        var dots = shots
+          .map(function (_, i) {
+            return (
+              '<button type="button" class="map-popup__dot' + (i === 0 ? ' is-on' : '') +
+              '" data-go="' + i + '" aria-label="Show photo ' + (i + 1) + '"></button>'
+            );
+          })
+          .join('');
+        pager =
+          '<div class="map-popup__pager">' +
+          '<button type="button" class="map-popup__arrow" data-step="-1" aria-label="Previous photo">' +
+          CHEVRON_LEFT + '</button>' +
+          '<span class="map-popup__dots">' + dots + '</span>' +
+          '<button type="button" class="map-popup__arrow" data-step="1" aria-label="Next photo">' +
+          CHEVRON_RIGHT + '</button>' +
+          '</div>';
+      }
+
+      var media = shots.length
+        ? '<div class="map-popup__media">' +
+          '<div class="map-popup__track">' + slides + '</div>' +
+          '<a class="map-popup__media-link" href="' + p.url + '" aria-hidden="true" tabindex="-1"></a>' +
+          pager +
+          '</div>'
         : '';
+
       var rooms = p.rooms ? '<span>' + p.rooms + ' rooms</span>' : '';
       return (
         '<div class="map-popup__card">' +
-        '<a class="map-popup__media" href="' + p.url + '">' + img + '</a>' +
+        media +
         '<div class="map-popup__body">' +
         '<p class="map-popup__price">' + escapeHtml(p.full) + '</p>' +
         '<a class="map-popup__title" href="' + p.url + '">' + escapeHtml(p.title) + '</a>' +
@@ -480,9 +1344,58 @@
         '<p class="map-popup__facts">' +
         '<span>' + escapeHtml(p.type) + '</span>' + rooms +
         '<span>' + escapeHtml(p.area) + '</span></p>' +
-        '<a class="btn btn--primary btn--sm btn--block" href="' + p.url + '">View Property</a>' +
+        '<a class="btn btn--primary btn--sm btn--block" href="' + p.url + '">View property</a>' +
         '</div></div>'
       );
+    }
+
+    var CHEVRON_LEFT =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>';
+    var CHEVRON_RIGHT =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
+
+    // Paging inside an open popup.
+    //
+    // Delegated from the map container rather than bound per popup: Leaflet
+    // creates and destroys popup DOM as markers open and close, so a listener
+    // attached to the popup itself has to be re-attached on every open and
+    // leaks if that is ever missed. One listener here handles every popup for
+    // the life of the map.
+    //
+    // The current index is read back off the track's own transform, so no
+    // state has to be kept in step with DOM Leaflet may have thrown away.
+    function popupPaging(container) {
+      container.addEventListener('click', function (e) {
+        var control = e.target.closest
+          ? e.target.closest('.map-popup__arrow, .map-popup__dot')
+          : null;
+        if (!control) return;
+
+        var media = control.closest('.map-popup__media');
+        var track = media && media.querySelector('.map-popup__track');
+        if (!track) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        var total = track.children.length;
+        var match = /translate3d\(-([\d.]+)%/.exec(track.style.transform || '');
+        var i = match ? Math.round(parseFloat(match[1]) / 100) : 0;
+
+        var step = control.getAttribute('data-step');
+        i = step !== null
+          ? i + Number(step)
+          : Number(control.getAttribute('data-go'));
+        i = ((i % total) + total) % total;
+
+        track.style.transform = 'translate3d(-' + i * 100 + '%,0,0)';
+        var dots = media.querySelectorAll('.map-popup__dot');
+        for (var d = 0; d < dots.length; d++) {
+          dots[d].classList.toggle('is-on', d === i);
+        }
+      });
     }
 
     function setPoints(points) {
@@ -548,6 +1461,31 @@
       }
       map.fitBounds(L.latLngBounds(latlngs), { padding: [48, 48], maxZoom: 15 });
     }
+
+    // One delegated listener covers every popup this map will ever open.
+    popupPaging(map.getContainer());
+
+    // A click on the map surface itself (not on a marker or a popup) is a
+    // location choice. The add-listing form listens for this and resolves the
+    // point to an address; the search map has no listener, so it is inert there.
+    map.on('click', function (e) {
+      window.dispatchEvent(new CustomEvent('previa-map-click', {
+        detail: { lat: e.latlng.lat, lng: e.latlng.lng },
+      }));
+    });
+
+    // Move the single draft pin to a place chosen in the Location search box.
+    window.addEventListener('listing-map-goto', function (e) {
+      var d = e.detail || {};
+      if (!d.lat && !d.lng) return;
+      var zoom = d.kind === 'country' ? 6 : d.kind === 'city' ? 12 : 15;
+      map.setView([d.lat, d.lng], zoom);
+      for (var id in markers) {
+        if (Object.prototype.hasOwnProperty.call(markers, id)) {
+          markers[id].marker.setLatLng([d.lat, d.lng]);
+        }
+      }
+    });
 
     map.on('popupclose', function () {
       host.selected = null;

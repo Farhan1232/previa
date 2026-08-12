@@ -1,22 +1,83 @@
 {{ define "content" }}
 {{ $d := .Data }}
 
+{{/*
+  Price packages — admin mock.
+
+  The client asked for a frontend admin screen that demonstrates creating,
+  editing and enabling/disabling a package, and shows its price, duration and
+  included features.
+
+  Everything here posts to /admin/mock-action, which acknowledges and changes
+  nothing: package pricing is seeded data this milestone. The forms exist so
+  the shape of the screen is agreed before the MySQL-backed version is built.
+*/}}
 <div class="admin">
-{{ template "admin-head" dict "Title" "Listing packages" "Lede" "Pricing tiers offered to sellers and agencies." }}
+{{ template "admin-head" dict "Title" "Price packages" "Lede" "Pricing tiers offered to sellers and agencies." }}
 
 <div class="container container--wide section">
   <div class="shell">
     {{ template "admin-nav" . }}
 
-    <div class="stack stack--lg">
+    <div class="stack stack--lg" x-data="{ creating: false }">
       {{ template "admin-demo-notice" }}
       <div id="admin-result"></div>
+
+      <div class="row row--between">
+        <h2 class="card__title">All packages</h2>
+        <button type="button" class="btn btn--primary btn--sm" @click="creating = !creating"
+                :aria-expanded="creating">
+          {{ template "icon" "plus" }} Create package
+        </button>
+      </div>
+
+      {{/* Create — collapsed until asked for, so the table stays the focus. */}}
+      <section class="card" x-show="creating" x-cloak x-collapse>
+        <div class="card__header"><h2 class="card__title">Create package</h2></div>
+        <div class="card__body">
+          <form class="grid grid--2" style="gap:var(--sp-4)"
+                hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+            <div class="field">
+              <label class="field__label" for="np-name">Name</label>
+              <input class="input" id="np-name" name="name" placeholder="e.g. Featured">
+            </div>
+            <div class="field">
+              <label class="field__label" for="np-price">Price (EUR)</label>
+              <input class="input" id="np-price" name="price" type="number" min="0" placeholder="0">
+            </div>
+            <div class="field">
+              <label class="field__label" for="np-days">Duration (days)</label>
+              <input class="input" id="np-days" name="days" type="number" min="1" placeholder="30">
+            </div>
+            <div class="field">
+              <label class="field__label" for="np-photos">Photo limit</label>
+              <input class="input" id="np-photos" name="photos" type="number" min="1" placeholder="10">
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <label class="field__label" for="np-features">Included features</label>
+              <textarea class="textarea" id="np-features" name="features" rows="4"
+                        placeholder="One per line, for example:&#10;30 days online&#10;Up to 10 photos"></textarea>
+              <span class="field__hint">One per line. These are listed on the pricing page and at checkout.</span>
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <label class="check">
+                <input type="checkbox" name="enabled" checked>
+                <span class="check__text">Offer this package at checkout straight away</span>
+              </label>
+            </div>
+            <div style="grid-column:1/-1" class="row row--tight">
+              <button class="btn btn--primary" type="submit">Create package</button>
+              <button class="btn btn--quiet" type="button" @click="creating = false">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
 
       <div class="table-wrap">
         <table class="table">
           <thead>
             <tr><th>Package</th><th>Price</th><th>Duration</th><th>Photos</th>
-                <th>Bumps</th><th>Flags</th><th>Actions</th></tr>
+                <th>Bumps</th><th>Status</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {{ range $d.Packages }}
@@ -24,20 +85,32 @@
               <td>
                 <span class="strong">{{ .Name }}</span>
                 <p class="text-xs muted">{{ .Tagline }}</p>
+                {{ if .IsPopular }}<span class="badge badge--info">Popular</span>{{ end }}
+                {{ if .IsPremium }}<span class="badge badge--featured">Premium</span>{{ end }}
               </td>
               <td class="numeric nowrap">{{ money .Price }}</td>
               <td class="numeric">{{ .DurationDays }} days</td>
               <td class="numeric">{{ .PhotoLimit }}</td>
               <td class="numeric">{{ .BumpCount }}</td>
               <td>
-                {{ if .IsPopular }}<span class="badge badge--info">Popular</span>{{ end }}
-                {{ if .IsPremium }}<span class="badge badge--featured">Premium</span>{{ end }}
+                {{/*
+                  Enable/disable. A checkbox rather than a button, so the
+                  current state is readable without inferring it from a verb,
+                  and it is announced correctly by a screen reader.
+                */}}
+                <label class="switch">
+                  <input type="checkbox" {{ if .IsEnabled }}checked{{ end }}
+                         hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML"
+                         aria-label="{{ if .IsEnabled }}Disable{{ else }}Enable{{ end }} the {{ .Name }} package">
+                  <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+                  <span class="switch__label">{{ if .IsEnabled }}Offered{{ else }}Hidden{{ end }}</span>
+                </label>
               </td>
               <td>
                 <div class="table__actions">
-                  <button class="btn btn--quiet btn--sm" aria-label="Edit {{ .Name }} package"
+                  <button class="btn btn--quiet btn--sm" aria-label="Edit the {{ .Name }} package"
                           hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
-                    {{ template "icon" "edit" }}
+                    {{ template "icon" "edit" }} Edit
                   </button>
                 </div>
               </td>
@@ -47,6 +120,26 @@
         </table>
       </div>
 
+      {{/* Included features, per package — the detail the table has no room for. */}}
+      <section class="card">
+        <div class="card__header"><h2 class="card__title">Included features</h2></div>
+        <div class="card__body">
+          <div class="grid grid--2" style="gap:var(--sp-6)">
+            {{ range $d.Packages }}
+            <div>
+              <p class="strong">{{ .Name }} <span class="muted numeric">· {{ money .Price }}</span></p>
+              <ul class="feature-list">
+                {{ range .Features }}
+                <li>{{ template "icon" "check" }} {{ . }}</li>
+                {{ end }}
+              </ul>
+            </div>
+            {{ end }}
+          </div>
+        </div>
+      </section>
+
+      {{/* Edit — one worked example, so the edit form's shape is agreed. */}}
       <section class="card">
         <div class="card__header"><h2 class="card__title">Edit package — Standard</h2></div>
         <div class="card__body">
@@ -54,19 +147,35 @@
                 hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
             <div class="field">
               <label class="field__label" for="pk-name">Name</label>
-              <input class="input" id="pk-name" value="Standard">
+              <input class="input" id="pk-name" name="name" value="Standard">
             </div>
             <div class="field">
               <label class="field__label" for="pk-price">Price (EUR)</label>
-              <input class="input" id="pk-price" type="number" value="39">
+              <input class="input" id="pk-price" name="price" type="number" value="39">
             </div>
             <div class="field">
               <label class="field__label" for="pk-days">Duration (days)</label>
-              <input class="input" id="pk-days" type="number" value="60">
+              <input class="input" id="pk-days" name="days" type="number" value="60">
             </div>
             <div class="field">
               <label class="field__label" for="pk-photos">Photo limit</label>
-              <input class="input" id="pk-photos" type="number" value="25">
+              <input class="input" id="pk-photos" name="photos" type="number" value="25">
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <label class="field__label" for="pk-features">Included features</label>
+              <textarea class="textarea" id="pk-features" name="features" rows="6">60 days online
+Up to 25 photos
+Floor plan upload
+2 bumps to the top of results
+Highlighted in the results list
+Basic performance statistics</textarea>
+              <span class="field__hint">One per line.</span>
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <label class="check">
+                <input type="checkbox" name="enabled" checked>
+                <span class="check__text">Offered at checkout</span>
+              </label>
             </div>
             <div style="grid-column:1/-1">
               <button class="btn btn--primary" type="submit">Save package</button>

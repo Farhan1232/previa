@@ -38,7 +38,7 @@
   {{/* Market picker, top-right of the hero (moved off the header). */}}
   <div class="container hero__market">
     {{ template "market-picker" dict
-        "Countries" .Countries "Country" .Country
+        "Countries" .OtherCountries "Seeded" .Countries "Country" .Country
         "CurrentPath" .CurrentPath "Tone" "light" }}
   </div>
 
@@ -57,88 +57,80 @@
         </div>
       </div>
 
-      {{/* Search panel — the most important element in the hero */}}
+      {{/*
+        Search panel — the most important element in the hero.
+
+        Three fields, as asked: deal type, location, property type. Price range
+        and bedrooms have moved to the sidebar's advanced filters, where the
+        rest of the narrowing lives.
+
+        All three continuation actions are submit buttons on this one form, not
+        links. That is what makes them carry the entered values: each sends the
+        same three fields and differs only by the extra parameter it adds, so
+        the resulting URL is complete, shareable and survives Back.
+          Search properties → /search?deal=…&location=…&property_type=…
+          Advanced filters  → …&filters=open   (sidebar expanded on arrival)
+          Search on map     → …&view=map
+      */}}
       <form class="searchbox" action="/search" method="get" role="search"
-            aria-label="Property search"
-            x-data="{ deal: 'sale' }">
+            aria-label="Property search">
 
-        <div class="searchbox__tabs" role="group" aria-label="Search mode">
-          <div class="segmented">
-            <label class="segmented__item">
-              <input type="radio" name="deal" value="sale" x-model="deal" checked>
-              {{ template "icon" "home" }} Buy
-            </label>
-            <label class="segmented__item">
-              <input type="radio" name="deal" value="rent" x-model="deal">
-              {{ template "icon" "key" }} Rent
-            </label>
-          </div>
-        </div>
-
-        <div class="searchbox__body">
+        <div class="searchbox__body searchbox__body--three">
           <div class="field">
-            <label class="field__label" for="hero-location">Location</label>
-            <span class="input-icon">
-              {{ template "icon" "map-pin" }}
-              <input class="input" id="hero-location" name="city" type="text"
-                     list="hero-cities" placeholder="City, district or address"
-                     autocomplete="off">
-            </span>
-            <datalist id="hero-cities">
-              {{ range .Countries }}{{ range .Cities }}<option value="{{ . }}"></option>{{ end }}{{ end }}
-            </datalist>
-          </div>
-
-          <div class="field">
-            <label class="field__label" for="hero-type">Property type</label>
-            <select class="select" id="hero-type" name="type">
-              <option value="">Any type</option>
-              <option value="apartment">Apartment</option>
-              <option value="house">House</option>
-              <option value="villa">Villa</option>
-              <option value="commercial">Commercial</option>
-              <option value="land">Land</option>
-              <option value="garage">Garage</option>
+            <label class="field__label" for="hero-deal">Deal type</label>
+            {{/*
+              Exactly the three options, with Sell selected on arrival — the
+              same state the search sidebar opens in, so the homepage and the
+              results page never disagree about what is being searched.
+            */}}
+            <select class="select" id="hero-deal" name="deal">
+              {{ range $i, $dt := dealTypes }}
+              <option value="{{ $dt.Value }}" {{ if eq $i 0 }}selected{{ end }}>{{ $dt.Label }}</option>
+              {{ end }}
             </select>
           </div>
 
-          <div class="field">
-            <label class="field__label" for="hero-price-min">Price range</label>
-            <div class="range-pair">
-              <input class="input" id="hero-price-min" name="price_min" type="number"
-                     min="0" step="1000" placeholder="Min" inputmode="numeric"
-                     aria-label="Minimum price">
-              <span class="range-pair__dash" aria-hidden="true">–</span>
-              <input class="input" name="price_max" type="number"
-                     min="0" step="1000" placeholder="Max" inputmode="numeric"
-                     aria-label="Maximum price">
+          {{ template "location-field" dict
+              "ID" "hero-location" "Name" "location" "Value" ""
+              "Suggestions" $d.LocationSuggestions "Label" "Location" }}
+
+          {{/*
+            Property type — several at once.
+
+            A dropdown of checkboxes rather than a <select>: the hero has room
+            for one control, but the client asked for multiple types to be
+            selectable, and a native multiple-select is unusable at this size.
+            The trigger reports the current choice ("Any type", "House", "3
+            types") and the checkboxes inside submit with the form, so all
+            three homepage actions carry the whole selection.
+          */}}
+          <div class="field type-picker" x-data="previaTypePicker()"
+               @keydown.escape.stop="open = false">
+            <span class="field__label" id="hero-type-label">Property type</span>
+            <button type="button" class="select type-picker__btn" id="hero-type"
+                    @click="open = !open" :aria-expanded="open"
+                    aria-haspopup="true" aria-labelledby="hero-type-label hero-type-summary">
+              <span id="hero-type-summary" x-text="summary">Any type</span>
+            </button>
+
+            <div class="type-picker__panel" x-show="open" x-cloak
+                 @click.outside="open = false">
+              {{ template "property-type-grid" dict "Options" $d.TypeOpts "IDPrefix" "hero" }}
             </div>
           </div>
 
-          <div class="field">
-            <label class="field__label" for="hero-bedrooms">Bedrooms</label>
-            <select class="select" id="hero-bedrooms" name="bedrooms">
-              <option value="">Any</option>
-              <option value="1">1+</option>
-              <option value="2">2+</option>
-              <option value="3">3+</option>
-              <option value="4">4+</option>
-              <option value="5">5+</option>
-            </select>
-          </div>
-
           <button class="btn btn--primary searchbox__submit" type="submit">
-            {{ template "icon" "search" }} Search Properties
+            {{ template "icon" "search" }} Search properties
           </button>
         </div>
 
         <div class="searchbox__footer">
-          <a class="btn btn--ghost btn--sm" href="/search#filters">
+          <button class="btn btn--ghost btn--sm" type="submit" name="filters" value="open">
             {{ template "icon" "sliders" }} Advanced filters
-          </a>
-          <a class="btn btn--ghost btn--sm" href="/search?view=map">
+          </button>
+          <button class="btn btn--ghost btn--sm" type="submit" name="view" value="map">
             {{ template "icon" "map" }} Search on the map
-          </a>
+          </button>
         </div>
       </form>
     </div>
@@ -147,11 +139,17 @@
 
 {{/* ---------------------------------------------------------------
      Featured properties
+
+     Pulled up close to the hero: the standard section padding left a band of
+     empty page between the search panel and the first listing, which read as
+     a break rather than as breathing room.
      --------------------------------------------------------------- */}}
-<section class="section">
+<section class="section section--after-hero">
   <div class="container">
     <div class="section__head">
-      <div class="section__head-text">
+      {{/* Compact: the eyebrow, title and subtitle read as one block rather
+           than three separated lines. */}}
+      <div class="section__head-text section__head-text--tight">
         <p class="overline">Handpicked</p>
         <h2 class="section__title">Featured properties</h2>
         <p class="section__subtitle">
@@ -166,7 +164,8 @@
     <div class="grid grid--properties">
       {{ range $i, $p := $d.Featured }}
         {{/* Only the first row is eager; the rest lazy-load on scroll. */}}
-        {{ template "property-card" dict "Property" $p "Eager" (lt $i 5) }}
+        {{ template "property-card" dict "Property" $p "Eager" (lt $i 5)
+                              "Favourite" (index $d.Favourites $p.ID) }}
       {{ end }}
     </div>
   </div>
@@ -186,7 +185,7 @@
 
     <div class="type-grid">
       {{ range $d.Types }}
-      <a class="type-tile" href="/search?type={{ .Type }}">
+      <a class="type-tile" href="/search?property_type={{ .Type }}">
         <span class="type-tile__icon" aria-hidden="true">{{ template "icon" .Icon }}</span>
         <span class="type-tile__name">{{ .Label }}</span>
         <span class="type-tile__count numeric">{{ .Count }} listings</span>
@@ -246,7 +245,8 @@
 
     <div class="grid grid--4">
       {{ range $d.Recent }}
-        {{ template "property-card" dict "Property" . "Variant" "compact" }}
+        {{ template "property-card" dict "Property" . "Variant" "compact"
+                    "Favourite" (index $d.Favourites .ID) }}
       {{ end }}
     </div>
   </div>
@@ -420,7 +420,7 @@
         </p>
       </div>
       <div class="cta-panel__actions">
-        <a class="btn btn--gold btn--lg" href="/add-listing">Add listing</a>
+        <a class="btn btn--gold btn--lg" href="/add-listing">add listing</a>
         <a class="btn btn--on-image btn--lg" href="/pricing">See packages</a>
       </div>
     </div>

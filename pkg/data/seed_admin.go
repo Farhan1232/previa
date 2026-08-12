@@ -65,7 +65,7 @@ var translationSeeds = []struct {
 	{"detail.show_phone", "Property detail", "Show phone number", "Telefonnummer anzeigen", ""},
 	{"detail.report", "Property detail", "Report listing", "Anzeige melden", "Denunciar anuncio"},
 	{"detail.similar", "Property detail", "Similar properties", "Ähnliche Immobilien", "Propiedades similares"},
-	{"wizard.step_deal", "Add listing", "Sale or rent", "Verkauf oder Vermietung", "Venta o alquiler"},
+	{"wizard.step_deal", "Add listing", "Deal type", "Geschäftsart", "Tipo de operación"},
 	{"wizard.step_location", "Add listing", "Location", "Lage", "Ubicación"},
 	{"wizard.saving", "Add listing", "Saving…", "Wird gespeichert…", "Guardando…"},
 	{"wizard.saved", "Add listing", "Saved", "Gespeichert", "Guardado"},
@@ -107,11 +107,11 @@ func (m *Mock) Translations(ctx context.Context, lang string) []models.Translati
 func (m *Mock) SEOEntries(ctx context.Context) []models.SEOEntry {
 	rows := []struct{ path, lang, title, desc string }{
 		{"/", "en", "Previa — Property for sale and rent worldwide",
-			"Search apartments, houses, villas, commercial property and land across Europe. Verified brokers, accurate maps and daily new listings."},
+			"Search apartments, houses, cottages, commercial property and land across Europe. Verified brokers, accurate maps and daily new listings."},
 		{"/", "de", "Previa — Immobilien kaufen und mieten",
 			"Wohnungen, Häuser, Villen, Gewerbeimmobilien und Grundstücke in ganz Europa. Geprüfte Makler und täglich neue Angebote."},
 		{"/", "es", "Previa — Propiedades en venta y alquiler",
-			"Busca pisos, casas, villas, locales comerciales y terrenos en toda Europa. Agentes verificados y anuncios nuevos cada día."},
+			"Busca pisos, casas, cabañas, locales comerciales y terrenos en toda Europa. Agentes verificados y anuncios nuevos cada día."},
 		{"/search", "en", "Property search — Previa",
 			"Filter by location, price, size, rooms and features. View results as a grid, a list or on the map."},
 		{"/search", "de", "Immobiliensuche — Previa",
@@ -170,7 +170,7 @@ func (m *Mock) Stats(ctx context.Context) models.AdminStats {
 			{Label: "Houses", Value: 341, Color: "var(--slate)"},
 			{Label: "Commercial", Value: 168, Color: "var(--gold)"},
 			{Label: "Land", Value: 122, Color: "#8AA0B4"},
-			{Label: "Villas", Value: 43, Color: "#B9C6D2"},
+			{Label: "Cottages", Value: 43, Color: "#B9C6D2"},
 		},
 		SignupsByMonth: []models.ChartPoint{
 			{Label: "Mar", Value: 980}, {Label: "Apr", Value: 1120}, {Label: "May", Value: 1340},

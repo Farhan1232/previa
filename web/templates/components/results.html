@@ -122,7 +122,13 @@
 {{/* Map-mode results list, swapped by the same HTMX endpoint. */}}
 {{ define "map-results-region" }}
 {{ $d := .Data }}
-<div id="results" class="map-results__list results-fade">
+{{/*
+  The layout class is bound rather than baked in, so switching between List and
+  Grid never re-requests this fragment — which is what keeps the map viewport
+  and the open popup intact across a switch.
+*/}}
+<div id="results" class="map-results__list results-fade"
+     :class="{ 'is-grid': listMode === 'grid' }">
   {{ if eq $d.Result.Total 0 }}
     {{ template "empty-state" dict
        "Icon" "map-pin"

@@ -77,9 +77,31 @@
               aria-label="Previous photo">{{ template "icon" "chevron-left" }}</button>
 
       {{ if le (len $shots) 6 }}
-      <span class="pcard__pager-dots">
+      {{/*
+        Dots that scrub.
+
+        Press and hold one and the active dot grows; drag left or right and the
+        photograph follows, the active dot moving with it; release and it
+        settles back. The pointer handlers sit on the strip rather than on each
+        dot so a drag that starts on one dot and passes over its neighbours is
+        one gesture, not several.
+
+        Each dot is still an ordinary button: clicking or pressing Enter on it
+        jumps to that picture, and the arrows either side are untouched.
+      */}}
+      <span class="pcard__pager-dots" :class="{ 'is-holding': holding }"
+            @pointerdown="dotDown($event)"
+            @pointermove="dotMove($event)"
+            @pointerup="dotUp($event)"
+            @pointercancel="dotUp($event)"
+            @lostpointercapture="dotUp($event)"
+            {{/* A press that never became a drag was never captured, so if it
+                 is released off the strip the events above never arrive and
+                 the dot would stay enlarged. These two catch that. */}}
+            @pointerup.window="dotUp($event)"
+            @pointercancel.window="dotUp($event)">
         {{ range $i, $im := $shots }}
-        <button type="button" class="pcard__dot" @click.prevent.stop="go({{ $i }})"
+        <button type="button" class="pcard__dot" @click.stop="dotClick($event, {{ $i }})"
                 :class="{ 'is-on': i === {{ $i }} }"
                 aria-label="Show photo {{ add $i 1 }}"></button>
         {{ end }}

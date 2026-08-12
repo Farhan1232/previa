@@ -468,7 +468,7 @@ func (m *Mock) PopularLocations(ctx context.Context, country string, limit int) 
 		if agg[key] == nil {
 			agg[key] = &LocationCount{
 				City: p.City, CountryCode: p.CountryCode, Country: p.Country,
-				Image:  fmt.Sprintf("/static/img/banners/city-%s.jpg", strings.ToLower(p.City)),
+				Image:  cityBanner(p.City),
 				Coords: p.Coords,
 			}
 		}
@@ -492,6 +492,22 @@ func (m *Mock) PopularLocations(ctx context.Context, country string, limit int) 
 		out = out[:limit]
 	}
 	return out
+}
+
+// cityBanner returns the photograph for a city tile, or "" when the mock data
+// set has no photograph for that city.
+//
+// The URL is derived from the city's name, and not every city that carries a
+// listing has a picture — Tartu and Pärnu do not — so deriving it blindly put
+// two `<img>` elements on the homepage pointing at files that 404. The
+// generated asset manifest is the authority on what actually shipped; a city
+// with no picture returns nothing and its tile renders without one.
+func cityBanner(city string) string {
+	base := fmt.Sprintf("/static/img/banners/city-%s", strings.ToLower(city))
+	if !assets.HasVariant(base + "-400.webp") {
+		return ""
+	}
+	return base + ".jpg"
 }
 
 func take[T any](items []T, limit int) []T {

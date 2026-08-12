@@ -122,6 +122,30 @@
   border-bottom: 1px solid var(--border);
 }
 
+/*
+  Header above a flush hero — no separator.
+
+  On the homepage the header sits directly on the hero photograph, and the
+  1px rule under it drew a hairline across the top of the image. The client
+  asked for it gone. Removing the border also removes the pixel it occupied,
+  so the hero moves up by exactly that much and closes the gap on its own —
+  the hero's -(--header-h) margin is measured from the header's bottom edge,
+  which is now one pixel higher.
+
+  Scoped to pages that actually carry a flush hero. Everywhere else the rule
+  still separates the header from a page head that shares its surface colour.
+  The two keep distinct backgrounds here regardless: an opaque --surface bar
+  over photography.
+*/
+body:has(.hero--flush) .site-header {
+  border-bottom: 0;
+  box-shadow: none;
+}
+/* Nothing may reintroduce the line as a pseudo-element or a spacer strip. */
+body:has(.hero--flush) .site-header::after,
+body:has(.hero--flush) .site-header::before { content: none; }
+body:has(.hero--flush) .hero--flush { margin-block-start: calc(var(--header-h) * -1); }
+
 .header__inner {
   display: flex;
   align-items: center;
@@ -236,7 +260,12 @@
 .floating-menu {
   position: fixed;
   top: max(var(--sp-4), env(safe-area-inset-top));
-  right: max(var(--sp-4), env(safe-area-inset-right));
+  /*
+    Fixed to the viewport, but offset by the shell's outer gutter so it lands
+    on the website's right edge rather than the monitor's. Below 1440px
+    --shell-gutter is 0 and this is exactly what it was.
+  */
+  right: calc(var(--shell-gutter) + max(var(--sp-4), env(safe-area-inset-right)));
   z-index: calc(var(--z-header) - 1);
   /*
     Transparent, like the header's control — no disc, no border, no shadow.
@@ -277,69 +306,186 @@ body:has(.map-shell) .floating-menu {
   background: var(--overlay);
 }
 
+/*
+  Navigation sidebar.
+
+  The design is the one the client approved; what changed is its size. It no
+  longer runs the full height of the screen — it is a panel attached to the
+  right edge, as tall as its own contents, with the two left corners rounded
+  and the two against the screen edge left square. Roughly half the height it
+  used to be on a normal desktop screen, because every row, gap and divider is
+  tighter and the list itself is shorter.
+
+  Height is adaptive rather than fixed: content decides it, a safe maximum
+  caps it on short screens, and only the middle scrolls — the header carrying
+  the close control and the footer carrying `add listing` are always in view.
+*/
 .drawer {
+  /* One number drives every row in the panel. */
+  --drawer-row-h: 28px;
   position: fixed;
-  top: 0; right: 0; bottom: 0;
+  top: max(var(--sp-3), env(safe-area-inset-top));
+  /* The website's right edge, not the monitor's: past 1440px the shell has
+     stopped growing and the panel travels in with it. Zero below that. */
+  right: var(--shell-gutter);
+  bottom: auto;
   z-index: calc(var(--z-drawer) + 1);
   display: flex;
   flex-direction: column;
   width: min(360px, 88vw);
+  height: auto;                                   /* content-driven */
+  max-height: calc(100dvh - var(--sp-3) * 2);     /* never taller than usable */
   background: var(--surface);
-  border-left: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: 16px 0 0 16px;
   box-shadow: var(--shadow-panel);
-  overflow-y: auto;
+  overflow: hidden;              /* so the rounded corners clip their content */
   overscroll-behavior: contain;
 }
-.drawer--left { right: auto; left: 0; border-left: 0; border-right: 1px solid var(--border); }
+.drawer--left {
+  right: auto; left: 0;
+  border-left: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0 16px 16px 0;
+}
 
 .drawer__header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  padding: var(--sp-4) var(--sp-5);
+  padding: 5px var(--sp-2) 5px var(--sp-4);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
   background: var(--surface);
-  z-index: 1;
 }
 .drawer__title { font-size: var(--fs-base); font-weight: 600; }
-.drawer__body { padding: var(--sp-5); flex: 1; }
+
+/*
+  Close control, floating in the corner rather than sitting in a header row of
+  its own. Absolute inside the panel — which is `position: fixed`, so it is the
+  containing block — which keeps it in view while the list below scrolls.
+*/
+.drawer__close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.drawer__close:hover { background: var(--surface-3); color: var(--text); }
+.drawer__close svg { width: 17px; height: 17px; }
+
+/* The only scrolling region, and only when the content needs it. */
+.drawer__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--sp-2) var(--sp-2) var(--sp-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .drawer__footer {
-  position: sticky;
-  bottom: 0;
+  flex: none;
   display: flex;
   gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5);
+  padding: 6px var(--sp-3);
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
 
-.drawer__nav { display: flex; flex-direction: column; gap: var(--sp-1); }
+.drawer__nav { display: flex; flex-direction: column; gap: 0; }
 .drawer__link {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-3);
-  border-radius: var(--r-md);
-  font-size: var(--fs-base);
+  padding: 3px var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
   font-weight: 500;
   color: var(--text);
-  min-height: 48px;   /* comfortable touch target */
+  min-height: var(--drawer-row-h);
 }
 .drawer__link:hover { background: var(--surface-3); }
 .drawer__link[aria-current='page'] { background: var(--navy-tint); font-weight: 600; }
-.drawer__link svg { width: 18px; height: 18px; color: var(--text-muted); }
-.drawer__divider { height: 1px; margin: var(--sp-4) 0; background: var(--border); }
+.drawer__link svg { width: 17px; height: 17px; color: var(--text-muted); }
+.drawer__divider { height: 1px; margin: 4px 0; background: var(--border); }
 .drawer__label {
-  padding: 0 var(--sp-3) var(--sp-2);
+  /* Right padding clears the floating close button, which shares this line. */
+  padding: 2px 38px 3px var(--sp-3);
   font-size: var(--fs-2xs);
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-subtle);
 }
+.drawer__footer .btn { min-height: 36px; }
+
+/* --------------------------------------------------------------------------
+   Sidebar preference rows — website language, day/dark mode, notifications.
+
+   The same height and rhythm as the navigation rows above them, so the panel
+   reads as one list rather than as a list with a settings block bolted on.
+   -------------------------------------------------------------------------- */
+.drawer__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: var(--drawer-row-h);
+  padding: 3px var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+  text-align: left;
+}
+.drawer__row > svg { width: 17px; height: 17px; flex: none; color: var(--text-muted); }
+.drawer__row-label { flex: 1; min-width: 0; }
+.drawer__row-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+button.drawer__row:hover { background: var(--surface-3); }
+.drawer__row .switch { gap: 0; }
+.drawer__row .switch__track { width: 38px; height: 22px; }
+.drawer__row .switch__thumb { width: 16px; height: 16px; }
+.drawer__row .switch input:checked + .switch__track .switch__thumb { transform: translateX(16px); }
+
+/* Language options, revealed under their row rather than in a second overlay. */
+.drawer__sublist {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 0 2px var(--sp-8);
+}
+.drawer__sublist a {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 30px;
+  padding: 4px var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.drawer__sublist a:hover { background: var(--surface-3); color: var(--text); }
+.drawer__sublist a.is-active { color: var(--text); font-weight: 700; }
 
 /* Prevent the page behind an open overlay from scrolling. */
 body.is-locked { overflow: hidden; }
@@ -360,18 +506,19 @@ body.is-locked { overflow: hidden; }
   border-top: 1px solid var(--border);
 }
 
+/*
+  Two columns and a legal row — the whole footer. The brand block, the Explore
+  column and the popular-searches matrix that used to sit here were removed at
+  the client's request, and their spacing went with them: the section padding
+  below is roughly half what it was, because there is half as much to space.
+*/
 .footer__main {
   display: grid;
-  grid-template-columns: 1.6fr repeat(3, 1fr);
-  gap: var(--sp-9) var(--sp-7);
-  padding: var(--sp-11) 0 var(--sp-9);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-6) var(--sp-7);
+  padding: var(--sp-8) 0 var(--sp-7);
 }
-@media (max-width: 960px) { .footer__main { grid-template-columns: 1fr 1fr; gap: var(--sp-8) var(--sp-6); } }
-@media (max-width: 560px) { .footer__main { grid-template-columns: 1fr; gap: var(--sp-7); } }
-
-.footer__brand { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 34ch; }
-.footer__tagline { line-height: var(--lh-relaxed); color: #A9B9CA; }
-[data-theme='dark'] .footer__tagline { color: var(--text-muted); }
+@media (max-width: 560px) { .footer__main { grid-template-columns: 1fr; gap: var(--sp-6); } }
 
 .footer__col-title {
   margin-bottom: var(--sp-4);
@@ -389,46 +536,13 @@ body.is-locked { overflow: hidden; }
 [data-theme='dark'] .footer__links a { color: var(--text-muted); }
 [data-theme='dark'] .footer__links a:hover { color: var(--gold); }
 
-.footer__social { display: flex; gap: var(--sp-2); }
-.footer__social a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px; height: 38px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--r-md);
-  color: #C7D3E0;
-  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
-}
-.footer__social a:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--gold); color: var(--gold); }
-.footer__social svg { width: 18px; height: 18px; }
-[data-theme='dark'] .footer__social a { border-color: var(--border); color: var(--text-muted); }
-
-/* SEO link matrix — crawlable internal links, mirrors the reference pattern. */
-.footer__seo {
-  padding: var(--sp-8) 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-[data-theme='dark'] .footer__seo { border-top-color: var(--border); }
-.footer__seo-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sp-6);
-}
-@media (max-width: 860px) { .footer__seo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { .footer__seo-grid { grid-template-columns: 1fr; } }
-.footer__seo-list { display: flex; flex-direction: column; gap: var(--sp-2); list-style: none; font-size: var(--fs-xs); }
-.footer__seo-list a { color: #9FB0C2; }
-.footer__seo-list a:hover { color: var(--gold); }
-[data-theme='dark'] .footer__seo-list a { color: var(--text-subtle); }
-
 .footer__bottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-4);
+  gap: var(--sp-3) var(--sp-4);
   flex-wrap: wrap;
-  padding: var(--sp-5) 0;
+  padding: var(--sp-4) 0;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   font-size: var(--fs-xs);
   color: #9FB0C2;
@@ -436,6 +550,32 @@ body.is-locked { overflow: hidden; }
 [data-theme='dark'] .footer__bottom { border-top-color: var(--border); color: var(--text-subtle); }
 .footer__legal { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
 .footer__legal a:hover { color: var(--gold); }
+
+/*
+  Email and account, moved down from the removed brand block. Sized as icons
+  rather than as the 38px bordered buttons they used to be — this row is a
+  compact legal strip, not a section — and separated from the word links by a
+  hairline so the two kinds of link do not read as one run-on list.
+*/
+.footer__legal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  margin-right: calc(var(--sp-2) * -1);
+  border-radius: var(--r-sm);
+  color: inherit;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.footer__legal-icon + .footer__legal-icon { margin-right: var(--sp-1); }
+.footer__legal-icon:hover { background: rgba(255, 255, 255, 0.1); color: var(--gold); }
+[data-theme='dark'] .footer__legal-icon:hover { background: var(--surface-3); }
+.footer__legal-icon svg { width: 16px; height: 16px; }
+.footer__legal-icon + a:not(.footer__legal-icon) {
+  padding-left: var(--sp-4);
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+}
+[data-theme='dark'] .footer__legal-icon + a:not(.footer__legal-icon) { border-left-color: var(--border); }
 
 /* ==========================================================================
    Page shell

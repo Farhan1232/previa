@@ -111,12 +111,35 @@
   --section-y: clamp(48px, 6vw, 96px);
   --section-y-lg: clamp(56px, 8vw, 120px);
 
-  /* --- Layout ----------------------------------------------------------- */
+  /* --- Layout -----------------------------------------------------------
+     Two nested limits, and they do different jobs.
+
+     --site-shell-max-width is the outer edge of the website itself: past it
+     the page stops growing and centres, so a 27" monitor shows Previa at the
+     width it was designed for rather than a stretched band of it. It is a
+     CSS pixel value on purpose — a browser cannot measure the physical size
+     of a display, so a unit like `14in` would be a guess dressed up as a
+     measurement.
+
+     --container is the inner reading limit that was already here, and it is
+     unchanged: text and cards keep the same measure they always had.
+     -------------------------------------------------------------------- */
+  --site-shell-max-width: 1440px;
   --container: 1280px;
   --container-narrow: 820px;
   --gutter: 32px;
   --card-gap: 24px;
   --header-h: 72px;
+
+  /* Width of one outer gutter once the shell has stopped growing: zero at
+     1440px and below, (viewport − 1440) / 2 above it. Fixed-position controls
+     that belong to the website rather than to the viewport — the floating menu
+     button — offset themselves by this so they stay on the shell. */
+  --shell-gutter: max(0px, calc((100vw - var(--site-shell-max-width)) / 2));
+
+  /* The neutral ground the centred website sits on. Deliberately duller than
+     --bg so the shell edge reads as the end of the site, not as a section. */
+  --page-surround: #E4DFD7;
 
   /* --- Radius ----------------------------------------------------------- */
   --r-sm: 6px;
@@ -230,6 +253,7 @@
   --shadow-pin: 0 1px 2px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.4);
 
   --overlay: rgba(3, 9, 15, 0.70);
+  --page-surround: #030A11;
 
   color-scheme: dark;
 }

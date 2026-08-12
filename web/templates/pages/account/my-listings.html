@@ -31,8 +31,22 @@
       </div>
 
       {{ if $d.Listings }}
-      <div class="table-wrap">
-        <table class="table">
+      {{/*
+        One table, two presentations.
+
+        Seven columns need about 640px, so on a phone the table used to run off
+        the side of the screen: the page could not scroll to reach it (the body
+        clips horizontally), and what was left was a column and a half with
+        "Price" sliced down the middle.
+
+        table--stack turns each row into a card below 700px — the same markup,
+        re-laid-out in CSS, so there is no second copy of this list to keep in
+        step. Each cell names itself from the data-label below, which is why
+        those attributes are here; above 700px they are unused and the table is
+        exactly the table it always was.
+      */}}
+      <div class="table-wrap table-wrap--stack">
+        <table class="table table--stack">
           <thead>
             <tr>
               <th>Property</th>
@@ -47,7 +61,7 @@
           <tbody>
             {{ range $d.Listings }}
             <tr>
-              <td>
+              <td data-label="Property">
                 <div class="mini-row" style="gap:var(--sp-3)">
                   <img class="mini-row__img" src="{{ (.PrimaryImage).URL }}" alt=""
                        width="72" height="54" loading="lazy">
@@ -57,12 +71,12 @@
                   </div>
                 </div>
               </td>
-              <td><span class="badge badge--{{ statusTone .Status }}">{{ statusLabel .Status }}</span></td>
-              <td class="numeric nowrap">{{ money .Price }}</td>
-              <td class="numeric">{{ .Views }}</td>
-              <td class="numeric">{{ .Saves }}</td>
-              <td class="text-sm muted nowrap">{{ date .ExpiresAt }}</td>
-              <td>
+              <td data-label="Status"><span class="badge badge--{{ statusTone .Status }}">{{ statusLabel .Status }}</span></td>
+              <td class="numeric nowrap" data-label="Price">{{ money .Price }}</td>
+              <td class="numeric" data-label="Views">{{ .Views }}</td>
+              <td class="numeric" data-label="Saves">{{ .Saves }}</td>
+              <td class="text-sm muted nowrap" data-label="Expires">{{ date .ExpiresAt }}</td>
+              <td data-label="Actions">
                 <div class="table__actions">
                   <a class="btn btn--quiet btn--sm" href="/add-listing?step=1"
                      aria-label="Edit {{ .Title }}">{{ template "icon" "edit" }}</a>

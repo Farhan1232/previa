@@ -179,27 +179,38 @@
            x-transition:leave="drawer-leave" x-transition:leave-end="drawer-leave-end"
            @keydown.escape.window="closeMenu()">
 
-        <div class="drawer__header">
-          {{ template "logo" dict "Size" "sm" }}
-          <button type="button" class="icon-btn" @click="closeMenu()" aria-label="Close menu">
-            {{ template "icon" "close" }}
-          </button>
-        </div>
+        {{/*
+          Close control only. The logo used to sit beside it in a full-height
+          header row above the username — a whole row of panel height spent
+          restating which site this is, on a panel that opens over that site.
+          The button floats in the top-right corner instead, so the username is
+          the first thing in the panel, as the client asked.
+        */}}
+        <button type="button" class="drawer__close" @click="closeMenu()" aria-label="Close menu">
+          {{ template "icon" "close" }}
+        </button>
 
+        {{/*
+          Sidebar contents, in the exact order the client specified:
+
+            1. the signed-in name
+            2. that person's own sections
+            3. Articles
+            4. Brokers
+            5. Developments
+            6. Website language
+            7. Day/dark mode
+            8. Notifications
+            9. add listing, pinned to the bottom
+
+          Deliberately gone, at the client's request: the Sell / Rent / Short
+          rent deal types (they are search modes, and the search box and filter
+          panel already carry them), the country pills and their flags, and
+          everything else that was not on the list above. Notifications is a
+          preference row now rather than an account link, so it appears exactly
+          once.
+        */}}
         <div class="drawer__body">
-          <nav class="drawer__nav" aria-label="Mobile">
-            {{/* The same three deal types as the search filters, so the
-                 wording is identical wherever a visitor meets it. */}}
-            <a class="drawer__link" href="/search?deal=sale">{{ template "icon" "home" }} Sell</a>
-            <a class="drawer__link" href="/search?deal=rent">{{ template "icon" "key" }} Rent</a>
-            <a class="drawer__link" href="/search?deal=short_rent">{{ template "icon" "calendar" }} Short rent</a>
-            <a class="drawer__link" href="/articles">{{ template "icon" "file" }} Articles</a>
-            <a class="drawer__link" href="/brokers">{{ template "icon" "users" }} Brokers</a>
-            <a class="drawer__link" href="/developments">{{ template "icon" "building" }} Developments</a>
-          </nav>
-
-          <div class="drawer__divider"></div>
-
           {{ if .User.ID }}
           <p class="drawer__label">{{ .User.Name }}</p>
           <nav class="drawer__nav" aria-label="Account">
@@ -207,12 +218,10 @@
             <a class="drawer__link" href="/my-listings">{{ template "icon" "home" }} My listings</a>
             <a class="drawer__link" href="/favourites">{{ template "icon" "heart" }} Favourites</a>
             <a class="drawer__link" href="/saved-searches">{{ template "icon" "search" }} Saved searches</a>
-            <a class="drawer__link" href="/notifications">
-              {{ template "icon" "bell" }} Notifications
-              {{ if .UnreadCount }}<span class="side-nav__badge">{{ .UnreadCount }}</span>{{ end }}
-            </a>
             <a class="drawer__link" href="/settings">{{ template "icon" "settings" }} Settings</a>
-            <a class="drawer__link" href="/admin">{{ template "icon" "shield" }} Admin panel</a>
+            {{/* Admin panel is not a user section, and the client asked for
+                 everything outside the listed structure to go. The route and
+                 the header's account menu still reach it. */}}
           </nav>
           {{ else }}
           <nav class="drawer__nav" aria-label="Account">
@@ -223,17 +232,65 @@
 
           <div class="drawer__divider"></div>
 
-          <p class="drawer__label">Country</p>
-          <div class="drawer__countries">
-            {{ range .Countries }}
-            <a class="country-pill {{ if eq .Code $.Country.Code }}is-active{{ end }}"
-               href="/set-country?code={{ .Code }}&return={{ $.CurrentPath }}">
-              {{ template "flag" .Code }} {{ .Code }}
+          <nav class="drawer__nav" aria-label="Browse">
+            <a class="drawer__link" href="/articles">{{ template "icon" "file" }} Articles</a>
+            <a class="drawer__link" href="/brokers">{{ template "icon" "users" }} Brokers</a>
+            <a class="drawer__link" href="/developments">{{ template "icon" "building" }} Developments</a>
+          </nav>
+
+          <div class="drawer__divider"></div>
+
+          <div class="drawer__nav">
+            {{/*
+              Website language. The options open underneath the row rather than
+              in a second floating menu on top of this one — every language is
+              a plain link, so the control works with no JavaScript at all.
+            */}}
+            <div x-data="{ langOpen: false }">
+              <button type="button" class="drawer__row" @click="langOpen = !langOpen"
+                      :aria-expanded="langOpen">
+                {{ template "icon" "globe" }}
+                <span class="drawer__row-label">Website language</span>
+                <span class="drawer__row-value">
+                  {{ template "flag" (langFlag .Lang) }} {{ .LangName }}
+                </span>
+              </button>
+              <div class="drawer__sublist" x-show="langOpen" x-cloak x-collapse>
+                {{ range .Languages }}
+                {{ if .IsEnabled }}
+                <a class="{{ if eq .Code $.Lang }}is-active{{ end }}"
+                   href="/{{ .Code }}{{ $.CurrentPath }}">
+                  {{ template "flag" (langFlag .Code) }}
+                  <span>{{ .Name }}</span>
+                </a>
+                {{ end }}
+                {{ end }}
+              </div>
+            </div>
+
+            {{/* Day/dark mode — the same store the header button drives, so the
+                 two controls can never disagree. */}}
+            <div class="drawer__row" x-data>
+              <span x-show="$store.theme.value !== 'dark'" x-cloak>{{ template "icon" "sun" }}</span>
+              <span x-show="$store.theme.value === 'dark'" x-cloak>{{ template "icon" "moon" }}</span>
+              <span class="drawer__row-label" id="drawer-theme-label">Day/dark mode</span>
+              <label class="switch">
+                <input type="checkbox" :checked="$store.theme.value === 'dark'"
+                       @change="$store.theme.toggle()" aria-labelledby="drawer-theme-label">
+                <span class="switch__track"><span class="switch__thumb"></span></span>
+              </label>
+            </div>
+
+            <a class="drawer__link" href="/notifications">
+              {{ template "icon" "bell" }}
+              <span class="drawer__row-label">Notifications</span>
+              {{ if .UnreadCount }}<span class="side-nav__badge">{{ .UnreadCount }}</span>{{ end }}
             </a>
-            {{ end }}
           </div>
         </div>
 
+        {{/* Pinned to the bottom by the flex column above — no margin hack.
+             Lowercase and without a plus sign, as asked. */}}
         <div class="drawer__footer">
           <a class="btn btn--primary btn--block" href="/add-listing">add listing</a>
         </div>

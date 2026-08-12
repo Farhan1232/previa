@@ -253,41 +253,163 @@
 .searchbox__tabs {
   display: flex;
   gap: var(--sp-2);
-  padding: var(--sp-4) var(--sp-5) 0;
+  padding: var(--sp-3) var(--sp-4) 0;
 }
+
+/*
+  Panel metrics live on the panel itself, so the whole thing resizes from four
+  numbers rather than from a scattering of rules. Every reduction is real
+  geometry — padding, gaps, control heights, type sizes. Nothing is scaled
+  with a transform: that would soften the text and leave the hit areas at
+  their old size.
+
+  The client's brief: the homepage panel is a signpost saying "Previa is a
+  property-search site", not the search experience itself — that lives on
+  /search, and every field here hands its value over intact. So it is sized to
+  sit *on* the hero photograph instead of covering it.
+*/
+.searchbox {
+  --sb-pad: 14px;
+  --sb-gap: var(--sp-3);       /* 12 */
+  --sb-control-h: 42px;        /* inside the 40–44px band the client asked for */
+  --sb-label: var(--fs-xs);    /* 13 — compact, still readable */
+}
+
 .searchbox__body {
   display: grid;
   grid-template-columns: 1.5fr 1fr 1.2fr 0.9fr auto;
-  gap: var(--sp-4);
+  gap: var(--sb-gap);
   align-items: end;
-  padding: var(--sp-5);
+  padding: calc(var(--sb-pad) - 2px) var(--sb-pad);
 }
 /*
   Three fields plus the button, since price and bedrooms moved to the sidebar.
   Location gets the widest column: it takes the longest values.
 */
 .searchbox__body--three { grid-template-columns: 0.9fr 1.6fr 1fr auto; }
+
+/* Controls and labels are shorter here than in the page forms, which keep the
+   full 48px. Scoped to the panel so nothing else moves. */
+.searchbox .field { gap: 4px; }
+.searchbox .field__label {
+  font-size: var(--sb-label);
+  line-height: 1.2;
+}
+.searchbox .input,
+.searchbox .select,
+.searchbox .textarea {
+  min-height: var(--sb-control-h);
+  padding-inline: var(--sp-3);
+  font-size: var(--fs-sm);
+}
+.searchbox .select { padding-right: var(--sp-8); background-position: right var(--sp-3) center; }
+/* The location field's leading pin sits closer in too, so its text starts at
+   the same inset as the other controls. */
+.searchbox .input-icon svg { left: var(--sp-3); }
+.searchbox .input-icon .input { padding-left: var(--sp-8); }
+
 .searchbox__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-5) var(--sp-4);
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: 5px var(--sb-pad) 6px;
   border-top: 1px solid var(--border);
   background: var(--surface-2);
 }
-.searchbox__submit { min-width: 180px; }
+.searchbox__footer .btn { min-height: 32px; padding-inline: var(--sp-3); }
 
-@media (max-width: 1080px) {
-  .searchbox__body,
-  .searchbox__body--three { grid-template-columns: 1fr 1fr; }
-  .searchbox__submit { grid-column: 1 / -1; width: 100%; }
+/*
+  Search properties.
+
+  Sized by its own content, in an `auto` grid column — never stretched across
+  the panel. Height matches the fields either side of it, and the existing
+  loading state swaps the label for a centred spinner without changing the
+  box, so pressing it does not shift the row.
+*/
+.searchbox__submit {
+  min-height: var(--sb-control-h);
+  padding-inline: var(--sp-5);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
 }
-@media (max-width: 560px) {
+
+/*
+  Tablet. The single row survives well below the old 1080px switch — at 720px
+  the four columns are still comfortable — which is most of the height saving
+  on an 8–11" screen.
+*/
+@media (max-width: 1023.98px) {
+  .searchbox {
+    --sb-pad: var(--sp-3);
+    --sb-gap: var(--sp-2);
+    --sb-control-h: 40px;
+    --sb-label: var(--fs-2xs);
+  }
+}
+
+/*
+  Phones. Two columns: the short selects pair up on one row and Location takes
+  the row below at full width, where its longest values still fit. The button
+  keeps its own row but only its own width, aligned to the end — the panel-wide
+  slab it used to be is what made this panel so tall.
+*/
+/*
+  Phones — two rows, not four.
+
+  The panel used to stack every field and then hand a full-width slab of a
+  button its own row, which is most of why it was 480px tall. Here the two
+  short selects share the first row and Location takes the second with the
+  submit beside it, the way a search bar is normally built. That removes two
+  rows outright and is what takes the panel to roughly 190px.
+
+  Areas rather than `order`, because the two rows want different column splits:
+  the selects divide the width evenly, while Location wants nearly all of it
+  and leaves the button only what it needs. The DOM order is untouched, so the
+  tab sequence and the submitted field order still match the desktop layout.
+*/
+@media (max-width: 700px) {
   .searchbox__body,
-  .searchbox__body--three { grid-template-columns: 1fr; gap: var(--sp-3); }
-  .searchbox__footer { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
-  .searchbox__footer .btn { width: 100%; }
+  .searchbox__body--three {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas:
+      'deal type type'
+      'loc  loc  go';
+  }
+  .searchbox__body--three > .field { grid-area: deal; }
+  .searchbox__body--three > .type-picker { grid-area: type; }
+  .searchbox__body--three > .location-field { grid-area: loc; }
+  .searchbox__submit { grid-area: go; }
+
+  /*
+    The button keeps the magnifier and drops the words. Beside a location field
+    that is exactly what a search button looks like, it is square rather than
+    the panel-wide slab the client objected to, and it stays a 44px target with
+    its name intact through aria-label.
+  */
+  .searchbox__submit {
+    width: 44px;
+    min-width: 44px;
+    padding: 0;
+  }
+  .searchbox__submit-label {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* Narrow phones: the action row stays on one line rather than wrapping into a
+   second strip of height. */
+@media (max-width: 430px) {
+  .searchbox__footer { gap: var(--sp-2); }
+  .searchbox__footer .btn { padding-inline: var(--sp-2); font-size: var(--fs-2xs); }
+  .searchbox__footer .btn svg { width: 14px; height: 14px; }
 }
 
 /* ==========================================================================
@@ -1889,6 +2011,28 @@
 /* The platform's own clear affordance is suppressed in favour of the button
    below, so there is exactly one on every platform. */
 .market-menu__input::-webkit-search-cancel-button { display: none; }
+
+/*
+  Focus — no frame at all.
+
+  The client's words were "no need for any selector there". Opening this panel
+  focuses the field straight away (see previaMarketPicker), so any ring is
+  drawn the instant the menu appears, before a single key is pressed — which
+  is what he saw and called a massive selector frame. Two things were drawing
+  it: the global focus outline and this field's own halo, stacking into about
+  7px of gold around a 38px control.
+
+  So there is no ring and no colour here. Focus moves the 1px border one clear
+  shade lighter and nothing else: still perceptible, and comfortably above the
+  3:1 the guidelines ask of a focus indicator, without drawing a box around
+  the field. The extra `.market-menu` in the selector outranks the field's own
+  :hover rule, which would otherwise keep the resting border while the pointer
+  is over it.
+*/
+.market-menu .market-menu__input:focus {
+  border-color: var(--text-subtle);
+  box-shadow: none;
+}
 
 .market-menu__clear {
   position: absolute;

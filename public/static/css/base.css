@@ -11,6 +11,8 @@ html {
   scroll-behavior: smooth;
   /* Offset in-page anchors so the sticky header never covers a heading. */
   scroll-padding-top: calc(var(--header-h) + 16px);
+  /* The ground the centred website sits on, seen only past 1440px. */
+  background: var(--page-surround);
 }
 
 body {
@@ -23,6 +25,27 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Website shell
+
+   The outer edge of the site. Below 1440px it is simply the viewport; above
+   it the website stops growing and centres, leaving equal gutters either
+   side. Applied to <body>, which means every band that paints edge to edge —
+   header, hero, section colours, footer — stops at the same line, and no
+   `100vw` rule inside can reach past it.
+
+   <body> is deliberately not given a transform, filter or contain: those
+   would make it the containing block for `position: fixed`, and the overlays
+   that are *meant* to cover the whole screen — the map in full-screen mode,
+   lightboxes, modal backdrops and the mobile navigation backdrop — would be
+   trapped inside the shell.
+   -------------------------------------------------------------------------- */
+.site-shell,
+body.page {
+  width: min(100%, var(--site-shell-max-width));
+  margin-inline: auto;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -83,6 +106,22 @@ p .icon, li .icon, td .icon, .text-sm .icon, .text-xs .icon { width: 16px; heigh
   outline-offset: 2px;
   border-radius: var(--r-sm);
 }
+
+/*
+  Text fields draw their own focus treatment (see .input:focus in
+  components.css): the border takes the focus colour and a soft ring sits
+  outside it. Letting the rule above add a second, offset 2px outline on top
+  stacked two rings into one thick frame around the field — the "selector
+  frame" the client reported on the market search box, where the gold focus
+  colour of the dark theme made it especially loud.
+
+  Suppressed here for text-entry controls only, which is why this is a narrow
+  selector list and not `*:focus { outline: none }`. Every other control —
+  links, buttons, checkboxes, cards — keeps the ring above untouched.
+*/
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible { outline: none; }
 
 /* --- Display headings ----------------------------------------------------- */
 /* DM Serif Display is reserved for marketing and page titles. Prices, facts,
@@ -157,7 +196,9 @@ p .icon, li .icon, td .icon, .text-sm .icon, .text-xs .icon { width: 16px; heigh
 .skip-link {
   position: absolute;
   top: -100px;
-  left: var(--sp-4);
+  /* Positioned against the viewport, so past 1440px it needs the shell's own
+     gutter added or it lands on the bare surround to the left of the site. */
+  left: calc(var(--shell-gutter) + var(--sp-4));
   z-index: calc(var(--z-modal) + 10);
   padding: var(--sp-3) var(--sp-5);
   background: var(--surface);

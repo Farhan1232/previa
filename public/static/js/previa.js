@@ -54,10 +54,34 @@
   // Steps through a card's photographs in place. Wraps in both directions so
   // the arrows never dead-end, and holds only an index — the images are all
   // in the DOM already.
+  //
+  // The dots also scrub. Press and hold one, and the active dot grows; drag
+  // left or right and the picture follows the finger, the active dot moving
+  // with it; let go and the dot settles back. Built on Pointer Events, so one
+  // code path serves mouse, touch and pen.
+  //
+  // Distance per picture. Comfortably above the threshold below, so a drag
+  // that has been recognised always lands on a neighbouring image first.
+  var DOT_DRAG_STEP = 22;
+  // Movement before a press counts as a drag rather than a click.
+  var DOT_DRAG_SLOP = 6;
+
   window.previaCardGallery = function (count) {
     return {
       i: 0,
       total: count || 1,
+
+      // Gesture state. `holding` is a press, `dragging` a press that has been
+      // confirmed horizontal; only the second one takes the pointer captive
+      // and starts suppressing the browser's own handling.
+      holding: false,
+      dragging: false,
+      dragged: false, // a real drag just finished — the click it produces is not a choice
+      pointerId: null,
+      startX: 0,
+      startY: 0,
+      startIndex: 0,
+
       next: function () {
         this.i = (this.i + 1) % this.total;
       },
@@ -67,6 +91,87 @@
       // Jump straight to one image, from a dot.
       go: function (n) {
         if (n >= 0 && n < this.total) this.i = n;
+      },
+
+      dotDown: function (e) {
+        // Left button / touch / pen only: a right-click must still open the
+        // context menu rather than starting a gesture.
+        if (e.button > 0) return;
+        this.pointerId = e.pointerId;
+        this.startX = e.clientX;
+        this.startY = e.clientY;
+        this.startIndex = this.i;
+        this.holding = true;
+        this.dragging = false;
+        this.dragged = false;
+      },
+
+      dotMove: function (e) {
+        if (this.pointerId === null || e.pointerId !== this.pointerId) return;
+        var dx = e.clientX - this.startX;
+        var dy = e.clientY - this.startY;
+
+        if (!this.dragging) {
+          // Not a drag until it has travelled far enough *and* travelled
+          // further across than down. The second test is what leaves a
+          // vertical swipe to the page: until it passes, nothing is captured
+          // and no default is prevented, so the browser scrolls as usual.
+          if (Math.abs(dx) < DOT_DRAG_SLOP || Math.abs(dx) <= Math.abs(dy)) return;
+          this.dragging = true;
+          this.dragged = true;
+          try {
+            e.currentTarget.setPointerCapture(this.pointerId);
+          } catch (err) {
+            /* capture is an optimisation — the gesture still works without it */
+          }
+        }
+
+        // Now that the gesture is ours, stop the browser turning it into a
+        // scroll, a text selection or a drag-and-drop of the image.
+        if (e.cancelable) e.preventDefault();
+
+        var n = this.startIndex + Math.round(dx / DOT_DRAG_STEP);
+        if (n < 0) n = 0;
+        if (n > this.total - 1) n = this.total - 1;
+        this.i = n;
+      },
+
+      // pointerup, pointercancel and lostpointercapture all land here, so the
+      // dot cannot be left enlarged by a gesture that ended somewhere odd —
+      // dragged off the window, interrupted by a system menu, or stolen.
+      dotUp: function (e) {
+        if (this.pointerId === null) return;
+
+        // A touch pointer is implicitly captured by whatever it landed on —
+        // one of the dots. Taking the capture for the strip therefore makes
+        // that dot fire lostpointercapture, and the event bubbles here. It
+        // means the drag has just begun, not that it has ended, so only a loss
+        // reported by the strip itself counts.
+        if (e && e.type === 'lostpointercapture' && e.target !== e.currentTarget) return;
+        if (e && e.pointerId === this.pointerId && e.currentTarget.hasPointerCapture) {
+          try {
+            if (e.currentTarget.hasPointerCapture(this.pointerId)) {
+              e.currentTarget.releasePointerCapture(this.pointerId);
+            }
+          } catch (err) {}
+        }
+        this.pointerId = null;
+        this.holding = false;
+        this.dragging = false;
+      },
+
+      // A dot's click. After a real drag the click is the tail of the gesture,
+      // not a choice of picture, so it is swallowed — and because these dots
+      // sit over the card's link, swallowing it is also what stops a drag from
+      // opening the property.
+      dotClick: function (e, n) {
+        if (this.dragged) {
+          this.dragged = false;
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        this.go(n);
       },
     };
   };

@@ -133,6 +133,23 @@
 .btn svg { flex: none; width: 18px; height: 18px; }
 .btn--sm svg { width: 16px; height: 16px; }
 
+/*
+  A brand mark inside a button — the Google Maps icon on the homepage's
+  "search on map" action. It is a raster-independent <img>, not a currentColor
+  glyph, so it keeps its own colours and needs its own size and alignment
+  rather than inheriting the icon rules above.
+*/
+.btn__brand-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  align-self: center;
+}
+/* Holds 18px even in a small button: unlike a line glyph this is a detailed
+   mark, and the client asked for it at roughly 16–20px. */
+.btn--sm .btn__brand-icon { width: 18px; height: 18px; }
+
 /* Loading — the spinner replaces the label so width stays stable. */
 .btn.is-loading { position: relative; color: transparent !important; pointer-events: none; }
 .btn.is-loading > * { visibility: hidden; }
@@ -932,6 +949,86 @@
 .table__actions { display: flex; gap: var(--sp-2); justify-content: flex-end; }
 .table--fixed { min-width: 0; }
 
+/* --------------------------------------------------------------------------
+   Stacking table
+
+   A table that needs seven columns has nowhere to go on a phone. Its wrapper
+   scrolls, but a scroller the width of a phone shows a column and a half and
+   slices the next heading down the middle, and the page itself cannot scroll
+   sideways to reach the rest of it.
+
+   Below 700px a table marked table--stack leaves table layout altogether and
+   each row becomes a card: the head is hidden, every cell takes its own line,
+   and the label that was in the column heading is drawn from the cell's
+   data-label attribute. Above 700px none of this applies and the table is
+   exactly as it was — which is why this sits after the base table rules rather
+   than before them, so it is these declarations that win inside the query.
+   -------------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  .table-wrap--stack {
+    overflow-x: visible;    /* nothing overflows any more, so nothing scrolls */
+    border: 0;
+    background: none;
+  }
+  .table--stack {
+    display: block;
+    min-width: 0;
+    width: 100%;
+    border-collapse: separate;
+  }
+  .table--stack thead { display: none; }
+  .table--stack tbody { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+  .table--stack tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 2px var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+  }
+  .table--stack tbody tr:hover { background: var(--surface); }
+
+  .table--stack td {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    align-items: center;
+    justify-items: start;   /* a badge or a button keeps its own width */
+    padding: 3px 0;
+    border: 0;
+  }
+  .table--stack tbody tr td:last-child { border-bottom: 0; }
+
+  /* The label that used to be the column heading. */
+  .table--stack td::before {
+    content: attr(data-label);
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-subtle);
+    white-space: nowrap;
+  }
+
+  /* The property leads the card at full width and unlabelled — the photograph
+     and the title already say what it is. */
+  .table--stack td:first-child {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+    padding-bottom: var(--sp-3);
+    margin-bottom: var(--sp-1);
+    border-bottom: 1px solid var(--border);
+  }
+  .table--stack td:first-child::before { content: none; }
+
+  /* Actions close the card, pushed to the end of their row. */
+  .table--stack td:last-child { justify-items: end; padding-top: var(--sp-2); }
+  .table--stack .mini-row__text { min-width: 0; }
+}
+
 /* ==========================================================================
    Pagination
    ========================================================================== */
@@ -1224,7 +1321,9 @@
 
 .toast-stack {
   position: fixed;
-  right: var(--sp-5);
+  /* Same reasoning as the floating menu button: fixed to the viewport, but
+     offset so it appears at the website's edge rather than the monitor's. */
+  right: calc(var(--shell-gutter) + var(--sp-5));
   bottom: var(--sp-5);
   z-index: var(--z-toast);
   display: flex;
@@ -1359,7 +1458,28 @@
 .pcard__pager-arrow:hover { color: #fff; background: rgba(255, 255, 255, 0.16); }
 .pcard__pager-arrow:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
-.pcard__pager-dots { display: inline-flex; align-items: center; gap: 4px; padding: 0 2px; }
+/*
+  Dot strip.
+
+  `touch-action: pan-y` is the load-bearing line: it tells the browser it may
+  still scroll the page vertically from here, but that horizontal movement is
+  ours to handle. Without it a horizontal drag on a phone would either be
+  swallowed by the scroller or, with `none`, would cost the page its vertical
+  scrolling — the gesture is only taken once previaCardGallery has confirmed
+  the movement is sideways.
+*/
+.pcard__pager-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 2px;
+  margin: -4px 0;          /* the extra grab height costs the capsule nothing */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.pcard__pager-dots.is-holding { cursor: grabbing; }
 
 .pcard__dot {
   width: 6px; height: 6px;
@@ -1367,12 +1487,28 @@
   border: none;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
+  cursor: inherit;
   transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 .pcard__dot:hover { background: rgba(255, 255, 255, 0.85); }
 .pcard__dot.is-on { background: var(--success-on-dark); transform: scale(1.25); }
 .pcard__dot:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/*
+  Held. The active dot swells while a press is in progress and settles back on
+  release — transform only, so it costs no layout and the dots either side do
+  not move. The capsule is pinned open for the duration, because a drag can
+  easily carry the pointer off the card and the hover rule above would
+  otherwise fade the control away mid-gesture.
+*/
+.pcard__pager-dots.is-holding .pcard__dot.is-on { transform: scale(2.1); }
+.pcard__pager:has(.pcard__pager-dots.is-holding) { opacity: 1; }
+
+/* Reduced motion: the dot still grows — that is the feedback that the gesture
+   has been picked up — it simply arrives without the animation. */
+@media (prefers-reduced-motion: reduce) {
+  .pcard__dot { transition: none; }
+}
 
 .pcard__pager-count {
   padding: 0 4px;
@@ -1685,6 +1821,20 @@
   width: 32px;
   height: 32px;
   transform: translate(-50%, -50%);
+}
+
+/*
+  Dots are the exception: they sit 10px apart, so a 32px-wide target on each
+  one covered its neighbours as well, and whichever dot came last in the row
+  won every click — aiming at the third dot selected the fourth. The targets
+  are tiled to the spacing instead, which keeps each click on the dot it was
+  aimed at, and the height carries the finger reach. Dragging sideways along
+  the strip is the coarse control now; the dots are the precise one.
+*/
+.pcard__dot::after,
+.map-popup__dot::after {
+  width: 10px;    /* 6px dot + the 4px gap beside it — no overlap, no gaps */
+  height: 30px;
 }
 
 /* --------------------------------------------------------------------------

@@ -119,8 +119,17 @@
             </div>
           </div>
 
-          <button class="btn btn--primary searchbox__submit" type="submit">
-            {{ template "icon" "search" }} Search properties
+          {{/*
+            The label is a span so the phone layout can hide it and leave the
+            magnifier alone: on a 390px screen the panel is two rows, and this
+            button sits beside Location the way a search bar's button does.
+            aria-label carries the same words either way, so the action is
+            named identically whether or not they are drawn.
+          */}}
+          <button class="btn btn--primary searchbox__submit" type="submit"
+                  aria-label="Search properties">
+            {{ template "icon" "search" }}
+            <span class="searchbox__submit-label">Search properties</span>
           </button>
         </div>
 
@@ -128,8 +137,33 @@
           <button class="btn btn--ghost btn--sm" type="submit" name="filters" value="open">
             {{ template "icon" "sliders" }} Advanced filters
           </button>
+          {{/*
+            Search on map.
+
+            Exact wording the client asked for — lowercase "search", no "the" —
+            and the Google Maps mark on the left instead of the outline pin
+            that was here.
+
+            The icon is Google's own product icon, the classic map tile with
+            the white G and the red pin, which is the one the client pointed at
+            in the SexyDate reference. Taken from Google's branding path
+            (www.google.com/images/branding/product/ico/maps_64dp.ico) at 64px
+            and stored in this repository as a PNG — nothing is fetched from a
+            Google domain at render time, so the button works offline and makes
+            no third-party request. 64px of source for an 18px mark keeps it
+            sharp on high-density screens.
+
+            Hidden from assistive technology because the words beside it
+            already name the action.
+
+            Still a submit button on the same form, so the deal type, location
+            and property types chosen above travel with it as
+            /search?deal=…&location=…&property_type=…&view=map.
+          */}}
           <button class="btn btn--ghost btn--sm" type="submit" name="view" value="map">
-            {{ template "icon" "map" }} Search on the map
+            <img class="btn__brand-icon" src="/static/img/google-maps.png" alt=""
+                 width="18" height="18" aria-hidden="true" loading="lazy" decoding="async">
+            search on map
           </button>
         </div>
       </form>
@@ -213,10 +247,14 @@
     <div class="loc-grid">
       {{ range $d.Locations }}
       <a class="loc-tile" href="/search?city={{ .City }}&country={{ .CountryCode }}">
+        {{/* Not every city in the data set has a photograph; one that does not
+             renders as a plain tinted tile rather than as a broken image. */}}
+        {{ if .Image }}
         <img src="{{ .Image }}" alt="{{ .City }}, {{ .Country }}"
              srcset="{{ srcset .Image 400 900 }}"
              sizes="(max-width: 480px) 92vw, (max-width: 900px) 45vw, 300px"
              width="900" height="700" loading="lazy" decoding="async">
+        {{ end }}
         <span class="loc-tile__text">
           <span class="loc-tile__city">{{ .City }}</span>
           <span class="loc-tile__count numeric">{{ pluralize .Count "property" "properties" }}</span>

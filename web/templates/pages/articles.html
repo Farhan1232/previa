@@ -19,16 +19,28 @@
   </div>
 </div>
 
-<div class="container section">
-  <div class="tabs" role="tablist" aria-label="Article categories" style="margin-bottom:var(--sp-7)">
+{{/*
+  Tight under the page head — "in the articles page move the articles more up,
+  there is an empty gap" — using the same 24px step the broker directory and the
+  account screens take after a page head, rather than the section default of
+  48–96px.
+*/}}
+<div class="container section section--after-head">
+  <div class="tabs" role="tablist" aria-label="Article categories" style="margin-bottom:var(--sp-6)">
     <a class="tab {{ if not $d.Category }}is-active{{ end }}" href="/articles">All articles</a>
     {{ range $d.Categories }}
     <a class="tab {{ if eq . $d.Category }}is-active{{ end }}" href="/articles?category={{ . }}">{{ . }}</a>
     {{ end }}
   </div>
 
+  {{/*
+    Five across on a wide screen, at the client's request: "the current articles
+    preview icons are too big, make them smaller, so that on the wide screen 5
+    are in one row." Five columns is what makes them smaller — the card follows
+    its column — so this is one change, not two.
+  */}}
   {{ if $d.Articles }}
-  <div class="grid grid--3">
+  <div class="grid grid--articles">
     {{ range $d.Articles }}{{ template "article-card" . }}{{ end }}
   </div>
   {{ else }}

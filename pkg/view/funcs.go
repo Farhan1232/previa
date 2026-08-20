@@ -1,6 +1,7 @@
 package view
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"math"
@@ -37,18 +38,75 @@ func Funcs() template.FuncMap {
 		"dealLabel":      DealLabel,
 		"dealTypes":      func() any { return models.DealTypes },
 		"propertyTypes":  func() any { return models.PropertyTypes },
-		"placeIcon":      PlaceIcon,
-		"placeLabel":     PlaceLabel,
-		"statusLabel":    StatusLabel,
-		"statusTone":     StatusTone,
-		"paymentTone":    PaymentTone,
-		"methodLabel":    MethodLabel,
+		// One catalogue behind two screens: the add-listing form ticks it and
+		// the search sidebar filters on it, "with the same subtitles".
+		"amenityGroups":  func() any { return models.AmenityGroups },
+		"messengerKinds": func() any { return models.MessengerKinds },
+		"messengerLabel": models.MessengerLabel,
+		"messengerHref":  MessengerHref,
+		"searchURL":      SearchURL,
+		// Deal type is a multiple choice, so the filter panel has to ask
+		// "is this one of the selected ones?" rather than compare a single value.
+		"hasDeal": func(selected []models.DealType, v models.DealType) bool {
+			for _, d := range selected {
+				if d == v {
+					return true
+				}
+			}
+			return false
+		},
+		"placeIcon":   PlaceIcon,
+		"placeLabel":  PlaceLabel,
+		"statusLabel": StatusLabel,
+		"statusHint":  StatusHint,
+		"statusTone":  StatusTone,
+		"paymentTone": PaymentTone,
+		"methodLabel": MethodLabel,
+
+		// Languages of communication. One catalogue serves the tag picker in
+		// account settings, the filter at the foot of the search panel, the
+		// badges on a broker's profile and the broker directory, so a language
+		// chosen in one is findable in the others.
+		"spokenLanguages": data.SpokenLanguages,
+		"countryName":     data.CountryName,
+		"langName":        data.LanguageName,
+		"langNames":       data.LanguageNames,
+		"langFlagFor":     data.LanguageFlag,
+		// "is this code in that list?", for ticking the boxes a seller has
+		// already chosen and for marking a filter as applied.
+		"hasString": func(list []string, v string) bool {
+			for _, s := range list {
+				if strings.EqualFold(s, v) {
+					return true
+				}
+			}
+			return false
+		},
+		// "did the seller enable this app?", paired with messengerHandle below
+		// so the settings form can tick the box and refill the address in one
+		// pass over models.MessengerKinds.
+		"hasMessenger": func(list []models.Messenger, kind models.MessengerKind) bool {
+			for _, m := range list {
+				if m.Kind == kind {
+					return true
+				}
+			}
+			return false
+		},
+		"messengerHandle": func(list []models.Messenger, kind models.MessengerKind) string {
+			for _, m := range list {
+				if m.Kind == kind {
+					return m.Handle
+				}
+			}
+			return ""
+		},
 
 		// urls
 		"queryAdd":    QueryAdd,
 		"queryDrop":   QueryDrop,
 		"propertyURL": PropertyURL,
-		"mapsURL":     MapsURL,
+		"directions":  DirectionsURL,
 		"langFlag":    LangFlag,
 		"flagPath":    FlagPath,
 		"srcset":      Srcset,
@@ -76,11 +134,17 @@ func Funcs() template.FuncMap {
 			}
 			return a / b
 		},
-		"maxf":     math.Max,
-		"json":     JSONAttr,
-		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
-		"attr":     func(s string) template.HTMLAttr { return template.HTMLAttr(s) },
-		"now":      time.Now,
+		"maxf":      math.Max,
+		"json":      JSONAttr,
+		"jsonValue": JSONValue,
+		"safeHTML":  func(s string) template.HTML { return template.HTML(s) },
+		"attr":      func(s string) template.HTMLAttr { return template.HTMLAttr(s) },
+		"now":       time.Now,
+		// A paid period's end, stamped in UTC — "as our website is global we
+		// use UTC time". A broker in Lisbon and one in Helsinki have to read
+		// the same expiry off the same ad, and neither of them should have to
+		// work out whose afternoon it is.
+		"utc": UTC,
 	}
 }
 
@@ -153,6 +217,18 @@ func Number(f float64) string {
 		out = "-" + out
 	}
 	return out
+}
+
+// UTC renders a moment as the date and time an expiry is quoted in, with the
+// zone named so it cannot be misread as local.
+//
+// Zero is empty rather than "1 Jan 0001": a placement that has not been bought
+// has no end, and a date on it would be a lie rather than a blank.
+func UTC(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format("2 Jan 2006, 15:04") + " UTC"
 }
 
 // Area renders a square-metre value.
@@ -253,6 +329,42 @@ func Percent(n int) string { return strconv.Itoa(n) + "%" }
 // Labels
 // ---------------------------------------------------------------------------
 
+// SearchURL is the search page replaying a stored query string.
+//
+// It exists because `href="/search?{{ .Query }}"` does not work: html/template
+// sees the value land in a URL's query and escapes it as a single parameter,
+// so "deal=sale&country=EE" was written as "deal%3dsale%26country%3dEE" and
+// every saved search ran unfiltered. Building the whole URL here puts the
+// value in the right context — and the query is re-parsed rather than trusted,
+// so a stored string can only ever produce ordinary key=value pairs.
+func SearchURL(query string) template.URL {
+	v, err := url.ParseQuery(query)
+	if err != nil || len(v) == 0 {
+		return template.URL("/search")
+	}
+	return template.URL("/search?" + v.Encode())
+}
+
+// MessengerHref marks a messenger deep link as safe to put in an href.
+//
+// html/template allows only http, https and mailto in a URL context and
+// rewrites everything else to "#ZgotmplZ" — which silently broke the Viber
+// link, whose scheme is viber://. The link is trustworthy: Messenger.Link
+// either builds the whole URL itself from digits, or passes through a value it
+// has already checked begins with http:// or https://.
+//
+// The prefixes are re-checked here rather than assumed, so a later change to
+// Link cannot quietly introduce a javascript: URL through this door. An
+// unrecognised scheme returns "", and the caller renders no link at all.
+func MessengerHref(raw string) template.URL {
+	for _, scheme := range []string{"https://", "http://", "viber://chat?", "tg://", "sgnl://"} {
+		if strings.HasPrefix(raw, scheme) {
+			return template.URL(raw)
+		}
+	}
+	return ""
+}
+
 // DealLabel renders the deal type for badges.
 func DealLabel(d models.DealType) string {
 	switch d {
@@ -266,34 +378,60 @@ func DealLabel(d models.DealType) string {
 }
 
 // StatusLabel renders a listing status.
+//
+// Three labels, because there are three states. "Pending review" and "Rejected"
+// were dropped at the client's request — nothing looks at a listing before it
+// goes live, so neither could ever be reached.
+//
+// Lower case, at the client's request ("this active and draft make with small
+// letters"). It matches the "add listing" nav item and the deal-type tags,
+// which are already set that way — a status is a state the listing is in, not
+// a proper noun.
 func StatusLabel(s models.ListingStatus) string {
 	switch s {
 	case models.StatusActive:
-		return "Active"
-	case models.StatusPending:
-		return "Pending review"
+		return "active"
 	case models.StatusDraft:
-		return "Draft"
+		return "draft"
 	case models.StatusExpired:
-		return "Expired"
-	case models.StatusRejected:
-		return "Rejected"
+		return "expired"
 	case models.StatusSold:
-		return "Sold"
+		return "sold"
 	}
 	return string(s)
 }
 
+// StatusHint is the one-line explanation shown beside a status, so a seller
+// looking at their listings can tell what each state means without being told.
+//
+// Expired and draft leave the seller in the same position, which is how the
+// client described it, so the two hints deliberately end the same way.
+func StatusHint(s models.ListingStatus) string {
+	switch s {
+	case models.StatusActive:
+		return "Online and visible to buyers until it expires."
+	case models.StatusDraft:
+		return "Saved but not published. Activate it to put it online."
+	case models.StatusExpired:
+		return "The paid period has ended. Re-activate it to put it back online."
+	case models.StatusSold:
+		return "Marked as sold and taken off the market."
+	}
+	return ""
+}
+
 // StatusTone maps a status onto a badge variant.
+//
+// Expired is a warning rather than the neutral it used to be: it is the one
+// state that needs the seller to do something, and it now sits beside draft in
+// the same table, where two grey badges would have read as the same thing.
 func StatusTone(s models.ListingStatus) string {
 	switch s {
 	case models.StatusActive:
 		return "success"
-	case models.StatusPending:
+	case models.StatusExpired:
 		return "warning"
-	case models.StatusRejected:
-		return "error"
-	case models.StatusExpired, models.StatusDraft:
+	case models.StatusDraft:
 		return "neutral"
 	case models.StatusSold:
 		return "info"
@@ -418,9 +556,36 @@ func Srcset(url string, widths ...int) string {
 // PropertyURL is the canonical detail-page path for a listing.
 func PropertyURL(p models.Property) string { return "/property/" + p.Slug }
 
-// MapsURL is an external directions link for the location section.
-func MapsURL(c models.Coordinates) string {
-	return fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=%f,%f", c.Lat, c.Lng)
+// DirectionsURL is a Google Maps *navigation* link for one listing: it opens
+// Maps with the property already set as the destination, so a visitor on a
+// phone lands in the Google Maps app with the route ready to start rather than
+// on a pin they then have to turn into a journey themselves.
+//
+// The destination is the address as the page prints it, because that is what
+// the client asked for — "this address is there as final destination". Google's
+// cross-platform Maps URL scheme accepts either an address or a coordinate
+// pair, and a listing whose address fields are all empty falls back to the pin
+// so the link can never resolve to nothing.
+//
+// Both the address line at the top of the listing and the button under the map
+// use this one function: the client's note asks for exactly the same behaviour
+// in both places.
+func DirectionsURL(p models.Property) string {
+	parts := make([]string, 0, 4)
+	for _, s := range []string{p.Address, p.District, p.City, p.Country} {
+		if s = strings.TrimSpace(s); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	const base = "https://www.google.com/maps/dir/?api=1&destination="
+	if len(parts) == 0 {
+		return base + fmt.Sprintf("%f,%f", p.Coords.Lat, p.Coords.Lng)
+	}
+	// %20 rather than the + that QueryEscape produces: html/template escapes a
+	// literal + inside an attribute to &#43;, which is correct HTML and decodes
+	// fine, but leaves the address unreadable in the page source and in a
+	// status bar. Percent-encoded spaces survive both.
+	return base + strings.ReplaceAll(url.QueryEscape(strings.Join(parts, ", ")), "+", "%20")
 }
 
 // langFlags maps an interface language onto the country whose flag represents
@@ -540,6 +705,27 @@ func HasField(m map[string]any, key string) bool {
 
 // JSONAttr escapes a string for embedding inside a JS string literal in an
 // Alpine attribute.
+// JSONValue marshals any value for embedding in an Alpine expression, which is
+// how the statistics dialog receives a listing's whole series at the moment its
+// button is pressed.
+//
+// Distinct from JSONAttr above, which escapes a *string* for the same position.
+// Both are needed: one hands Alpine a quoted title, this one hands it an object.
+//
+// Returned as template.JS so html/template leaves the braces and quotes alone
+// as JavaScript; the attribute it lands in is then HTML-escaped as usual, and
+// the browser unescapes it before Alpine ever sees it.
+func JSONValue(v any) template.JS {
+	b, err := json.Marshal(v)
+	if err != nil {
+		// A value that will not marshal is a programming error, but it must not
+		// take the page down: null is valid JavaScript and the dialog's x-if
+		// treats it as "nothing to show".
+		return template.JS("null")
+	}
+	return template.JS(b)
+}
+
 func JSONAttr(s string) template.JS {
 	r := strings.NewReplacer(`\`, `\\`, `'`, `\'`, `"`, `\"`, "\n", `\n`, "\r", "", "<", `<`, ">", `>`, "&", `&`)
 	return template.JS(r.Replace(s))

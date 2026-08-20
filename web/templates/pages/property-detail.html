@@ -35,9 +35,17 @@
            srcset="{{ srcset (index $p.Images 0).URL 400 800 1200 }}"
            sizes="(max-width: 780px) 100vw, 62vw"
            width="1200" height="900" fetchpriority="high">
-      <button type="button" class="btn btn--on-image btn--sm gallery__open"
-              @click="lightbox = true; i = 0">
-        {{ template "icon" "camera" }} View all {{ len $p.Images }} photos
+      {{/*
+        "5 photos", not "View all 5 photos" — the client's wording, and the
+        camera icon beside it already says what the button does. Its own class
+        carries the treatment now (see .gallery__open in pages.css) rather than
+        the generic over-image button, whose 14%-white wash is what the client
+        called bad.
+      */}}
+      <button type="button" class="btn btn--sm gallery__open"
+              @click="lightbox = true; i = 0"
+              aria-label="View all {{ len $p.Images }} photos">
+        {{ template "icon" "camera" }} {{ len $p.Images }} photos
       </button>
     </div>
     {{ if gt (len $p.Images) 1 }}
@@ -111,7 +119,7 @@
   </template>
 </section>
 
-<div class="container" style="padding:var(--sp-8) 0 var(--sp-11)">
+<div class="container" style="padding-block:var(--sp-8) var(--sp-11)">
   <div class="detail-layout">
 
     {{/* ---------------- main column ---------------- */}}
@@ -122,20 +130,34 @@
           <span class="badge {{ if $p.IsRental }}badge--rent{{ else }}badge--sale{{ end }}">{{ dealLabel $p.Deal }}</span>
           {{ if $p.IsFeatured }}<span class="badge badge--featured">{{ template "icon" "sparkle" }} Featured</span>{{ end }}
           {{ if $p.IsVerified }}<span class="badge badge--success">{{ template "icon" "check" }} Verified listing</span>{{ end }}
+          {{ if $p.DirectFromOwner }}<span class="badge badge--owner">{{ template "icon" "key" }} Direct from the owner</span>{{ end }}
           <span class="badge badge--outline">{{ typeLabel $p.Type }}</span>
         </div>
 
         <h1 class="display display--h2">{{ $p.Title }}</h1>
 
+        {{/*
+          The address, as a link into Google Maps navigation.
+
+          Blue and without an underline, at the client's request, so it reads as
+          a link without a rule under a line of address text. It opens the same
+          directions URL as the button under the map further down the page —
+          "this is the same thing as the blue link in upper part" — which means
+          a visitor on a phone lands in the Google Maps app with this address
+          already set as the destination and can start navigating.
+        */}}
         <p class="pcard__location" style="font-size:var(--fs-base)">
           {{ template "icon" "map-pin" }}
-          <span>{{ $p.Address }}, {{ $p.District }}, {{ $p.City }}, {{ $p.Country }}</span>
+          <a class="address-link" href="{{ directions $p }}" target="_blank" rel="noopener"
+             aria-label="Navigate to {{ $p.Address }}, {{ $p.City }} in Google Maps">
+            {{ $p.Address }}, {{ $p.District }}, {{ $p.City }}, {{ $p.Country }}
+          </a>
         </p>
 
         <div class="row row--between" style="align-items:flex-end;margin-top:var(--sp-2)">
           <div>
             <p class="detail-price numeric">
-              {{ money $p.Price }}{{ if $p.IsRental }}<span class="pcard__price-period">/month</span>{{ end }}
+              {{ money $p.Price }}{{ with $p.PricePeriod }}<span class="pcard__price-period">/{{ . }}</span>{{ end }}
             </p>
             {{ if $p.PricePerM2 }}
             <p class="text-sm muted numeric">{{ pricePerM2 $p }}</p>
@@ -265,7 +287,12 @@
         <div class="detail-map" x-data="previaMap({{ .Data.DetailMap }})">
           {{ template "map-surface" . }}
         </div>
-        <a class="btn btn--quiet btn--sm" href="{{ mapsURL $p.Coords }}" target="_blank" rel="noopener">
+        {{/*
+          Previa's own map sits above; this button hands the same location to
+          Google Maps as a destination to navigate to. Deliberately the very
+          same URL the address line at the top of the page carries.
+        */}}
+        <a class="btn btn--quiet btn--sm" href="{{ directions $p }}" target="_blank" rel="noopener">
           {{ template "icon" "external" }} Open in Google Maps
         </a>
       </section>
@@ -285,21 +312,64 @@
       {{ if $d.HasBroker }}
       <div class="card">
         <div class="card__body stack">
-          <div class="row" style="gap:var(--sp-3)">
-            <img class="avatar avatar--lg" src="{{ $d.Broker.Photo }}" alt="{{ $d.Broker.Name }}"
-                 width="64" height="64" loading="lazy">
-            <div style="min-width:0">
-              <p class="strong">{{ $d.Broker.Name }}</p>
-              <p class="text-xs muted">{{ $d.Broker.Title }}</p>
-              <p class="text-xs" style="color:var(--slate)">{{ $d.Broker.AgencyName }}</p>
-            </div>
-          </div>
+          {{/*
+            The seller's identity: picture, name, role, company.
 
+            The picture is a rounded rectangle rather than a circle, matching
+            the profile screen where it is uploaded — the client asked for the
+            change in both places at once. The company sits beside the name, as
+            asked: "if he does it, then this is displayed in the frontend next
+            to he's name."
+          */}}
+          {{/*
+            The picture and the name are the link to this broker's page, as the
+            client asked — "the same as 'View all listings from this broker'".
+            One anchor around both, so the two never disagree about where they
+            go, and the role and company inside it stay plain text: they
+            describe the person the link is about rather than adding a second
+            target beside it.
+          */}}
+          <a class="seller-identity" href="/broker/{{ $d.Broker.Slug }}"
+             aria-label="{{ $d.Broker.Name }} — see this broker's page and listings">
+            <img class="avatar-tile avatar-tile--sm" src="{{ $d.Broker.Photo }}"
+                 alt="{{ $d.Broker.Name }}" width="64" height="64" loading="lazy">
+            <div style="min-width:0">
+              <p class="strong seller-identity__name">{{ $d.Broker.Name }}</p>
+              <p class="text-xs muted">{{ $d.Broker.Title }}</p>
+              {{ if $d.Broker.AgencyName }}
+              <p class="text-xs" style="color:var(--slate)">{{ $d.Broker.AgencyName }}</p>
+              {{ end }}
+            </div>
+          </a>
+
+          {{/* The rating that used to open this line is gone — the client's
+               "there is no way we can verify it" is about the number wherever
+               it appears, not only on the broker's own page. How many
+               properties this broker has on the market is a fact the site can
+               count, so it stays. */}}
           <div class="row row--tight text-xs muted">
-            <span>{{ template "icon" "star" }} {{ $d.Broker.Rating }} ({{ $d.Broker.Reviews }} reviews)</span>
-            <span>·</span>
             <span>{{ pluralize $d.Broker.ActiveListings "listing" "listings" }}</span>
           </div>
+
+          {{/*
+            Where this seller is, in their own words.
+
+            "If the seller has chosen his googlemaps location, then in the
+            single ad page where the seller/broker profile is on the right,
+            make this location logo icon with the text what the seller entered
+            into the field 'edit your location like you want other users to see
+            it'."
+
+            So the pin marks it and the text is Office.Public — never the
+            street the pin sits on, and nothing at all until the seller has
+            written one on their profile.
+          */}}
+          {{ with $d.Broker.Office.Shown }}
+          <p class="seller-place">
+            {{ template "icon" "map-pin" }}
+            <span>{{ . }}</span>
+          </p>
+          {{ end }}
 
           {{/* Click-to-reveal contact details */}}
           <div id="contact-reveal">
@@ -310,6 +380,19 @@
             </button>
           </div>
 
+          {{/*
+            Messenger apps, beside the phone controls they belong with. Each
+            opens a chat with this seller directly. Shown without revealing the
+            number first: the link carries it, but the page never prints it.
+          */}}
+          {{ if $d.Property.Messengers }}
+          <div class="msg-block">
+            <p class="text-xs muted">Or message on</p>
+            {{ template "messenger-links" dict
+                "Messengers" $d.Property.Messengers "Phone" $d.Property.ContactPhone }}
+          </div>
+          {{ end }}
+
           <a class="btn btn--primary btn--block" href="#enquiry">
             {{ template "icon" "mail" }} Contact Broker
           </a>
@@ -319,15 +402,51 @@
           <a class="text-xs muted" href="/broker/{{ $d.Broker.Slug }}" style="text-align:center">
             View all listings from this broker
           </a>
+
+          {{/*
+            The company logo, at the foot of the box.
+
+            The client placed it exactly here — "in the single ad page it will be
+            displayed under 'view listings of this broker'" — and again in the
+            note about the company name: "if he uploads the company image, then
+            this is displayed there as well at the bottom of the seller's
+            details box on the single ad page."
+
+            Optional, like the field that fills it: a broker who has not
+            uploaded one gets no block and no empty frame where it would go.
+          */}}
+          {{ if $d.Broker.CompanyLogo }}
+          <a class="seller-logo" href="/broker/{{ $d.Broker.Slug }}"
+             aria-label="{{ $d.Broker.AgencyName }} — see this broker's listings">
+            <img src="{{ $d.Broker.CompanyLogo }}" alt="{{ $d.Broker.AgencyName }}"
+                 width="200" height="56" loading="lazy" decoding="async">
+          </a>
+          {{ end }}
         </div>
       </div>
       {{ else }}
       <div class="card">
         <div class="card__body stack">
-          <span class="badge badge--neutral">Private seller</span>
+          {{/*
+            Two separate facts, so the copy no longer asserts the second one
+            from the first. "Private seller" means nobody is acting as an agency
+            here; whether the person is the owner is the label beside it, and it
+            is only shown when the seller has actually claimed it.
+          */}}
+          <div class="row row--tight">
+            <span class="badge badge--neutral">Private seller</span>
+            {{ if $p.DirectFromOwner }}
+            <span class="badge badge--owner">{{ template "icon" "key" }} Direct from the owner</span>
+            {{ end }}
+          </div>
           <p class="text-sm muted">
-            This property is listed directly by its owner. Messages go straight
-            to them through Previa.
+            {{ if $p.DirectFromOwner }}
+            Listed by the owner of the property. Messages go straight to them
+            through Previa.
+            {{ else }}
+            Listed privately rather than through an agency. Messages go straight
+            to the seller through Previa.
+            {{ end }}
           </p>
           <a class="btn btn--primary btn--block" href="#enquiry">
             {{ template "icon" "mail" }} Contact seller
@@ -353,11 +472,15 @@
               <input class="input" id="c-email" name="email" type="email" required
                      placeholder="jane@example.com" autocomplete="email">
             </div>
+            {{/* No hint under the number: "in the single listing page remove
+                 this: Optional — brokers usually reply faster by phone." The
+                 field is optional because it carries no `required`, which is
+                 what the browser and the handler both read; the sentence was
+                 saying it a second time and advertising on top of it. */}}
             <div class="field">
               <label class="field__label" for="c-phone">Phone</label>
               <input class="input" id="c-phone" name="phone" type="tel"
                      placeholder="+372 5555 0000" autocomplete="tel">
-              <span class="field__hint">Optional — brokers usually reply faster by phone.</span>
             </div>
             <div class="field">
               <label class="field__label" for="c-msg">Message</label>

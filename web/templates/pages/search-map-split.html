@@ -9,73 +9,24 @@
   an overlay drawer here (from the toolbar button or the fixed edge tab) while
   the left column is dedicated to results. The map keeps the remaining space.
 */}}
+{{/*
+  is-grid-mode widens the results column so the client's "3 or 4 ads in one row"
+  is achievable without the cards falling below a readable width. It is bound to
+  the same listMode the results container reads, so the two can never disagree,
+  and Leaflet is told to re-measure by setListMode() after the column resizes.
+*/}}
 <div class="map-shell" x-data="previaMap({{ $d.MapConfig }})"
-     :class="{ 'is-panel-collapsed': !panelOpen, 'is-map-visible': mapVisible }">
+     :class="{ 'is-panel-collapsed': !panelOpen, 'is-map-visible': mapVisible,
+               'is-grid-mode': listMode === 'grid' }">
 
   <section class="map-results" aria-label="Search results">
-    <div class="map-results__head">
-      <div>
-        <p class="results-count" role="status" aria-live="polite">
-          <strong class="numeric">{{ $d.Result.Total }}</strong>
-          {{ if eq $d.Result.Total 1 }}property{{ else }}properties{{ end }}
-        </p>
-        <p class="text-xs muted">
-          {{ if $d.Filter.City }}{{ $d.Filter.City }}{{ else }}All locations{{ end }}
-          · {{ $d.SortLabel }}
-        </p>
-      </div>
-
-      <div class="row row--tight">
-        <button type="button" class="btn btn--quiet btn--sm"
-                @click="$dispatch('open-filters')">
-          {{ template "icon" "filter" }}
-          Filters
-          {{ if $d.Filter.ActiveCount }}
-          <span class="filter-reopen__count">{{ $d.Filter.ActiveCount }}</span>
-          {{ end }}
-        </button>
-        {{/*
-          List / Grid for the results beside the map.
-
-          Both are real, and both switch in place: the handler only changes a
-          class on the results container, so no request is made and the
-          filters, the market, the map viewport and any open marker popup all
-          survive the switch. The grid button used to be a link to the separate
-          grid page, which threw the map away entirely.
-
-          The active option is marked by background, weight and aria-pressed,
-          not by colour alone.
-        */}}
-        <div class="segmented segmented--sm view-switch" role="group" aria-label="Results layout">
-          {{/* aria-label as well as the visible word: the labels are hidden
-               on a narrow toolbar, leaving icon-only buttons. */}}
-          <button type="button" class="segmented__item" @click="setListMode('list')"
-                  :class="{ 'is-on': listMode === 'list' }"
-                  :aria-pressed="listMode === 'list'" aria-label="Show results as a list">
-            {{ template "icon" "list" }} <span>List</span>
-          </button>
-          <button type="button" class="segmented__item" @click="setListMode('grid')"
-                  :class="{ 'is-on': listMode === 'grid' }"
-                  :aria-pressed="listMode === 'grid'" aria-label="Show results as a grid">
-            {{ template "icon" "grid" }} <span>Grid</span>
-          </button>
-        </div>
-        <button type="button" class="icon-btn map-results__collapse" @click="togglePanel()"
-                aria-label="Hide results panel">{{ template "icon" "chevron-left" }}</button>
-      </div>
-    </div>
-
-    {{ if $d.Chips }}
-    <div class="active-filters" style="padding:var(--sp-3) var(--sp-4) 0;margin:0">
-      {{ range $d.Chips }}
-      <span class="chip">
-        {{ .Label }}
-        <a class="chip__remove" href="/search{{ queryDrop $.Query .Key .Value }}"
-           aria-label="Remove filter {{ .Label }}">{{ template "icon" "close" }}</a>
-      </span>
-      {{ end }}
-    </div>
-    {{ end }}
+    {{/*
+      The count, the Filters button and the tag bar. Defined alongside the
+      results fragment rather than here, because the fragment response re-sends
+      this same region out-of-band on every filter change — see the note above
+      "map-results-top" in components/results.html.
+    */}}
+    {{ template "map-results-top" . }}
 
     {{ template "map-results-region" . }}
 

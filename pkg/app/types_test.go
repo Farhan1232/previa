@@ -199,13 +199,15 @@ func TestPropertyTypeURLFormatIsConsistent(t *testing.T) {
 		}
 	}
 
-	// The homepage's browse-by-type tiles use the same parameter.
+	// The homepage no longer carries browse-by-type tiles, but its hero picker
+	// still submits the same repeated parameter, and nothing anywhere may fall
+	// back to the old single-value `type` key.
 	home := mustGet(t, h, "/")
 	if strings.Contains(home, `href="/search?type=`) {
 		t.Error("the homepage still links with the old single-value `type` parameter")
 	}
-	if !strings.Contains(home, `href="/search?property_type=`) {
-		t.Error("the homepage type tiles do not use property_type")
+	if !strings.Contains(home, `name="property_type"`) {
+		t.Error("the homepage hero picker does not submit property_type")
 	}
 }
 
@@ -267,17 +269,119 @@ func TestAddListingTakesExactlyOnePropertyType(t *testing.T) {
 	}
 }
 
-func TestDealTypeStaysSingleSelect(t *testing.T) {
+// Deal type used to be single-select, deliberately: one listing is for sale or
+// for rent, never both. The client then asked to be able to *search* several at
+// once — "user might want to look at rent and short rent at once" — and for
+// each chosen type to appear as its own removable tag.
+//
+// The distinction that survives is between searching and listing: the filter is
+// multi-select, the add-listing form above is not.
+func TestDealTypeIsMultiSelect(t *testing.T) {
 	h := newServer(t)
 	for _, path := range []string{"/search", "/search?view=map"} {
 		group := between(mustGet(t, h, path),
 			`class="segmented segmented--full segmented--deal"`, "</div>")
-		if strings.Contains(group, `type="checkbox"`) {
-			t.Errorf("%s made deal type multi-select; it must stay single", path)
+		if strings.Contains(group, `type="radio"`) {
+			t.Errorf("%s: deal type is single-select again; several must be selectable at once", path)
 		}
-		if n := strings.Count(group, `type="radio"`); n != 3 {
-			t.Errorf("%s has %d deal-type radios, want 3", path, n)
+		if n := strings.Count(group, `type="checkbox"`); n != 3 {
+			t.Errorf("%s has %d deal-type boxes, want 3", path, n)
 		}
+		if n := strings.Count(group, `name="deal"`); n != 3 {
+			t.Errorf("%s: deal boxes must share the name deal so the parameter repeats, found %d", path, n)
+		}
+	}
+
+	// Two deal types selected produce two tags, each removable on its own, and
+	// the results carry both kinds.
+	body := mustGet(t, h, "/search?view=map&deal=rent&deal=short_rent")
+	for _, want := range []string{">Rent", ">Short rent"} {
+		if !strings.Contains(squash(body), squash(want)) {
+			t.Errorf("the tag bar is missing a tag for %q", strings.TrimPrefix(want, ">"))
+		}
+	}
+	for _, want := range []string{`/search?deal=rent&amp;view=map`, `/search?deal=short_rent&amp;view=map`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("removing one deal tag should leave the other; missing link %s", want)
+		}
+	}
+
+	// One deal type left is not removable: dropping it would leave none, which
+	// the parser reads as Sell, so the tag would appear to do nothing.
+	single := mustGet(t, h, "/search?view=map&deal=rent")
+	if !strings.Contains(single, "chip--fixed") {
+		t.Error("the last remaining deal tag should render without a remove button")
+	}
+}
+
+// Property types chosen in the filter appear in the same tag bar, one tag each,
+// alongside the deal types — the client asked for both kinds of tag together.
+func TestPropertyTypesAppearAsTags(t *testing.T) {
+	body := mustGet(t, newServer(t),
+		"/search?view=map&deal=rent&property_type=apartment&property_type=cottage")
+
+	bar := between(body, `class="active-filters"`, "</div>")
+	for _, want := range []string{"Rent", "Apartment", "Cottage"} {
+		if !strings.Contains(bar, want) {
+			t.Errorf("the tag bar is missing %q", want)
+		}
+	}
+	// Each property type is removable without clearing the other.
+	for _, want := range []string{"property_type=cottage", "property_type=apartment"} {
+		if !strings.Contains(bar, want) {
+			t.Errorf("tag removal should preserve the other property type; missing %s", want)
+		}
+	}
+}
+
+// The tags have to arrive on a filter change too, not only on a full page load.
+//
+// On the split map view the tag bar sits above the scrolling results column,
+// which puts it outside #results — so the HTMX swap that answers a filter change
+// used to replace the listings and leave the bar behind, still reading "Sell".
+// Ticking two property types in the drawer visibly did nothing, which is exactly
+// what the client reported. The fragment now carries the header back as an
+// out-of-band swap.
+func TestMapFilterChangeReturnsTheTagBar(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet,
+		"/search/results?view=map&deal=rent&property_type=apartment&property_type=cottage", nil)
+	req.Header.Set("HX-Request", "true")
+	rec := httptest.NewRecorder()
+	newServer(t).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("filter fragment = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+
+	// The listings themselves are the primary swap.
+	if !strings.Contains(body, `id="results"`) {
+		t.Error("the fragment does not carry the results list")
+	}
+
+	// The header rides along, marked for an out-of-band swap so it lands where
+	// it already sits rather than inside #results. It follows the list in the
+	// response, so everything from its opening tag onward is the header.
+	at := strings.Index(body, `id="map-results-top" hx-swap-oob="true"`)
+	if at < 0 {
+		t.Fatal("the fragment does not swap the header out of band, so the tags never appear")
+	}
+	top := body[at:]
+
+	// Every chosen filter states itself as its own tag.
+	for _, want := range []string{"Rent", "Apartment", "Cottage"} {
+		if !strings.Contains(top, want) {
+			t.Errorf("the swapped-in tag bar is missing %q", want)
+		}
+	}
+
+	// The count and the badge come back with the tags, so the three numbers
+	// describing one search cannot disagree.
+	if !strings.Contains(top, "filter-reopen__count") {
+		t.Error("the swapped-in header does not refresh the Filters badge")
+	}
+	if !strings.Contains(top, `class="results-count"`) {
+		t.Error("the swapped-in header does not refresh the property count")
 	}
 }
 

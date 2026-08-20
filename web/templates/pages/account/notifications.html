@@ -4,8 +4,9 @@
 {{ template "account-head" dict "Title" "Notifications"
    "Lede" "Alerts from your saved searches, replies from brokers, and account activity." }}
 
-<div class="container section">
-  <div class="shell">
+<div class="container section section--after-head">
+  <div class="shell shell--nav" x-data="previaPanel('previa-account-nav')"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
     {{ template "account-nav" . }}
 
     <div class="stack stack--lg">

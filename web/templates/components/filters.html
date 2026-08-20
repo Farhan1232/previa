@@ -9,11 +9,33 @@
 {{ define "filter-form" }}
 {{ $f := .Data.Filter }}
 {{ $view := .Data.View }}
+{{/*
+  outerHTML, not innerHTML.
+
+  Every fragment this endpoint returns — the grid one and the map one alike —
+  is itself a <div id="results">, because that is also how the page renders it
+  first time round. Swapping it *into* #results therefore buried a second
+  #results inside the first, and each swap left another layer of the same
+  wrapper behind. Replacing the element is what the response actually is.
+
+  The client saw both halves of this on the map screen. The nested wrapper is a
+  `.map-results__list` in its own right, so:
+
+    · in grid mode it took `flex: 0 0 50%` from the list it had been dropped
+      inside, and the whole result set was squeezed into half the panel — the
+      broken grid in their screenshot, cards a quarter of the width they should
+      be with the titles spilling out of them
+    · in list mode it became a second scroll container with nothing to scroll,
+      and `overscroll-behavior: contain` on it stopped the wheel reaching the
+      real one underneath. That is the "sometimes in list view can not scroll
+      down any more": the panel scrolled until the pointer happened to be over
+      the nested region, and then stopped
+*/}}
 <form id="filter-form"
       action="/search" method="get"
       hx-get="/search/results"
       hx-target="#results"
-      hx-swap="innerHTML"
+      hx-swap="outerHTML"
       hx-trigger="change from:#filter-form, search"
       hx-push-url="true"
       hx-indicator="#results">
@@ -24,32 +46,60 @@
   <div class="filter-panel__body">
 
     {{/*
-      Deal type — the first thing in the panel, and a single choice.
+      Deal type — the first thing in the panel, and now a multiple choice.
 
-      A native radio group, so only one can be on, arrow keys move between them
-      and the selection survives an HTMX swap without any bespoke state. The
-      labels are the client's: Sell, Rent, Short rent, the same three words used
-      by the homepage search, the map filter and the add-listing form. "Any" is
-      kept as a real option so the filter can be cleared in place.
+      It was a radio group. The client asked to be able to look at Rent and
+      Short rent together, and for every chosen deal type to appear as its own
+      tag above the results, so these are checkboxes: the `deal` parameter
+      repeats, and a listing matches any one of the selected types.
+
+      Still a native control group, so the selection survives an HTMX swap with
+      no bespoke state, and the labels are the client's three words — the same
+      ones the homepage search and the add-listing form use.
+
+      Unticking everything is allowed in the markup; the parser reads it as Sell,
+      which is the state a visitor arrives in.
     */}}
     <fieldset class="field filter-fieldset">
       <legend class="field__label">Deal type</legend>
-      {{/*
-        Exactly the client's three options — no visible "Any".
-
-        "No deal type" is now the absence of a selection rather than a fourth
-        button: none of the three is checked, the parameter is not submitted,
-        and results come back unfiltered. Clear all returns to that state.
-      */}}
-      <div class="segmented segmented--full segmented--deal" role="radiogroup" aria-label="Deal type">
+      <div class="segmented segmented--full segmented--deal" role="group" aria-label="Deal type">
         {{ range dealTypes }}
         <label class="segmented__item">
-          <input type="radio" name="deal" value="{{ .Value }}"
-                 {{ if eq $f.Deal .Value }}checked{{ end }}>
+          <input type="checkbox" name="deal" value="{{ .Value }}"
+                 {{ if hasDeal $f.Deals .Value }}checked{{ end }}>
           <span>{{ .Label }}</span>
         </label>
         {{ end }}
       </div>
+
+      {{/*
+        Brokers, directly under the deal types.
+
+        The client put it here by name, 18 August: "so in the main search menu,
+        where is 'deal type' sell and buy, there add 'brokers' so the user can
+        choose if he wants the brokers will be displayed or not."
+
+        Its own row rather than a fourth cell in the control above, because it
+        is not a fourth kind of deal — it does not narrow the listings at all.
+        It adds a second kind of result beside them: pins on the map and cards
+        among the results, from the brokers who bought the map placement. Same
+        segmented face, so it reads as part of the same group and switches the
+        same way.
+
+        Off unless asked for. A reader who came to look at property gets
+        property until they say otherwise.
+      */}}
+      <div class="segmented segmented--full segmented--brokers" role="group"
+           aria-label="Show brokers">
+        <label class="segmented__item">
+          <input type="checkbox" name="brokers" value="1"
+                 {{ if $f.ShowBrokers }}checked{{ end }}>
+          <span>{{ template "icon" "users" }} Brokers</span>
+        </label>
+      </div>
+      <p class="field__hint">
+        Show brokers advertising on the map alongside the listings.
+      </p>
     </fieldset>
 
     {{/*
@@ -112,19 +162,14 @@
       </button>
       <div class="filter-group__content" x-show="open" x-collapse>
         <div class="field">
-          <span class="field__label">Price range</span>
+          <span class="field__label">Price range (€)</span>
           <div class="range-pair">
-            <span class="input-unit">
-              <input class="input" name="price_min" type="number" min="0" step="1000" inputmode="numeric"
-                     placeholder="Min" aria-label="Minimum price"
-                     value="{{ if $f.PriceMin }}{{ printf "%.0f" $f.PriceMin }}{{ end }}">
-            </span>
-            <span class="range-pair__dash" aria-hidden="true">–</span>
-            <span class="input-unit">
-              <input class="input" name="price_max" type="number" min="0" step="1000" inputmode="numeric"
-                     placeholder="Max" aria-label="Maximum price"
-                     value="{{ if $f.PriceMax }}{{ printf "%.0f" $f.PriceMax }}{{ end }}">
-            </span>
+            <input class="input" name="price_min" type="number" min="0" step="1000" inputmode="numeric"
+                   placeholder="Min" aria-label="Minimum price"
+                   value="{{ if $f.PriceMin }}{{ printf "%.0f" $f.PriceMin }}{{ end }}">
+            <input class="input" name="price_max" type="number" min="0" step="1000" inputmode="numeric"
+                   placeholder="Max" aria-label="Maximum price"
+                   value="{{ if $f.PriceMax }}{{ printf "%.0f" $f.PriceMax }}{{ end }}">
           </div>
         </div>
         {{/*
@@ -152,30 +197,30 @@
       </button>
       <div class="filter-group__content" x-show="open" x-collapse>
         <div class="field">
-          <span class="field__label">Living area</span>
+          {{/*
+            The unit is in the label, not in the field.
+
+            The client's note: "the m2 remove from the field, this m2 add in
+            (m2) behind the text, like 'Living area (m2)'". It also fixes the
+            other half of the same note — a suffix inside the box needs padding
+            reserved for it, and the browser's own up/down arrows sit at the end
+            of the padded area, which is what put them in the middle of the
+            field instead of at its right-hand edge.
+          */}}
+          <span class="field__label">Living area (m²)</span>
           <div class="range-pair">
-            <span class="input-unit">
-              <input class="input" name="area_min" type="number" min="0" inputmode="numeric"
-                     placeholder="Min" aria-label="Minimum area in square metres"
-                     value="{{ if $f.AreaMin }}{{ printf "%.0f" $f.AreaMin }}{{ end }}">
-              <span class="input-unit__suffix">m²</span>
-            </span>
-            <span class="range-pair__dash" aria-hidden="true">–</span>
-            <span class="input-unit">
-              <input class="input" name="area_max" type="number" min="0" inputmode="numeric"
-                     placeholder="Max" aria-label="Maximum area in square metres"
-                     value="{{ if $f.AreaMax }}{{ printf "%.0f" $f.AreaMax }}{{ end }}">
-              <span class="input-unit__suffix">m²</span>
-            </span>
+            <input class="input" name="area_min" type="number" min="0" inputmode="numeric"
+                   placeholder="Min" aria-label="Minimum area in square metres"
+                   value="{{ if $f.AreaMin }}{{ printf "%.0f" $f.AreaMin }}{{ end }}">
+            <input class="input" name="area_max" type="number" min="0" inputmode="numeric"
+                   placeholder="Max" aria-label="Maximum area in square metres"
+                   value="{{ if $f.AreaMax }}{{ printf "%.0f" $f.AreaMax }}{{ end }}">
           </div>
         </div>
         <div class="field">
-          <label class="field__label" for="f-land">Minimum land area</label>
-          <span class="input-unit">
-            <input class="input" id="f-land" name="land_min" type="number" min="0" inputmode="numeric"
-                   placeholder="Any" value="{{ if $f.LandAreaMin }}{{ printf "%.0f" $f.LandAreaMin }}{{ end }}">
-            <span class="input-unit__suffix">m²</span>
-          </span>
+          <label class="field__label" for="f-land">Minimum land area (m²)</label>
+          <input class="input" id="f-land" name="land_min" type="number" min="0" inputmode="numeric"
+                 placeholder="Any" value="{{ if $f.LandAreaMin }}{{ printf "%.0f" $f.LandAreaMin }}{{ end }}">
         </div>
         <div class="grid grid--2" style="gap:var(--sp-3)">
           <div class="field">
@@ -215,7 +260,6 @@
             <input class="input" name="year_min" type="number" min="1700" max="2030" inputmode="numeric"
                    placeholder="From" aria-label="Built from year"
                    value="{{ if $f.YearMin }}{{ $f.YearMin }}{{ end }}">
-            <span class="range-pair__dash" aria-hidden="true">–</span>
             <input class="input" name="year_max" type="number" min="1700" max="2030" inputmode="numeric"
                    placeholder="To" aria-label="Built to year"
                    value="{{ if $f.YearMax }}{{ $f.YearMax }}{{ end }}">
@@ -242,32 +286,69 @@
       </div>
     </div>
 
-    {{/* Features */}}
-    <div class="filter-group" x-data="{ open: false }">
+    {{/*
+      Features and amenities.
+
+      "The 'Features and amenities' we just added into 'add listing' page add to
+      the search menu as well, with the same subtitles. And there make search
+      field as well to type to look the desired one, as there are quite many of
+      them."
+
+      Same catalogue as the add-listing form, from models.AmenityGroups — one
+      list, so a seller's tick and a buyer's filter are guaranteed to name the
+      same thing — and the same subtitles, because they come from the same
+      groups rather than being retyped here.
+
+      The search field is why the whole catalogue can live in a sidebar column
+      at all: thirty-four ticks is a long scroll, and typing "cof" leaves one.
+      It filters group headings too — a group whose every item is hidden hides
+      itself, so the list never shows a subtitle with nothing under it.
+
+      Five of these ticks — furnished, parking, balcony, garden, elevator — are
+      the filters the search already ran on, and they keep their own query
+      parameters so every bookmark and saved search written before the full list
+      existed still resolves to the same search. The rest travel as
+      amenity=<key>. Which is which is decided in models.Amenity, not here.
+    */}}
+    <div class="filter-group" x-data="previaAmenityFilter()">
       <button type="button" class="filter-group__toggle" @click="open = !open" :aria-expanded="open">
-        Features {{ template "icon" "chevron-down" }}
+        Features and amenities {{ template "icon" "chevron-down" }}
       </button>
       <div class="filter-group__content" x-show="open" x-collapse x-cloak>
-        <label class="check">
-          <input type="checkbox" name="furnished" value="1" {{ if $f.Furnished }}checked{{ end }}>
-          <span class="check__text">Furnished</span>
-        </label>
-        <label class="check">
-          <input type="checkbox" name="parking" value="1" {{ if $f.Parking }}checked{{ end }}>
-          <span class="check__text">Parking</span>
-        </label>
-        <label class="check">
-          <input type="checkbox" name="balcony" value="1" {{ if $f.Balcony }}checked{{ end }}>
-          <span class="check__text">Balcony or terrace</span>
-        </label>
-        <label class="check">
-          <input type="checkbox" name="garden" value="1" {{ if $f.Garden }}checked{{ end }}>
-          <span class="check__text">Garden</span>
-        </label>
-        <label class="check">
-          <input type="checkbox" name="elevator" value="1" {{ if $f.Elevator }}checked{{ end }}>
-          <span class="check__text">Elevator</span>
-        </label>
+        <div class="amenity-search">
+          {{ template "icon" "search" }}
+          <input class="input amenity-search__input" type="search" x-model="q" @input="filter()"
+                 placeholder="Search features" autocomplete="off"
+                 aria-label="Search features and amenities">
+          <button type="button" class="amenity-search__clear" x-show="q" x-cloak
+                  @click="clear()" aria-label="Clear search">
+            {{ template "icon" "close" }}
+          </button>
+        </div>
+
+        <div class="amenity-filter" x-ref="list">
+          {{ range amenityGroups }}
+          <fieldset class="amenity-filter__group" data-amenity-group>
+            <legend class="amenity-group__title">{{ .Name }}</legend>
+            {{ range .Items }}
+            <label class="check" data-amenity="{{ .Label }}">
+              <input type="checkbox" name="{{ .Param }}" value="{{ .Value }}"
+                     {{ if eq .Key "furnished" }}{{ if $f.Furnished }}checked{{ end }}
+                     {{ else if eq .Key "parking" }}{{ if $f.Parking }}checked{{ end }}
+                     {{ else if eq .Key "balcony" }}{{ if $f.Balcony }}checked{{ end }}
+                     {{ else if eq .Key "garden" }}{{ if $f.Garden }}checked{{ end }}
+                     {{ else if eq .Key "elevator" }}{{ if $f.Elevator }}checked{{ end }}
+                     {{ else }}{{ if hasString $f.Amenities .Key }}checked{{ end }}{{ end }}>
+              <span class="check__text">{{ .Label }}</span>
+            </label>
+            {{ end }}
+          </fieldset>
+          {{ end }}
+        </div>
+
+        <p class="market-menu__empty" x-show="empty" x-cloak>
+          Nothing matches “<span x-text="q"></span>”.
+        </p>
       </div>
     </div>
 
@@ -303,13 +384,79 @@
         </div>
       </div>
     </div>
+
+    {{/*
+      Language of communication — last in the panel, as the client placed it:
+      "into the search-filter menu at the end make the options for 'Language of
+      communication' where the user can select the languages in what the
+      property is sold. This option is not obligatory."
+
+      Not obligatory means exactly that in the matcher too: with nothing ticked
+      the filter removes no results at all. Several can be ticked, and a listing
+      matches if it is sold in any one of them — a buyer who speaks German and
+      English wants everything either language will get them, not only the
+      listings offering both.
+
+      The same catalogue the seller chose from in their profile, so a language
+      picked there is findable here.
+
+      It is the market picker's menu now, not a column of checkboxes: "in the
+      search menu the language of communication needs to be the same menu as
+      the choose your market, with the search field and all the languages must
+      be there. So the user checks the one he needs and tags will come to see,
+      what can be deleted as well." The list used to be only the languages some
+      listing was already sold in; the client asked for all of them, and a
+      searchable menu is what makes a list that long usable.
+
+      Flat, with no collapsible header, for the reason the Location field above
+      is flat: one field whose own label already says what it is does not need a
+      header repeating it and a click to reach it.
+    */}}
+    <div class="filter-group filter-group--flat">
+      {{ template "tag-picker" dict
+          "Kind" "language" "Name" "language" "ID" "f-langs"
+          "Label" "Language of communication"
+          "AddLabel" "Add language"
+          "EmptyLabel" "Any language"
+          "Selected" $f.Languages }}
+    </div>
   </div>
 
+  {{/*
+    The panel's own footer.
+
+    "The 'clear all' replace with the red cross, the same as under filters.
+    'Apply filters' make in small letters and the area of the button make
+    smaller and the background of this button make green #008000 — the same in
+    day and dark mode. Then add there button 'save search', if hit that then
+    this search will be saved under user's 'saved searches' menu."
+
+    So: the same .clear-filters cross the tag bar above the results already
+    uses — one control, one class, and it keeps the accessible name a bare
+    cross cannot carry — a green apply button that no longer stretches across
+    the row, and save search beside it, which posts the whole form and adds a
+    real row to /saved-searches rather than only saying it did.
+  */}}
   <div class="filter-panel__footer">
-    <a class="btn btn--quiet btn--sm" href="/search?view={{ $view }}">Clear all</a>
-    <button class="btn btn--primary btn--sm" type="submit" style="flex:1">
-      {{ template "icon" "search" }} Apply filters
-    </button>
+    <div class="filter-panel__actions">
+      <a class="clear-filters" href="/search?view={{ $view }}"
+         title="Clear all filters" aria-label="Clear all filters">
+        {{ template "icon" "close" }}
+      </a>
+      <button class="btn btn--sm btn--apply" type="submit">
+        {{ template "icon" "search" }} apply filters
+      </button>
+      {{/* hx-include, because the button is not what carries the filters —
+           the form around it is, and this posts what is currently ticked
+           rather than what the URL last loaded. */}}
+      <button class="btn btn--quiet btn--sm" type="button"
+              hx-post="/save-search" hx-include="#filter-form"
+              hx-vals='{"compact":"1"}'
+              hx-target="#filter-save-slot" hx-swap="innerHTML">
+        {{ template "icon" "bell" }} save search
+      </button>
+    </div>
+    <div id="filter-save-slot"></div>
   </div>
 </form>
 {{ end }}

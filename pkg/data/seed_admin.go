@@ -164,7 +164,6 @@ func (m *Mock) Stats(ctx context.Context) models.AdminStats {
 			{Label: "Active brokers", Value: "312", Delta: "+9", Trend: "up", Icon: "badge", Hint: "with a live listing"},
 			{Label: "Enquiries sent", Value: "6 704", Delta: "-1.9%", Trend: "down", Icon: "mail", Hint: "vs. previous 30 days"},
 		},
-		PendingCount: 23,
 		ListingsByType: []models.ChartSlice{
 			{Label: "Apartments", Value: 812, Color: "var(--navy)"},
 			{Label: "Houses", Value: 341, Color: "var(--slate)"},

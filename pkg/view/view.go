@@ -9,9 +9,9 @@ package view
 import (
 	"bytes"
 	"fmt"
+	"html/template"
 	"io"
 	"io/fs"
-	"html/template"
 	"net/http"
 	"path"
 	"sync"

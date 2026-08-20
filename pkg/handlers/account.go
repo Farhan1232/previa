@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"previa/pkg/data"
@@ -23,9 +25,49 @@ type AccountData struct {
 	Drafts        []models.Draft
 	Payments      []models.Payment
 	Packages      []models.Package
+	Promotions    []models.Promotion
 	Counts        map[string]int
 	Status        string
 	Unread        int
+	// Stats holds the per-day visitor series for each listing on the page,
+	// keyed by property id. Built up front rather than fetched when the panel
+	// opens: the whole set for a page of listings is a few hundred integers,
+	// and it means opening the statistics is instant and works with no
+	// round trip — which matters, because the panel is the thing a seller
+	// flicks between listings to compare.
+	Stats map[string]models.ListingStats
+
+	// The settings screen's map location field: the autocomplete catalogue and
+	// the map centred on wherever the seller's pin currently is.
+	LocationSuggestions []models.LocationSuggestion
+	OfficeMap           template.JS
+
+	// The homepage broker strip as a purchasable placement, and whatever the
+	// seller currently has running in it.
+	BrokerAdPlan models.BrokerAdPlan
+	BrokerAd     models.BrokerAd
+
+	// And the placement that runs against the pin instead of against the
+	// markets: this seller on the search map.
+	BrokerMapAdPlan models.BrokerMapAdPlan
+	BrokerMapAd     models.BrokerMapAd
+}
+
+// statsDays is how far back the statistics panel charts. Two weeks reads as a
+// shape — a decay, a weekend rhythm, a spike after a promotion — where seven
+// days is mostly noise and a month does not fit legibly in a dialog.
+const statsDays = 14
+
+// listingStats gathers the per-day series for a set of listings.
+func (h *Handler) listingStats(r *http.Request, listings []models.Property) map[string]models.ListingStats {
+	ctx := r.Context()
+	out := make(map[string]models.ListingStats, len(listings))
+	for _, p := range listings {
+		if s, ok := h.Store.Account.ListingStats(ctx, p.ID, statsDays); ok {
+			out[p.ID] = s
+		}
+	}
+	return out
 }
 
 // listingCounts tallies the user's listings by state for the tab bar.
@@ -69,13 +111,39 @@ func (h *Handler) MyListings(w http.ResponseWriter, r *http.Request) {
 	pd := h.base(r, "", "My listings — Previa", "Manage the properties you have published on Previa.")
 	pd.Meta.NoIndex = true
 
+	listings := h.Store.Account.MyListings(ctx, status)
 	pd.Data = AccountData{
 		Section:  "listings",
-		Listings: h.Store.Account.MyListings(ctx, status),
-		Counts:   h.listingCounts(r),
-		Status:   string(status),
+		Listings: listings,
+		// Promotion is buyable from here as well as at publish time, so the
+		// same add-on catalogue the wizard uses is needed on this page.
+		Promotions: h.Store.Catalog.Promotions(ctx),
+		Counts:     h.listingCounts(r),
+		Status:     string(status),
+		Stats:      h.listingStats(r, listings),
 	}
 	h.View.Render(w, http.StatusOK, "account/my-listings", pd)
+}
+
+// CloneListing duplicates one of the user's listings.
+//
+// Answers the client's "there add 'clone' so can duplicate the ad". The copy is
+// always a draft — a duplicate has not been paid for, and draft is the only way
+// into the lifecycle.
+//
+// Nothing is written: this build has no store behind it. The response reports
+// what would have been created, names it, and points at the drafts the copy
+// would join, so the flow is testable end to end without pretending the row
+// exists. A backend implementation swaps the mock's CloneListing for a real
+// INSERT and this handler is unchanged.
+func (h *Handler) CloneListing(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/listing/clone/")
+	copy, ok := h.Store.Account.CloneListing(r.Context(), id)
+	if !ok {
+		h.View.RenderPartial(w, http.StatusNotFound, "account/my-listings", "clone-failed", nil)
+		return
+	}
+	h.View.RenderPartial(w, http.StatusOK, "account/my-listings", "clone-created", copy)
 }
 
 // Drafts renders unfinished add-listing sessions.
@@ -131,9 +199,26 @@ func (h *Handler) Notifications(w http.ResponseWriter, r *http.Request) {
 
 // Settings renders profile, account and security settings.
 func (h *Handler) Settings(w http.ResponseWriter, r *http.Request) {
-	pd := h.base(r, "", "Profile and settings — Previa", "Manage your Previa profile, account and security settings.")
+	ctx := r.Context()
+	pd := h.base(r, "", "Settings — Previa", "Manage your Previa profile, account and security settings.")
 	pd.Meta.NoIndex = true
-	pd.Data = AccountData{Section: "settings", Counts: h.listingCounts(r)}
+	pd.NeedsMap = true // the profile's location picker draws one
+
+	// The profile's map location, and the search box that moves its pin.
+	//
+	// Centred on the pin the seller already dropped, or on their market if they
+	// have not dropped one — an empty map of the whole continent is no use for
+	// placing an office.
+	pd.Data = AccountData{
+		Section:             "settings",
+		Counts:              h.listingCounts(r),
+		LocationSuggestions: h.Store.Catalog.LocationSuggestions(ctx),
+		OfficeMap:           buildPinMap(pd.User.Office, pd.Country, h.Cfg.MapsKey),
+		BrokerAdPlan:        h.Store.Catalog.BrokerAdPlan(ctx),
+		BrokerAd:            pd.User.Ad,
+		BrokerMapAdPlan:     h.Store.Catalog.BrokerMapAdPlan(ctx),
+		BrokerMapAd:         pd.User.MapAd,
+	}
 	h.View.Render(w, http.StatusOK, "account/settings", pd)
 }
 
@@ -169,17 +254,24 @@ type PayMethod struct {
 // Neither is dropped without him saying which he meant.
 //
 // Nothing here contacts a provider in this milestone — see CheckoutProcess.
+//
+// The lines under the names are the client's, 19 August: "The text under credit
+// card write 'processed via Stripe'. Under Paypal and Stripe remove the text as
+// everyone knows anyway what they are." So the card keeps a short line — it is
+// the one row whose name does not say who processes it — PayPal and Stripe get
+// none, and the two nobody can be expected to recognise keep their sentence.
 var payMethods = []PayMethod{
 	{Value: "card", Label: "Credit card", Logo: "card", Checked: true,
-		Hint: "Visa, Mastercard or American Express. Processed through Stripe."},
-	{Value: "paypal", Label: "PayPal", Logo: "paypal",
-		Hint: "You'll be redirected to PayPal to approve the payment."},
-	{Value: "stripe", Label: "Stripe", Logo: "stripe",
-		Hint: "Pay on Stripe's own checkout — wallets, saved cards and local methods."},
+		Hint: "Processed via Stripe."},
+	{Value: "paypal", Label: "PayPal", Logo: "paypal"},
+	{Value: "stripe", Label: "Stripe", Logo: "stripe"},
+	// Both of these were narrowed by the original copy and widened at the
+	// client's request: Paysera carries bank links across Europe rather than
+	// the Baltics alone, and NOWPayments settles far more than three coins.
 	{Value: "paysera", Label: "Paysera bank links", Logo: "paysera",
-		Hint: "Pay directly from an Estonian, Latvian or Lithuanian bank account."},
+		Hint: "Pay directly with many bank links around Europe."},
 	{Value: "crypto", Label: "Crypto", Logo: "crypto",
-		Hint: "Bitcoin, Ethereum and stablecoins through NOWPayments."},
+		Hint: "Bitcoin, Ethereum, stablecoins and many others through NOWPayments."},
 }
 
 // CheckoutData drives the demonstration payment flow.
@@ -267,9 +359,113 @@ func (h *Handler) ContactBroker(w http.ResponseWriter, r *http.Request) {
 		map[string]any{"Name": name})
 }
 
-// SaveSearch acknowledges a mock saved search.
+// SaveSearch stores the search that was posted and confirms it.
+//
+// "Then add there button 'save search', if hit that then this search will be
+// saved under user's 'saved searches' menu." So this reads the filter form the
+// button posted rather than acknowledging a click: the filters become a row on
+// /saved-searches, described in the same words the tag bar above the results
+// uses, and replayable from the query it was saved with.
+//
+// Two callers, one route: the panel's footer button asks for the compact
+// confirmation (compact=1, a line inside a 40px footer) and the tag bar's
+// "Save this search" gets the full alert.
 func (h *Handler) SaveSearch(w http.ResponseWriter, r *http.Request) {
-	h.View.RenderPartial(w, http.StatusOK, "search", "save-search-success", nil)
+	_ = r.ParseForm()
+	form := r.PostForm
+
+	f := data.ParseFilter(form, func(key string) []string { return form[key] })
+	data.ApplyLocation(&f, h.Store.Catalog.ResolveLocation)
+	if f.CountryCode != "" {
+		if c, ok := h.Store.Catalog.Country(r.Context(), f.CountryCode); ok {
+			f.CountryName = c.Name
+		}
+	}
+
+	// How many listings it matches today, which is what the row on
+	// /saved-searches reports beside it.
+	result, _ := h.Store.Properties.Search(r.Context(), f)
+
+	saved := h.Store.Account.AddSavedSearch(r.Context(), models.SavedSearch{
+		Name:    savedSearchName(f),
+		Query:   savedSearchQuery(form),
+		Summary: savedSearchSummary(f),
+		Deal:    savedSearchDeal(f),
+		// Alerts on and instant, because saving a search is asking to hear
+		// about it. Both are editable on the saved-searches screen.
+		AlertsOn:    true,
+		Frequency:   "instant",
+		ResultCount: result.Total,
+	})
+
+	block := "save-search-success"
+	if form.Get("compact") == "1" {
+		block = "save-search-line"
+	}
+	h.View.RenderPartial(w, http.StatusOK, "search", block,
+		map[string]any{"Saved": saved})
+}
+
+// savedSearchName is the row's title: the filters that identify it, which is
+// the deal type and the place, falling back to what there is.
+func savedSearchName(f data.PropertyFilter) string {
+	chips := f.Chips()
+	if len(chips) == 0 {
+		return "All properties"
+	}
+	var parts []string
+	for _, c := range chips {
+		parts = append(parts, c.Label)
+		if len(parts) == 2 {
+			break
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
+// savedSearchSummary is the whole filter in words — the same labels the tag bar
+// above the results shows, so a saved search reads as what was on screen when
+// it was saved.
+func savedSearchSummary(f data.PropertyFilter) string {
+	var parts []string
+	for _, c := range f.Chips() {
+		parts = append(parts, c.Label)
+	}
+	if len(parts) == 0 {
+		return "Every listing, unfiltered"
+	}
+	return strings.Join(parts, " · ")
+}
+
+// savedSearchDeal is the deal type the row is filed under. A search across
+// several is filed under the first, which is the order the panel offers them in.
+func savedSearchDeal(f data.PropertyFilter) models.DealType {
+	if len(f.Deals) == 0 {
+		return models.DealSale
+	}
+	return f.Deals[0]
+}
+
+// savedSearchQuery is the query string that replays the search.
+//
+// The posted form minus the two fields that are about this request rather than
+// about the search: `compact` chooses which confirmation comes back, and the
+// blank values every unset control submits would otherwise be stored as filters
+// that are set to nothing.
+func savedSearchQuery(form url.Values) string {
+	q := url.Values{}
+	for key, values := range form {
+		if key == "compact" {
+			continue
+		}
+		for _, v := range values {
+			if strings.TrimSpace(v) == "" {
+				continue
+			}
+			q.Add(key, v)
+		}
+	}
+	return q.Encode()
 }
 
 // RevealContact returns the broker's real contact details, mimicking the

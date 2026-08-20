@@ -1,11 +1,13 @@
 {{ define "content" }}
 {{ $d := .Data }}
 
-{{ template "account-head" dict "Title" (printf "Welcome back, %s" .User.Name)
-   "Lede" "Everything you're selling, saving and searching, in one place." }}
+{{/* No lede: "Everything you're selling, saving and searching, in one place."
+     was removed at the client's request, which lets the stat panels come up. */}}
+{{ template "account-head" dict "Title" (printf "Welcome back, %s" .User.Name) }}
 
-<div class="container section">
-  <div class="shell">
+<div class="container section section--after-head">
+  <div class="shell shell--nav" x-data="previaPanel('previa-account-nav')"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
     {{ template "account-nav" . }}
 
     <div class="stack stack--lg">
@@ -117,7 +119,7 @@
               <div class="mini-row">
                 <span class="stat__icon">{{ template "icon" "search" }}</span>
                 <div class="mini-row__text">
-                  <a class="strong" href="/search?{{ .Query }}">{{ .Name }}</a>
+                  <a class="strong" href="{{ searchURL .Query }}">{{ .Name }}</a>
                   <p class="text-xs muted">{{ .Summary }}</p>
                 </div>
                 {{ if .NewMatches }}

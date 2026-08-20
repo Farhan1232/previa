@@ -12,14 +12,23 @@
       {{ template "admin-demo-notice" }}
 
       <div class="row row--between">
+        {{/*
+          The same three states the seller sees, because they are the only ones
+          that exist. Pending and Rejected are gone from here as well as from My
+          listings: the client's "there is no pending review as noone will not
+          look the ads before publishing, and so nothing is rejected" is a rule
+          about the product, not about one screen, and an admin queue promising
+          to review things nobody reviews is the same claim in another place.
+
+          Moderation has not gone away — an administrator can still take a live
+          listing down from the row actions. What has gone is the queue in front
+          of publication.
+        */}}
         <div class="tabs" role="tablist" aria-label="Listing status">
           <a class="tab {{ if not $d.Status }}is-active{{ end }}" href="/admin/listings">All</a>
-          <a class="tab {{ if eq $d.Status "pending" }}is-active{{ end }}" href="/admin/listings?status=pending">
-            Pending <span class="tab__count numeric">{{ $d.Stats.PendingCount }}</span>
-          </a>
-          <a class="tab {{ if eq $d.Status "active" }}is-active{{ end }}" href="/admin/listings?status=active">Approved</a>
-          <a class="tab {{ if eq $d.Status "rejected" }}is-active{{ end }}" href="/admin/listings?status=rejected">Rejected</a>
+          <a class="tab {{ if eq $d.Status "active" }}is-active{{ end }}" href="/admin/listings?status=active">Active</a>
           <a class="tab {{ if eq $d.Status "draft" }}is-active{{ end }}" href="/admin/listings?status=draft">Drafts</a>
+          <a class="tab {{ if eq $d.Status "expired" }}is-active{{ end }}" href="/admin/listings?status=expired">Expired</a>
         </div>
         <div class="row row--tight">
           <span class="input-icon">

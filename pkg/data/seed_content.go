@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"previa/pkg/models"
@@ -146,39 +147,64 @@ var banners = []models.Banner{
 // Agencies and brokers
 // ---------------------------------------------------------------------------
 
+// Every agency's logo lives at a path derived from its slug, so adding an
+// agency needs one line here and one run of docs/agency_logo_gen.py rather than
+// a path pasted into the seed twice. An agency whose file is missing keeps an
+// empty Logo and the templates that show one simply omit the block — which is
+// also the state a broker who has not uploaded a company logo is in.
+func init() {
+	for i := range agencies {
+		agencies[i].Logo = "/static/img/agencies/" + agencies[i].Slug + ".svg"
+	}
+}
+
+// agencies, each with the pin for the address beside it.
+//
+// The coordinates are the real ones for those streets, because the broker
+// directory now searches by distance and a made-up point would put a Tallinn
+// broker in the wrong place on a 50 km search. Office.Label is filled in by
+// buildAgencies from Address, so the address is written once.
 var agencies = []models.Agency{
 	{ID: "ag-01", Slug: "kadaka-kinnisvara", Name: "Kadaka Kinnisvara", CountryCode: "EE", City: "Tallinn",
 		Address: "Roseni 10, 10111 Tallinn", Phone: "+372 640 1180", Email: "info@kadaka.example",
 		Website: "kadaka.example", BrokerCount: 24, ListingCount: 186, Founded: 2004, IsVerified: true,
-		Description: "An Estonian agency specialising in Tallinn's historic districts and the Viimsi peninsula. Kadaka has handled Old Town transactions since 2004 and maintains a dedicated restoration advisory team for protected buildings."},
+		Description: "An Estonian agency specialising in Tallinn's historic districts and the Viimsi peninsula. Kadaka has handled Old Town transactions since 2004 and maintains a dedicated restoration advisory team for protected buildings.",
+		Office:      models.MapPlace{Lat: 59.4380, Lng: 24.7530}},
 	{ID: "ag-02", Slug: "hauptstadt-immobilien", Name: "Hauptstadt Immobilien", CountryCode: "DE", City: "Berlin",
 		Address: "Kurfürstendamm 194, 10707 Berlin", Phone: "+49 30 8871 4400", Email: "kontakt@hauptstadt.example",
 		Website: "hauptstadt.example", BrokerCount: 41, ListingCount: 312, Founded: 1998, IsVerified: true,
-		Description: "Berlin's Altbau specialist, covering Mitte, Prenzlauer Berg, Kreuzberg and the western residential districts. Hauptstadt advises on Denkmalschutz obligations and Milieuschutz restrictions as standard."},
+		Description: "Berlin's Altbau specialist, covering Mitte, Prenzlauer Berg, Kreuzberg and the western residential districts. Hauptstadt advises on Denkmalschutz obligations and Milieuschutz restrictions as standard.",
+		Office:      models.MapPlace{Lat: 52.5030, Lng: 13.3230}},
 	{ID: "ag-03", Slug: "mediterrania-propietats", Name: "Mediterrània Propietats", CountryCode: "ES", City: "Barcelona",
 		Address: "Carrer de Balmes 152, 08008 Barcelona", Phone: "+34 932 40 71 00", Email: "hola@mediterrania.example",
 		Website: "mediterrania.example", BrokerCount: 33, ListingCount: 245, Founded: 2009, IsVerified: true,
-		Description: "A Barcelona agency working across the Eixample grid, Gràcia and the upper Sarrià districts, with a dedicated desk for international buyers and NIE assistance."},
+		Description: "A Barcelona agency working across the Eixample grid, Gràcia and the upper Sarrià districts, with a dedicated desk for international buyers and NIE assistance.",
+		Office:      models.MapPlace{Lat: 41.3930, Lng: 2.1540}},
 	{ID: "ag-04", Slug: "pohjola-koti", Name: "Pohjola Koti", CountryCode: "FI", City: "Helsinki",
 		Address: "Aleksanterinkatu 17, 00100 Helsinki", Phone: "+358 9 6220 340", Email: "myynti@pohjolakoti.example",
 		Website: "pohjolakoti.example", BrokerCount: 19, ListingCount: 128, Founded: 2011, IsVerified: true,
-		Description: "Helsinki agency focused on the waterfront regeneration districts — Jätkäsaari, Kalasatama and Hernesaari — alongside the classic functionalist stock in Töölö and Käpylä."},
+		Description: "Helsinki agency focused on the waterfront regeneration districts — Jätkäsaari, Kalasatama and Hernesaari — alongside the classic functionalist stock in Töölö and Käpylä.",
+		Office:      models.MapPlace{Lat: 60.1685, Lng: 24.9480}},
 	{ID: "ag-05", Slug: "tejo-properties", Name: "Tejo Properties", CountryCode: "PT", City: "Lisbon",
 		Address: "Avenida da Liberdade 110, 1250-146 Lisboa", Phone: "+351 21 340 8800", Email: "hello@tejo.example",
 		Website: "tejo.example", BrokerCount: 27, ListingCount: 203, Founded: 2013, IsVerified: true,
-		Description: "Lisbon and Cascais agency covering Pombaline restoration in the historic centre and new coastal development along the Estoril line. Advises on the Portuguese residency framework."},
+		Description: "Lisbon and Cascais agency covering Pombaline restoration in the historic centre and new coastal development along the Estoril line. Advises on the Portuguese residency framework.",
+		Office:      models.MapPlace{Lat: 38.7195, Lng: -9.1450}},
 	{ID: "ag-06", Slug: "grachten-makelaars", Name: "Grachten Makelaars", CountryCode: "NL", City: "Amsterdam",
 		Address: "Herengracht 458, 1017 CA Amsterdam", Phone: "+31 20 620 9900", Email: "info@grachten.example",
 		Website: "grachten.example", BrokerCount: 16, ListingCount: 94, Founded: 1992, IsVerified: true,
-		Description: "An Amsterdam agency working within the canal ring since 1992, with particular expertise in listed monument transactions and the associated maintenance obligations."},
+		Description: "An Amsterdam agency working within the canal ring since 1992, with particular expertise in listed monument transactions and the associated maintenance obligations.",
+		Office:      models.MapPlace{Lat: 52.3650, Lng: 4.8880}},
 	{ID: "ag-07", Slug: "ringhaus-wien", Name: "Ringhaus Wien", CountryCode: "AT", City: "Vienna",
 		Address: "Schottengasse 4, 1010 Wien", Phone: "+43 1 533 6100", Email: "office@ringhaus.example",
 		Website: "ringhaus.example", BrokerCount: 21, ListingCount: 117, Founded: 2006, IsVerified: true,
-		Description: "Vienna agency handling Gründerzeit and Ringstrasse-era apartments in the inner districts, plus Dachgeschoss conversions in Neubau and Mariahilf."},
+		Description: "Vienna agency handling Gründerzeit and Ringstrasse-era apartments in the inner districts, plus Dachgeschoss conversions in Neubau and Mariahilf.",
+		Office:      models.MapPlace{Lat: 48.2130, Lng: 16.3650}},
 	{ID: "ag-08", Slug: "vltava-reality", Name: "Vltava Reality", CountryCode: "CZ", City: "Prague",
 		Address: "Vinohradská 33, 120 00 Praha 2", Phone: "+420 222 510 400", Email: "info@vltava.example",
 		Website: "vltava.example", BrokerCount: 23, ListingCount: 156, Founded: 2008, IsVerified: true,
-		Description: "Prague agency covering Vinohrady, Karlín and Smíchov, with a commercial division handling office and retail leasing in the Karlín business quarter."},
+		Description: "Prague agency covering Vinohrady, Karlín and Smíchov, with a commercial division handling office and retail leasing in the Karlín business quarter.",
+		Office:      models.MapPlace{Lat: 50.0780, Lng: 14.4400}},
 }
 
 type brokerSeed struct {
@@ -187,99 +213,312 @@ type brokerSeed struct {
 	langs, specs                           []string
 	rating                                 float64
 	reviews, listings, sold, years         int
-	promoted                               bool
 	bio                                    string
 }
 
 var brokerSeeds = []brokerSeed{
 	{"br-01", "Kadri Tamm", "Senior broker, level 7", "ag-01", "EE", "Tallinn", "+372 5123 4471", "kadri.tamm@kadaka.example",
-		[]string{"Estonian", "English", "Finnish"}, []string{"Old Town", "Historic restoration", "Apartments"},
-		4.9, 87, 14, 212, 15, true,
+		[]string{"et", "en", "fi"}, []string{"Old Town", "Historic restoration", "Apartments"},
+		4.9, 87, 14, 212, 15,
 		"Kadri has worked Tallinn's Old Town and Kesklinn market since 2011 and holds the level 7 professional certificate. She advises on the restoration obligations that come with protected buildings and works regularly with Finnish and Swedish buyers."},
 	{"br-02", "Marten Sepp", "Broker, level 6", "ag-01", "EE", "Tallinn", "+372 5220 9038", "marten.sepp@kadaka.example",
-		[]string{"Estonian", "English", "Russian"}, []string{"New developments", "Waterfront", "Investment"},
-		4.7, 54, 11, 148, 9, true,
+		[]string{"et", "en", "ru"}, []string{"New developments", "Waterfront", "Investment"},
+		4.7, 54, 11, 148, 9,
 		"Marten covers the Kalamaja and Põhja-Tallinn regeneration districts and handles most of Kadaka's new-development instructions. He advises private landlords on yield and rental positioning."},
 	{"br-03", "Liis Kask", "Broker, level 5", "ag-01", "EE", "Tallinn", "+372 5661 2290", "liis.kask@kadaka.example",
-		[]string{"Estonian", "English"}, []string{"Family homes", "Nõmme", "Land"},
-		4.8, 41, 9, 96, 7, false,
+		[]string{"et", "en"}, []string{"Family homes", "Nõmme", "Land"},
+		4.8, 41, 9, 96, 7,
 		"Liis specialises in detached houses and building plots in Nõmme, Viimsi and the western suburbs, working mostly with families relocating from central Tallinn."},
 
 	{"br-04", "Jonas Weber", "Immobilienmakler (IHK)", "ag-02", "DE", "Berlin", "+49 172 884 2210", "j.weber@hauptstadt.example",
-		[]string{"German", "English"}, []string{"Altbau", "Prenzlauer Berg", "Condominiums"},
-		4.8, 132, 18, 284, 14, true,
+		[]string{"de", "en"}, []string{"Altbau", "Prenzlauer Berg", "Condominiums"},
+		4.8, 132, 18, 284, 14,
 		"Jonas handles Altbau apartment sales across Prenzlauer Berg, Mitte and Friedrichshain. He is IHK-certified and advises buyers on Milieuschutz restrictions and the conversion rules that apply in protected areas."},
 	{"br-05", "Annika Hoffmann", "Senior Immobilienmaklerin", "ag-02", "DE", "Berlin", "+49 170 553 8841", "a.hoffmann@hauptstadt.example",
-		[]string{"German", "English", "French"}, []string{"Houses", "Grunewald", "Prime residential"},
-		4.9, 96, 12, 176, 18, true,
+		[]string{"de", "en", "fr"}, []string{"Houses", "Grunewald", "Prime residential"},
+		4.9, 96, 12, 176, 18,
 		"Annika leads Hauptstadt's prime residential desk, covering Grunewald, Dahlem and Zehlendorf. She has handled the firm's highest-value transactions for the past six years and works discreetly on off-market instructions."},
 
 	{"br-06", "Marc Puig", "Agent immobiliari (API)", "ag-03", "ES", "Barcelona", "+34 649 220 118", "marc.puig@mediterrania.example",
-		[]string{"Catalan", "Spanish", "English"}, []string{"Eixample", "Modernista", "Prime residential"},
-		4.8, 118, 16, 231, 13, true,
+		[]string{"ca", "es", "en"}, []string{"Eixample", "Modernista", "Prime residential"},
+		4.8, 118, 16, 231, 13,
 		"Marc is an API-registered agent covering the Eixample and Sarrià districts. He specialises in Modernista buildings and advises international buyers on the Spanish purchase process end to end."},
 	{"br-07", "Elena Serra", "Agent immobiliària", "ag-03", "ES", "Barcelona", "+34 655 907 340", "elena.serra@mediterrania.example",
-		[]string{"Catalan", "Spanish", "English", "Italian"}, []string{"Rentals", "Gràcia", "Barceloneta"},
-		4.6, 74, 13, 142, 8, true,
+		[]string{"ca", "es", "en", "it"}, []string{"Rentals", "Gràcia", "Barceloneta"},
+		4.6, 74, 13, 142, 8,
 		"Elena runs Mediterrània's rental division across Gràcia, Barceloneta and Poblenou, placing both long-term residents and relocating professionals."},
 
 	{"br-08", "Aino Virtanen", "Kiinteistönvälittäjä LKV", "ag-04", "FI", "Helsinki", "+358 40 552 1180", "aino.virtanen@pohjolakoti.example",
-		[]string{"Finnish", "English", "Swedish"}, []string{"Waterfront", "New developments", "Jätkäsaari"},
-		4.9, 68, 10, 134, 11, true,
+		[]string{"fi", "en", "sv"}, []string{"Waterfront", "New developments", "Jätkäsaari"},
+		4.9, 68, 10, 134, 11,
 		"Aino is an LKV-qualified broker covering Helsinki's waterfront regeneration areas. She handles most of Pohjola Koti's Jätkäsaari and Kalasatama instructions and advises on housing-company charges and pipe-renovation liabilities."},
 	{"br-09", "Mikko Laine", "Kiinteistönvälittäjä LKV", "ag-04", "FI", "Helsinki", "+358 50 331 7729", "mikko.laine@pohjolakoti.example",
-		[]string{"Finnish", "English"}, []string{"Töölö", "Functionalist", "Houses"},
-		4.7, 52, 8, 108, 12, false,
+		[]string{"fi", "en"}, []string{"Töölö", "Functionalist", "Houses"},
+		4.7, 52, 8, 108, 12,
 		"Mikko covers the classic Helsinki districts — Töölö, Kallio and Käpylä — with a focus on 1920s–1950s stock and the renovation programmes those housing companies are running."},
 
 	{"br-10", "Rui Almeida", "Consultor imobiliário (AMI)", "ag-05", "PT", "Lisbon", "+351 912 448 007", "rui.almeida@tejo.example",
-		[]string{"Portuguese", "English", "Spanish"}, []string{"Chiado", "Restoration", "Coastal houses"},
-		4.9, 104, 15, 198, 12, true,
+		[]string{"pt", "en", "es"}, []string{"Chiado", "Restoration", "Coastal houses"},
+		4.9, 104, 15, 198, 12,
 		"Rui holds an AMI licence and covers central Lisbon and the Cascais coast. He specialises in Pombaline restoration projects and advises international buyers on residency and tax registration."},
 	{"br-11", "Sofia Costa", "Consultora imobiliária", "ag-05", "PT", "Lisbon", "+351 934 771 260", "sofia.costa@tejo.example",
-		[]string{"Portuguese", "English", "French"}, []string{"Rentals", "Príncipe Real", "Land"},
-		4.7, 61, 11, 124, 7, true,
+		[]string{"pt", "en", "fr"}, []string{"Rentals", "Príncipe Real", "Land"},
+		4.7, 61, 11, 124, 7,
 		"Sofia manages Tejo's lettings book across central Lisbon and handles land and development-site instructions in the Sintra and Colares area."},
 
 	{"br-12", "Daan Visser", "Register-makelaar NVM", "ag-06", "NL", "Amsterdam", "+31 6 2244 8890", "daan.visser@grachten.example",
-		[]string{"Dutch", "English", "German"}, []string{"Canal ring", "Monuments", "Commercial"},
-		4.8, 79, 9, 156, 16, true,
+		[]string{"nl", "en", "de"}, []string{"Canal ring", "Monuments", "Commercial"},
+		4.8, 79, 9, 156, 16,
 		"Daan is an NVM-registered broker working inside the Amsterdam canal ring. He advises on rijksmonument obligations and handles the firm's commercial conversions in Noord."},
 
 	{"br-13", "Lukas Bauer", "Immobilienmakler", "ag-07", "AT", "Vienna", "+43 664 220 4417", "lukas.bauer@ringhaus.example",
-		[]string{"German", "English"}, []string{"Innere Stadt", "Gründerzeit", "Dachgeschoss"},
-		4.8, 71, 12, 143, 11, true,
+		[]string{"de", "en"}, []string{"Innere Stadt", "Gründerzeit", "Dachgeschoss"},
+		4.8, 71, 12, 143, 11,
 		"Lukas covers Vienna's first, sixth and seventh districts, handling Ringstrasse-era apartments and rooftop conversions. He advises buyers on the Austrian Wohnungseigentum framework."},
 
 	{"br-14", "Petra Novák", "Realitní makléřka", "ag-08", "CZ", "Prague", "+420 776 330 128", "petra.novak@vltava.example",
-		[]string{"Czech", "English", "German"}, []string{"Vinohrady", "Karlín", "Commercial leasing"},
-		4.7, 88, 14, 167, 10, true,
+		[]string{"cs", "en", "de"}, []string{"Vinohrady", "Karlín", "Commercial leasing"},
+		4.7, 88, 14, 167, 10,
 		"Petra works across Vinohrady and Karlín on both residential sales and office leasing. She handles Vltava's commercial instructions in the Karlín business quarter."},
 }
 
-func buildBrokers() []models.Broker {
+// crossBorderBrokers are the seeded brokers who work more than one market.
+//
+// The client's case for the multi-select: "nowadays some brokers (living near
+// the border) can be active in more countries at once". These three are the
+// ones the seed data can support honestly — Tallinn to Helsinki across the
+// gulf, Berlin to Prague and Vienna, Barcelona to Perpignan and Lisbon — so the
+// "Active in" block on a profile shows a real second flag rather than the same
+// one twice. Everyone else is active in their home market alone.
+var crossBorderBrokers = map[string][]string{
+	"br-02": {"EE", "FI"},
+	"br-04": {"DE", "AT", "CZ"},
+	"br-06": {"ES", "PT"},
+}
+
+// buildAgencies fills in each office label from the address already on the
+// record, so the street is written once and the map pin and the printed address
+// can never drift apart.
+func buildAgencies() []models.Agency {
+	out := make([]models.Agency, 0, len(agencies))
+	for _, a := range agencies {
+		if a.Office.IsSet() && a.Office.Label == "" {
+			a.Office.Label = a.Address + ", " + CountryName(a.CountryCode)
+		}
+		// The line buyers see, as distinct from the street the pin sits on. A
+		// real seller writes this themselves on their profile; seeded here so
+		// every broker on the demo has one, and deliberately vaguer than the
+		// address above — that is what the field is for.
+		if a.Office.IsSet() && a.Office.Public == "" {
+			a.Office.Public = a.City + ", " + CountryName(a.CountryCode)
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+// agencyOffice is the pin a broker inherits from their agency.
+func agencyOffice(id string) models.MapPlace {
+	for _, a := range buildAgencies() {
+		if a.ID == id {
+			return a.Office
+		}
+	}
+	return models.MapPlace{}
+}
+
+// brokerAdRuns is how many days each advertising broker has left on the strip.
+//
+// adRunSeed is one paid market placement: which market, how long it runs, and
+// how long ago it was bought.
+//
+// The purchase date is not decoration. The homepage strip is a queue ordered
+// newest purchase first — "in the frontpage broker section are displayed all
+// the new ads, if next ad will come then the last one will be pushed futher
+// till it disappears from the frontpage" — so a seed where everybody bought on
+// the same day would show the rule working by accident or not at all.
+//
+// A run is live while days > boughtDaysAgo, which every row below satisfies.
+type adRunSeed struct {
+	country       string
+	days          int
+	boughtDaysAgo int
+}
+
+// Who is advertising where, and since when.
+//
+// The markets here are not the markets a broker *works* in: the client's model
+// is that a placement is bought wherever the broker wants to be seen — "one
+// broker can choose more countries where he's ad is diplayed" — which is why
+// Barcelona and Lisbon brokers advertise in Estonia. That is what portal
+// advertising is for: reaching the buyers, who are somewhere else.
+//
+// Estonia deliberately carries nine live placements against the eight the
+// homepage shows, so the queue is visible on the demonstration rather than
+// merely implemented: the oldest purchase, Kadri Tamm's, has been pushed off
+// the front page and is still running on /brokers until its period ends.
+//
+// The Netherlands deliberately carries none: a market nobody has bought shows
+// no strip at all rather than being filled out with brokers from elsewhere.
+var brokerAdRuns = map[string][]adRunSeed{
+	// Estonia, newest purchase first.
+	"br-03": {{"EE", 30, 0}},
+	"br-11": {{"EE", 14, 1}, {"PT", 30, 5}},
+	"br-09": {{"EE", 21, 2}, {"FI", 30, 9}},
+	"br-07": {{"EE", 30, 4}, {"ES", 21, 3}},
+	"br-10": {{"EE", 20, 6}, {"PT", 12, 6}},
+	"br-06": {{"EE", 30, 8}, {"ES", 14, 8}},
+	"br-08": {{"EE", 30, 10}, {"FI", 7, 2}},
+	"br-02": {{"EE", 21, 13}, {"FI", 9, 3}},
+	"br-01": {{"EE", 30, 20}},
+
+	// And the rest of the markets. Deliberately no overlap with the Estonian
+	// list above in Germany: an ad is bought per market, and the seed has to be
+	// able to show that a German strip and an Estonian one share nobody.
+	"br-04": {{"DE", 30, 5}, {"AT", 30, 2}, {"CZ", 30, 9}},
+	"br-05": {{"DE", 14, 3}},
+	"br-13": {{"AT", 21, 6}},
+	"br-14": {{"CZ", 20, 1}},
+}
+
+// And who bought the map placement, which is the other paid service and a
+// separate purchase — so the two lists overlap without matching.
+//
+// Deliberately spread across countries rather than concentrated in one: the
+// search map opens on every market at once, and a set of pins all in Tallinn
+// would not show whether the feature works anywhere else. Some of these
+// brokers advertise in a market as well and some do not, which is the point —
+// buying one does not buy the other.
+var brokerMapAdRuns = map[string]int{
+	"br-01": 24, "br-03": 30, "br-05": 12, "br-07": 18,
+	"br-09": 9, "br-10": 27, "br-12": 6, "br-14": 21,
+}
+
+func buildBrokers(now time.Time) []models.Broker {
 	out := make([]models.Broker, 0, len(brokerSeeds))
-	for _, s := range brokerSeeds {
+	for i, s := range brokerSeeds {
+		// Home market first, always. A profile reads "active in" left to right
+		// and the market the broker is based in belongs at the front of it.
+		active := []string{s.country}
+		if extra, ok := crossBorderBrokers[s.id]; ok {
+			active = extra
+		}
+
+		// The paid market placements.
+		//
+		// One run per market bought, each with its own length and its own
+		// dates, because each was a separate purchase: a broker who bought the
+		// second market a week after the first has two ads expiring a week
+		// apart, and the profile has to be able to say so.
+		//
+		// Which markets is the broker's own choice and is not derived from
+		// `active` above: where a broker works and where a broker advertises
+		// are two different answers, which is the whole reason the profile asks
+		// them separately.
+		var ad models.BrokerAd
+		for _, r := range brokerAdRuns[s.id] {
+			start := now.AddDate(0, 0, -r.boughtDaysAgo)
+			ad.Runs = append(ad.Runs, models.BrokerAdRun{
+				Country:  r.country,
+				Days:     r.days,
+				StartsAt: start,
+				EndsAt:   start.AddDate(0, 0, r.days),
+			})
+		}
+
+		// And the map placement — the other paid service, bought by a smaller
+		// set: "if he wants (this will be a paid service) he can activate that
+		// his broker profile is displayed in the googlemaps like the ads."
+		// A broker who has not bought it keeps their pin private and does not
+		// appear on the search map.
+		var mapAd models.BrokerMapAd
+		if days, ok := brokerMapAdRuns[s.id]; ok {
+			mapAd = models.BrokerMapAd{
+				Days:     days,
+				StartsAt: now.AddDate(0, 0, -2),
+				EndsAt:   now.AddDate(0, 0, days),
+			}
+		}
+
 		out = append(out, models.Broker{
 			ID: s.id, Slug: slugify(s.name), Name: s.name, Title: s.title,
 			AgencyID: s.agency, AgencyName: agencyName(s.agency),
-			Photo: "/static/img/brokers/" + s.id + ".jpg",
-			Phone: s.phone, Email: s.email,
+			CompanyLogo: agencyLogo(s.agency),
+			Photo:       "/static/img/brokers/" + s.id + ".jpg",
+			Phone:       s.phone, Email: s.email,
 			CountryCode: s.country, City: s.city,
+			ActiveCountries: active,
+			// Where this broker sits on the map. Seeded from the agency's own
+			// address, which is where they work; a broker moves the pin from
+			// their profile if their desk is somewhere else.
+			Office:    agencyOffice(s.agency),
 			Languages: s.langs, Specialties: s.specs,
-			Bio:    s.bio,
-			Rating: s.rating, Reviews: s.reviews,
+			Bio: s.bio,
+			// The chat apps this broker has ticked on their own profile, shown
+			// under their phone number on it.
+			Messengers: brokerMessengers(i, s),
+			Rating:     s.rating, Reviews: s.reviews,
 			ActiveListings: s.listings, SoldCount: s.sold, YearsActive: s.years,
-			IsPromoted: s.promoted, IsVerified: true,
+			Ad: ad, MapAd: mapAd, IsVerified: true,
 		})
 	}
 	return out
+}
+
+// brokerMessengers gives a broker a plausible set of chat apps, the way
+// buildMessengers does for a listing.
+//
+// Varied deliberately rather than switched on everywhere: the profile has to
+// look right with one icon and with four, and a broker who has ticked none —
+// br-03's neighbour in the rotation — has to lose the row rather than show an
+// empty one. WhatsApp and Viber are reached on the number in the seed; Telegram
+// carries a handle, which is the other link form the client described.
+func brokerMessengers(i int, s brokerSeed) []models.Messenger {
+	if s.phone == "" {
+		return nil
+	}
+	handle := "t.me/" + strings.ReplaceAll(strings.ToLower(s.name), " ", "")
+
+	switch i % 4 {
+	case 0:
+		return []models.Messenger{
+			{Kind: models.MessengerWhatsApp},
+			{Kind: models.MessengerTelegram, Handle: handle},
+			{Kind: models.MessengerViber},
+		}
+	case 1:
+		return []models.Messenger{
+			{Kind: models.MessengerWhatsApp},
+			{Kind: models.MessengerTelegram},
+			{Kind: models.MessengerSignal},
+		}
+	case 2:
+		return []models.Messenger{
+			{Kind: models.MessengerWhatsApp},
+			{Kind: models.MessengerViber},
+			{Kind: models.MessengerTeams, Handle: s.email},
+		}
+	}
+	// One in four has ticked nothing at all.
+	return nil
 }
 
 func agencyName(id string) string {
 	for _, a := range agencies {
 		if a.ID == id {
 			return a.Name
+		}
+	}
+	return ""
+}
+
+// agencyLogo is the company mark a broker inherits from their agency, shown at
+// the foot of the seller box on a listing. Returns "" for an agency with no
+// logo on file, which is what makes the block optional in the templates.
+func agencyLogo(id string) string {
+	for _, a := range agencies {
+		if a.ID == id {
+			return a.Logo
 		}
 	}
 	return ""
@@ -292,6 +531,51 @@ func agencyForBroker(brokerID string) string {
 		}
 	}
 	return ""
+}
+
+// phoneForBroker returns a broker's contact number, so a listing can carry the
+// number its messenger links are built from without joining to the broker.
+func phoneForBroker(brokerID string) string {
+	for _, b := range brokerSeeds {
+		if b.id == brokerID {
+			return b.phone
+		}
+	}
+	return ""
+}
+
+// countryLanguage is the language a listing is assumed to be sold in when
+// nobody has said otherwise: the majority language of the market it is in.
+// Only the eight seeded markets are needed — a country not listed falls back to
+// English, which is what a cross-border seller advertises in anyway.
+var countryLanguage = map[string]string{
+	"EE": "et", "DE": "de", "ES": "es", "FI": "fi",
+	"PT": "pt", "NL": "nl", "AT": "de", "CZ": "cs",
+}
+
+// saleLanguages is the "languages of communication" a listing inherits.
+//
+// A broker's listing takes the broker's own languages, which is what the client
+// described: the seller says which languages they deal in, and the listing is
+// then findable by them. A private listing has no broker to inherit from, so it
+// takes the local language plus English — the honest minimum for a private
+// seller advertising on an international site, and enough for the filter to
+// return something in every market.
+func saleLanguages(brokerID string, kind models.SellerKind, country string) []string {
+	if kind != models.SellerPrivate {
+		for _, b := range brokerSeeds {
+			if b.id == brokerID {
+				// Copied, not aliased: a caller sorting or appending to a
+				// listing's languages must not reach back into the seed.
+				return append([]string(nil), b.langs...)
+			}
+		}
+	}
+	local := countryLanguage[country]
+	if local == "" || local == "en" {
+		return []string{"en"}
+	}
+	return []string{local, "en"}
 }
 
 // ---------------------------------------------------------------------------
@@ -551,6 +835,108 @@ var packages = []models.Package{
 	{ID: "pk-agency", Name: "Agency", Tagline: "For brokers and agencies",
 		Price: models.Money{Amount: 249, Currency: "EUR"}, DurationDays: 30, PhotoLimit: 50, BumpCount: 20, IsEnabled: true,
 		Features: []string{"Up to 40 active listings", "Agency profile page", "Broker profiles for your team", "Promoted broker placement in one country", "Bulk upload and XML feed", "Dedicated account manager", "Monthly performance reporting"}},
+}
+
+// Paid promotion add-ons.
+//
+// Bought per day rather than bundled into the package, which is the client's
+// model: a seller can take two featured days now and buy three more from their
+// profile a fortnight later, while the listing itself runs its own 30 or 60
+// days. The prices follow the scale the client gave for featuring — €3 for one
+// day, €6 for two, €8 for three — and carry it on with a widening discount for
+// longer runs.
+//
+// "Highlight in the weekly market newsletter" used to be a third option here.
+// The client asked for it removed for now, so it is gone rather than hidden —
+// a disabled option nobody can see is just dead code.
+var promotions = []models.Promotion{
+	{
+		Kind: models.PromotionFeatured,
+		Name: "Featured listing has golden frame around it and additionally it is displayed in the frontpage under Featured Properties section.",
+		Info: "Your listing gets a golden frame everywhere it appears and is shown on the homepage under Featured properties.",
+		Tiers: []models.PromotionTier{
+			{Days: 1, Price: models.Money{Amount: 3, Currency: "EUR"}},
+			{Days: 2, Price: models.Money{Amount: 6, Currency: "EUR"}},
+			{Days: 3, Price: models.Money{Amount: 8, Currency: "EUR"}},
+			{Days: 5, Price: models.Money{Amount: 12, Currency: "EUR"}},
+			{Days: 7, Price: models.Money{Amount: 15, Currency: "EUR"}},
+			{Days: 14, Price: models.Money{Amount: 28, Currency: "EUR"}},
+			{Days: 30, Price: models.Money{Amount: 50, Currency: "EUR"}},
+		},
+	},
+	{
+		Kind: models.PromotionBump,
+		Name: "Bump on top of search results",
+		Info: "By buying this option your listing will be bumped on top of searched listings.",
+		Tiers: []models.PromotionTier{
+			{Days: 1, Price: models.Money{Amount: 2, Currency: "EUR"}},
+			{Days: 3, Price: models.Money{Amount: 5, Currency: "EUR"}},
+			{Days: 7, Price: models.Money{Amount: 10, Currency: "EUR"}},
+			{Days: 14, Price: models.Money{Amount: 18, Currency: "EUR"}},
+			{Days: 30, Price: models.Money{Amount: 32, Currency: "EUR"}},
+		},
+	},
+}
+
+// brokerAdPlan is the homepage broker strip sold as a product.
+//
+// Priced per market per day, which is the client's own model: "in the backend
+// there is option to set the price per day for each country. For example in
+// Germany 3 € per day, in Poland 1 € per day." So this table is what the admin
+// panel edits — Settings → Price packages → Homepage broker advertising — and
+// what the profile's advertise dialog bills from.
+//
+// The eight seeded markets carry rates set roughly by how much traffic each
+// homepage sees; the rest of the world list falls back to DefaultPerDay, since
+// an administrator has not priced two hundred countries by hand and a market
+// with no price would otherwise be unsellable.
+//
+// Germany at €3 and Poland at €1 are the client's own figures, kept literally
+// so the worked example in their message reproduces on the screen.
+var brokerAdPlan = models.BrokerAdPlan{
+	Name:          "Advertise on the Previa homepage",
+	Info:          "Your profile appears in the broker strip on the homepage of every market you choose, to visitors who have that market selected.",
+	DefaultPerDay: models.Money{Amount: 1, Currency: "EUR"},
+	Rates: []models.BrokerAdRate{
+		{Country: "DE", PerDay: models.Money{Amount: 3, Currency: "EUR"}},
+		{Country: "ES", PerDay: models.Money{Amount: 3, Currency: "EUR"}},
+		{Country: "NL", PerDay: models.Money{Amount: 3, Currency: "EUR"}},
+		{Country: "AT", PerDay: models.Money{Amount: 2, Currency: "EUR"}},
+		{Country: "PT", PerDay: models.Money{Amount: 2, Currency: "EUR"}},
+		{Country: "CZ", PerDay: models.Money{Amount: 2, Currency: "EUR"}},
+		{Country: "FI", PerDay: models.Money{Amount: 2, Currency: "EUR"}},
+		{Country: "EE", PerDay: models.Money{Amount: 1, Currency: "EUR"}},
+		{Country: "PL", PerDay: models.Money{Amount: 1, Currency: "EUR"}},
+	},
+	// Shortcuts, not a price list — the field takes any number of days. Ten is
+	// first because it is the length the client's worked example runs for, and
+	// because the form has to open on something.
+	DayOptions: []int{10, 20, 30, 90},
+}
+
+// The map placement's price list.
+//
+// A ladder of fixed runs rather than a daily rate, because that is how the
+// client priced it on 19 August: "there is just option make your broker profile
+// visible on the Google map for set amount of days. Can choose 5 days - 1 €, 10
+// days - 2 €, 20 days - 3 € etc."
+//
+// The first three are the client's own figures. The fourth continues the same
+// arithmetic — each further step buys more days for one euro more — rather than
+// inventing a different curve for the one tier they did not name.
+//
+// Cheaper than the homepage strip at every length, which is also what the
+// client's numbers say: the strip is a slot on a country's front page, this is
+// a pin among many on a map a reader is already panning around.
+var brokerMapAdPlan = models.BrokerMapAdPlan{
+	Name: "Show my profile on the search map",
+	Info: "Your photograph and name appear on the search map at your pin, and your profile card appears among the search results, wherever a visitor has switched brokers on.",
+	Tiers: []models.PromotionTier{
+		{Days: 5, Price: models.Money{Amount: 1, Currency: "EUR"}},
+		{Days: 10, Price: models.Money{Amount: 2, Currency: "EUR"}},
+		{Days: 20, Price: models.Money{Amount: 3, Currency: "EUR"}},
+		{Days: 30, Price: models.Money{Amount: 4, Currency: "EUR"}},
+	},
 }
 
 var testimonials = []models.Testimonial{

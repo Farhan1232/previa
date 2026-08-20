@@ -32,11 +32,19 @@ type AdminData struct {
 	System     models.SystemInfo
 	Countries  []models.Country
 	Banners    []models.Banner
-	Status     string
-	Lang       string
-	MaxSignups float64
-	MaxRevenue float64
-	TypeTotal  int
+	// The two paid broker placements as products: the per-market daily price
+	// list the homepage strip bills from — "in the backend there is option to
+	// set the price per day for each country" — and the map placement's tiers.
+	BrokerAdPlan    models.BrokerAdPlan
+	BrokerMapAdPlan models.BrokerMapAdPlan
+	// AllCountries is every market the price list can cover, not only the
+	// eight that carry stock: a broker can advertise anywhere Previa sells.
+	AllCountries []models.Country
+	Status       string
+	Lang         string
+	MaxSignups   float64
+	MaxRevenue   float64
+	TypeTotal    int
 }
 
 func (h *Handler) adminBase(r *http.Request, section, title string) (PageData, AdminData) {
@@ -155,8 +163,12 @@ func (h *Handler) AdminBanners(w http.ResponseWriter, r *http.Request) {
 
 // AdminPackages renders package administration.
 func (h *Handler) AdminPackages(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	pd, ad := h.adminBase(r, "packages", "Price packages")
-	ad.Packages = h.Store.Catalog.Packages(r.Context())
+	ad.Packages = h.Store.Catalog.Packages(ctx)
+	ad.BrokerAdPlan = h.Store.Catalog.BrokerAdPlan(ctx)
+	ad.BrokerMapAdPlan = h.Store.Catalog.BrokerMapAdPlan(ctx)
+	ad.AllCountries = h.Store.Catalog.AllCountries(ctx)
 	pd.Data = ad
 	h.View.Render(w, http.StatusOK, "admin/packages", pd)
 }

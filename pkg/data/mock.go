@@ -27,7 +27,11 @@ type Mock struct {
 	articles     []models.Article
 	developments []models.Development
 	favourites   map[string]bool
-	user         models.User
+	// savedSearches are the ones stored from the filter panel while the process
+	// runs, oldest first. The seeded four are built on demand and are not in
+	// here — see SavedSearches, which puts these in front of them.
+	savedSearches []models.SavedSearch
+	user          models.User
 	// locations is the Location autocomplete list, derived from the seeded
 	// listings once at construction — see seed_locations.go.
 	locations []models.LocationSuggestion
@@ -41,19 +45,96 @@ func NewMock(now time.Time) *Mock {
 
 	m := &Mock{
 		now:          now,
-		brokers:      buildBrokers(),
-		agencies:     agencies,
+		brokers:      buildBrokers(now),
+		agencies:     buildAgencies(),
 		articles:     buildArticles(now),
 		developments: buildDevelopments(now),
 		favourites:   map[string]bool{},
+		// The signed-in account is seeded as a broker rather than a bare buyer,
+		// because the fields the client added on 17 August — the company name,
+		// the company logo, the languages of communication and the markets the
+		// seller is active in — only have anything to show on a selling
+		// account. A private seller leaves every one of them empty, and both
+		// states are reachable from the settings screen.
+		//
+		// The role is "admin" because this is the account the client walks the
+		// demonstration in, and the administration panel is part of what they
+		// are reviewing. It is a real permission, not a formality: the account
+		// menu draws the Admin panel entry only for an administrator and every
+		// /admin route answers everyone else with the 404 page, so seeding this
+		// one as "user" instead is all it takes to see what an ordinary visitor
+		// sees — which is no link, and no back office behind the URL either.
 		user: models.User{
 			ID: "us-01", Name: "Anna Lehtinen", Email: "anna.lehtinen@example.com",
-			Phone: "+372 5566 7788", Role: "user", CountryCode: "EE", Language: "en",
+			Phone: "+372 5566 7788", Role: "admin", CountryCode: "EE", Language: "en",
 			MemberSince: now.AddDate(-2, -4, 0), IsVerified: true,
-			Avatar: "",
+			Avatar:      "",
+			Company:     "Best House Ltd",
+			CompanyLogo: "",
+			// Off by default in the seed: the label has to be worth something,
+			// and the settings screen is where a seller turns it on. Ticking
+			// the box there is what the client asked to be possible.
+			DirectFromOwner: false,
+			// The paragraph the public profile shows under "About Anna
+			// Lehtinen", seeded so the settings field opens with something in
+			// it and the client can see what editing it changes.
+			Bio: "Anna sells apartments and houses across Tallinn and the north " +
+				"Estonian coast, and works with Finnish buyers relocating across " +
+				"the gulf. Twelve years in the market, most of them in Kalamaja " +
+				"and Pirita.",
+			// Estonian, English and Finnish: the Tallinn–Helsinki pairing the
+			// seeded brokers work in too.
+			Languages: []string{"et", "en", "fi"},
+			// Active either side of the gulf, which is the client's example of
+			// why one country was not enough.
+			ActiveCountries: []string{"EE", "FI"},
+			Messengers: []models.Messenger{
+				// No handle: both are reached on the phone number above.
+				{Kind: models.MessengerWhatsApp},
+				{Kind: models.MessengerViber},
+				// Telegram and Signal carry their own address, which is exactly
+				// why the settings form gives each of them a field.
+				{Kind: models.MessengerTelegram, Handle: "t.me/annalehtinen"},
+			},
+			// A pin already dropped, so the settings screen shows the map doing
+			// its job rather than an empty rectangle. Rotermann, Tallinn.
+			Office: models.MapPlace{
+				Label: "Roseni 10, Tallinn, Estonia",
+				// What this seller chose to publish, which is not their street:
+				// the settings form opens with the field already filled so its
+				// purpose is legible at a glance.
+				Public: "Rotermanni quarter, Tallinn — visits by appointment",
+				Lat:    59.4380, Lng: 24.7530,
+			},
+			// And two market ads already running — bought on different days
+			// and for different lengths, which is the client's case exactly:
+			// "at first he wants that his profile is displayed in the German
+			// market for 30 days, then he activates it with payment, and then
+			// he can activate his ad under France market as well for 30 days
+			// with new payment." Estonia was bought a fortnight ago, Finland
+			// the day before yesterday, and they expire two weeks apart.
+			Ad: models.BrokerAd{
+				Runs: []models.BrokerAdRun{
+					{
+						Country: "EE", Days: 30,
+						StartsAt: now.AddDate(0, 0, -12), EndsAt: now.AddDate(0, 0, 18),
+					},
+					{
+						Country: "FI", Days: 30,
+						StartsAt: now.AddDate(0, 0, -2), EndsAt: now.AddDate(0, 0, 28),
+					},
+				},
+			},
+			// And the map placement, so the settings screen shows a live one
+			// rather than only the form for buying it, and this seller's pin
+			// is on the search map from the first page load.
+			MapAd: models.BrokerMapAd{
+				Days: 30, StartsAt: now.AddDate(0, 0, -6), EndsAt: now.AddDate(0, 0, 24),
+			},
 		},
 	}
 	m.properties = buildProperties(now, pool)
+	m.countBrokerListings()
 	m.linkDevelopments()
 	m.locations = buildLocationSuggestions(m.properties)
 
@@ -62,6 +143,26 @@ func NewMock(now time.Time) *Mock {
 		m.favourites[id] = true
 	}
 	return m
+}
+
+// countBrokerListings replaces each broker's seeded listing count with the
+// number of live listings they actually have.
+//
+// It matters more than it used to: the client removed the rating, the completed
+// sales and the years active from the broker profile — "there is no way we can
+// verify it" — and active listings is the one figure left. The site can count
+// that one, so it should, rather than keep a hand-written number that said 9
+// beside a page showing 4.
+func (m *Mock) countBrokerListings() {
+	counts := map[string]int{}
+	for _, p := range m.properties {
+		if p.Status == models.StatusActive {
+			counts[p.BrokerID]++
+		}
+	}
+	for i := range m.brokers {
+		m.brokers[i].ActiveListings = counts[m.brokers[i].ID]
+	}
 }
 
 // discoverPhotos returns the property photograph pool.
@@ -112,6 +213,23 @@ func (m *Mock) Search(ctx context.Context, f PropertyFilter) (SearchResult, erro
 
 	sortProperties(matched, f.Sort)
 
+	// How far each match is from the place that was typed, once the order is
+	// settled — and deliberately after sortProperties rather than instead of
+	// it. The client's rule: "the order of the real-estate ads here is not
+	// automatically according to nearest distance. The order stays like it is
+	// set up in the 'sort by' menu." So the distance is something a card says,
+	// never something the list is arranged by.
+	//
+	// Measured from the listing's own coordinates with the same haversine the
+	// broker directory uses, so "12.40 KM" means the same thing on both pages.
+	if f.HasPoint() {
+		here := models.MapPlace{Lat: f.Lat, Lng: f.Lng}
+		for i := range matched {
+			matched[i].Distance = here.DistanceKm(matched[i].Coords.Lat, matched[i].Coords.Lng)
+			matched[i].DistanceSet = true
+		}
+	}
+
 	total := len(matched)
 	perPage := f.PerPage
 	if perPage <= 0 {
@@ -150,7 +268,9 @@ func (m *Mock) Search(ctx context.Context, f PropertyFilter) (SearchResult, erro
 
 // matches reports whether a listing satisfies every set filter field.
 func matches(p models.Property, f PropertyFilter) bool {
-	if f.Deal != "" && p.Deal != f.Deal {
+	// Deal types are OR-ed, like Types below: a search across Rent and Short
+	// rent matches a listing that is either.
+	if len(f.Deals) > 0 && !containsDeal(f.Deals, p.Deal) {
 		return false
 	}
 	if f.CountryCode != "" && p.CountryCode != f.CountryCode {
@@ -216,6 +336,14 @@ func matches(p models.Property, f PropertyFilter) bool {
 	if f.Elevator && !p.Elevator {
 		return false
 	}
+	// Every ticked amenity, not any of them: two boxes ticked on a filter has
+	// always meant "both", and the five booleans above are ANDed for the same
+	// reason.
+	for _, key := range f.Amenities {
+		if !models.HasAmenity(p.Amenities, key) {
+			return false
+		}
+	}
 	if f.EnergyRating != "" && p.EnergyRating != f.EnergyRating {
 		return false
 	}
@@ -226,6 +354,9 @@ func matches(p models.Property, f PropertyFilter) bool {
 		return false
 	}
 	if f.FeaturedOnly && !p.IsFeatured {
+		return false
+	}
+	if !p.LanguageMatch(f.Languages) {
 		return false
 	}
 	if f.Keyword != "" {
@@ -243,6 +374,15 @@ func matches(p models.Property, f PropertyFilter) bool {
 
 func containsFold(hay, needle string) bool {
 	return strings.Contains(strings.ToLower(hay), strings.ToLower(needle))
+}
+
+func containsDeal(list []models.DealType, v models.DealType) bool {
+	for _, d := range list {
+		if d == v {
+			return true
+		}
+	}
+	return false
 }
 
 func containsType(list []models.PropertyType, v models.PropertyType) bool {
@@ -544,44 +684,177 @@ func (m *Mock) BySlugBroker(ctx context.Context, slug string) (models.Broker, bo
 	return models.Broker{}, false
 }
 
-// Promoted returns brokers advertised for the active country.
+// Promoted returns the brokers whose paid ad is running in this market.
+//
+// The client's rule for the homepage strip: "the broker can buy an ad that
+// under this country (when the user has chosen his market on the frontpage
+// banner) his ad is active." So a market shows the brokers who paid for that
+// market and nobody else — an ad bought for Estonia does not quietly fill a
+// gap on the German homepage, because a reader in Germany was not what the
+// broker paid to reach.
+//
+// That makes an empty strip possible, and correct: a market nobody advertises
+// in has nothing to show, and the homepage drops the section rather than
+// padding it out with brokers who did not buy it.
+//
+// Ordered by run length remaining, longest first, so the strip is stable from
+// one page load to the next rather than reshuffling under the reader.
 func (m *Mock) Promoted(ctx context.Context, country string, limit int) []models.Broker {
-	var local, other []models.Broker
-	for _, b := range m.brokers {
-		if !b.IsPromoted {
-			continue
-		}
-		if country == "" || b.CountryCode == country {
-			local = append(local, b)
-		} else {
-			other = append(other, b)
-		}
-	}
-	return take(append(local, other...), limit)
-}
-
-// Filter narrows brokers by country, city, language and free text.
-func (m *Mock) Filter(ctx context.Context, country, city, language, q string) []models.Broker {
 	var out []models.Broker
 	for _, b := range m.brokers {
-		if country != "" && b.CountryCode != country {
+		// An empty country is "any market", which is what the admin
+		// advertising screen asks for when it lists every running placement.
+		// A market code narrows to the brokers who bought *that* market.
+		if country == "" {
+			if b.Ad.IsLive(m.now) {
+				out = append(out, b)
+			}
 			continue
 		}
-		if city != "" && !strings.EqualFold(b.City, city) {
+		if b.Ad.RunsIn(country, m.now) {
+			out = append(out, b)
+		}
+	}
+	// Newest purchase first, which is what makes the homepage strip a queue:
+	// "in the frontpage broker section are displayed all the new ads, if next
+	// ad will come then the last one will be pushed futher till it disappears
+	// from the frontpage."
+	//
+	// Ordered on when the run was bought rather than on when it expires. Those
+	// are different orders — a thirty-day run bought a fortnight ago outlives a
+	// seven-day one bought this morning — and only the first of them makes a new
+	// advertiser appear at the front, which is what the client described.
+	//
+	// The caller's limit is what actually pushes anyone off; nothing is dropped
+	// here. /brokers passes no limit and shows every live run to the end of its
+	// paid period, which is the rest of the same note.
+	bought := func(b models.Broker) time.Time {
+		if country == "" {
+			return b.Ad.BoughtAt(m.now)
+		}
+		return b.Ad.BoughtIn(country, m.now)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return bought(out[i]).After(bought(out[j]))
+	})
+	return take(out, limit)
+}
+
+// Filter narrows brokers by place, radius, languages spoken and free text.
+//
+// The directory has two modes, and which one is running is decided by whether
+// a place was entered. The client, 18 August:
+//
+//	"On top in the header is the choose your market button, and so whatever
+//	 market is chosen there, then these brokers what have bought ad in this
+//	 market are displayed there — so the same as the frontpage broker section.
+//	 And if the user in this search menu enters the location and radius, then
+//	 the 'choose your market' system is not active any more and now the system
+//	 displays there only these brokers what are in this range and in this
+//	 order, who is closer."
+//
+// So with an empty Location the market decides and the list is the market's
+// paid strip; with a place typed in, the market is ignored and the radius
+// decides, ordered nearest first — the whole point of a radius search is "who
+// is close", so the order has to say so.
+func (m *Mock) Filter(ctx context.Context, f BrokerFilter) []models.Broker {
+	// A place that did not resolve is still a search. It matches as text
+	// against the broker's city and country instead of being dropped, so a
+	// typed "Tallinn" that missed the suggestion list finds Tallinn brokers
+	// rather than everybody.
+	loose := ""
+	if f.Location != "" && !f.HasPoint() {
+		loose = strings.ToLower(f.Location)
+	}
+
+	// The market only decides while nothing has been searched for. That is the
+	// client's "not active any more", stated once here rather than at each of
+	// the call sites that could forget it — see BrokerFilter.IsBrowsing.
+	byMarket := f.MarketCode != "" && f.IsBrowsing()
+
+	var out []models.Broker
+	for _, b := range m.brokers {
+		if byMarket && !b.Ad.RunsIn(f.MarketCode, m.now) {
 			continue
 		}
-		if language != "" && !hasString(b.Languages, language) {
+		// The map placement is a different purchase from the market strip, so
+		// it is asked about separately: a broker advertising in Germany is not
+		// thereby on the map, and one on the map has not thereby bought
+		// Germany.
+		if f.MapAdOnly && !(b.MapAd.IsLive(m.now) && b.Office.IsSet()) {
 			continue
 		}
-		if q != "" {
+		// Where the broker works, as opposed to where they bought an ad. A
+		// cross-border broker counts as being in every market they list.
+		if f.CountryCode != "" &&
+			!strings.EqualFold(b.CountryCode, f.CountryCode) &&
+			!hasString(b.ActiveCountries, f.CountryCode) {
+			continue
+		}
+		if f.HasPoint() && f.RadiusKm > 0 {
+			// A broker with no pin cannot be placed on the map, so a radius
+			// search cannot honestly claim they are inside it.
+			if !b.Office.IsSet() {
+				continue
+			}
+			if b.Office.DistanceKm(f.Lat, f.Lng) > float64(f.RadiusKm) {
+				continue
+			}
+		}
+		if loose != "" {
+			hay := strings.ToLower(b.City + " " + b.CountryCode + " " + CountryName(b.CountryCode) + " " + b.Office.Label)
+			if !strings.Contains(hay, loose) {
+				continue
+			}
+		}
+		if !b.SpeaksAny(f.Languages) {
+			continue
+		}
+		if f.Q != "" {
 			hay := strings.ToLower(b.Name + " " + b.AgencyName + " " + strings.Join(b.Specialties, " "))
-			if !strings.Contains(hay, strings.ToLower(q)) {
+			if !strings.Contains(hay, strings.ToLower(f.Q)) {
 				continue
 			}
 		}
 		out = append(out, b)
 	}
+
+	// How far each one is, on the card. "So on every broker profile now come
+	// the 'distance' like it is in sexydate page" — the reference the client
+	// sent shows the word, then the number in red, then KM.
+	//
+	// Set before the sort so the two cannot disagree about which broker is
+	// nearest: the order and the number a card prints come from the same
+	// measurement rather than from two calls that could drift.
+	if f.HasPoint() {
+		for i := range out {
+			out[i].Distance = out[i].Office.DistanceKm(f.Lat, f.Lng)
+			out[i].DistanceSet = true
+		}
+		sort.SliceStable(out, func(i, j int) bool {
+			return out[i].Distance < out[j].Distance
+		})
+	}
 	return out
+}
+
+// OnMap serves the search page: the brokers who bought the map placement,
+// narrowed by the same place and radius the property search ran with.
+//
+// The client's rule, 18 August: "the system with the brokers is the same as
+// with the real estate. If chosen to see the brokers then in the maps like the
+// real estate the small broker images are displayed. And in the listings page
+// the broker profile-ads are displayed like the real-estate ads." Same search,
+// two kinds of result — so this takes the property search's own point and
+// radius rather than a second search of its own.
+func (m *Mock) OnMap(ctx context.Context, f BrokerFilter) []models.Broker {
+	f.MapAdOnly = true
+	// Never the market fallback: on the search page a reader who has typed
+	// nothing is looking at every market's map, not at their own market's paid
+	// strip. Filter() reads MarketCode only when no place was entered, and
+	// clearing it here says that outright.
+	f.MarketCode = ""
+	return m.Filter(ctx, f)
 }
 
 func hasString(list []string, v string) bool {
@@ -726,9 +999,34 @@ func (m *Mock) ToggleFavourite(ctx context.Context, id string) bool {
 	return m.favourites[id]
 }
 
-// SavedSearches returns the user's stored searches.
+// SavedSearches returns the user's stored searches, newest first: anything
+// saved from the filter panel this session, then the seeded four.
 func (m *Mock) SavedSearches(ctx context.Context) []models.SavedSearch {
-	return buildSavedSearches(m.now)
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := make([]models.SavedSearch, 0, len(m.savedSearches)+4)
+	for i := len(m.savedSearches) - 1; i >= 0; i-- {
+		out = append(out, m.savedSearches[i])
+	}
+	return append(out, buildSavedSearches(m.now)...)
+}
+
+// AddSavedSearch stores one and hands it back with its id.
+//
+// Kept in memory, like the favourites above: this milestone has no database,
+// and a button that claims to have saved something while /saved-searches shows
+// nothing new is the thing the client would find first.
+func (m *Mock) AddSavedSearch(ctx context.Context, s models.SavedSearch) models.SavedSearch {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if s.ID == "" {
+		s.ID = fmt.Sprintf("ss-u%02d", len(m.savedSearches)+1)
+	}
+	if s.CreatedAt.IsZero() {
+		s.CreatedAt = m.now
+	}
+	m.savedSearches = append(m.savedSearches, s)
+	return s
 }
 
 // Notifications returns the notification centre rows.
@@ -747,31 +1045,167 @@ func (m *Mock) UnreadCount(ctx context.Context) int {
 	return n
 }
 
-// MyListings returns the user's own listings in a given state. The mock
-// attributes a slice of the seeded catalogue to the signed-in user.
+// ownedListings attributes a slice of the seeded catalogue to the signed-in
+// user, with the state each one is in.
+//
+// Three states, one of each plus a second active listing: draft (entered, not
+// paid for), active (paid and online), expired (the paid period has run out).
+// Pending review and rejected are gone — nothing moderates a listing before it
+// goes live, so neither state could ever occur.
+var ownedListings = map[string]models.ListingStatus{
+	"pr-003": models.StatusActive,
+	"pr-006": models.StatusActive,
+	"pr-014": models.StatusDraft,
+	"pr-027": models.StatusExpired,
+	"pr-031": models.StatusDraft,
+}
+
+// MyListings returns the user's own listings in a given state.
 func (m *Mock) MyListings(ctx context.Context, status models.ListingStatus) []models.Property {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	owned := map[string]models.ListingStatus{
-		"pr-003": models.StatusActive,
-		"pr-006": models.StatusActive,
-		"pr-014": models.StatusPending,
-		"pr-027": models.StatusExpired,
-		"pr-031": models.StatusRejected,
-	}
 	var out []models.Property
 	for _, p := range m.properties {
-		st, ok := owned[p.ID]
+		st, ok := ownedListings[p.ID]
 		if !ok {
 			continue
 		}
 		p.Status = st
+		// A draft has never been paid for, so it has no expiry to show. The
+		// seeded catalogue gives every property one; leaving it in place would
+		// have the listings table promise a draft goes offline on a date it was
+		// never online for.
+		if st == models.StatusDraft {
+			p.ExpiresAt = time.Time{}
+		}
 		if status == "" || st == status {
 			out = append(out, p)
 		}
 	}
 	return out
+}
+
+// ListingStats builds the per-day visitor series for one of the user's own
+// listings.
+//
+// The shape is invented, but not arbitrarily: it is derived from the listing's
+// own lifetime view count so a busy listing charts busier than a quiet one, and
+// from its id so the same listing draws the same chart on every request —
+// nothing here may move between two page loads or the panel looks broken.
+//
+// Two things are modelled because they are what a real series looks like and
+// what makes the panel worth reading: traffic decays as a listing ages, and
+// weekends are quieter than weekdays. A backend replacing this reads from a
+// page-view table and can drop the shaping entirely.
+func (m *Mock) ListingStats(ctx context.Context, propertyID string, days int) (models.ListingStats, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if _, ok := ownedListings[propertyID]; !ok {
+		return models.ListingStats{}, false
+	}
+	if days <= 0 {
+		days = 14
+	}
+
+	var p models.Property
+	found := false
+	for _, cand := range m.properties {
+		if cand.ID == propertyID {
+			p, found = cand, true
+			break
+		}
+	}
+	if !found {
+		return models.ListingStats{}, false
+	}
+
+	// A small integer hash of the id, so two listings with similar view counts
+	// still draw visibly different charts.
+	seed := 0
+	for _, r := range propertyID {
+		seed = seed*31 + int(r)
+	}
+	if seed < 0 {
+		seed = -seed
+	}
+
+	// A daily baseline from the lifetime total. The +1 keeps a listing with no
+	// views at all from flooring every day to zero and dividing by nothing.
+	base := p.Views/(days*3) + 1
+
+	stats := models.ListingStats{
+		PropertyID: p.ID,
+		Title:      p.Title,
+		Views:      p.Views,
+		Saves:      p.Saves,
+		Days:       make([]models.DayCount, 0, days),
+	}
+	// Oldest first, so the chart reads left to right.
+	start := m.now.AddDate(0, 0, -(days - 1))
+	for i := 0; i < days; i++ {
+		d := start.AddDate(0, 0, i)
+
+		// Decay: the oldest day of the window carries about 1.6× the newest.
+		weight := 160 - (i*60)/days
+
+		// Saturday and Sunday run about a third quieter.
+		switch d.Weekday() {
+		case time.Saturday, time.Sunday:
+			weight = weight * 68 / 100
+		}
+
+		// Deterministic jitter, ±25%, from the id and the day index.
+		jitter := 75 + (seed+i*37)%51
+
+		v := base * weight / 100 * jitter / 100
+		if v < 0 {
+			v = 0
+		}
+		stats.Days = append(stats.Days, models.DayCount{
+			Date:  d,
+			Label: d.Format("2 Jan"),
+			Views: v,
+		})
+	}
+	return stats, true
+}
+
+// CloneListing duplicates one of the user's listings as a new draft.
+//
+// The copy is a draft whatever the original was, because a duplicate has not
+// been paid for — the client's lifecycle has no other way in. Its metrics start
+// at zero rather than inheriting the original's, which would otherwise report
+// views a brand-new listing has not had, and its title is marked so the two are
+// tellable apart in the table.
+//
+// Nothing is persisted: this build has no store to write to, so the caller
+// reports what would have been created. The shape returned is what a real
+// implementation would insert.
+func (m *Mock) CloneListing(ctx context.Context, propertyID string) (models.Property, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if _, ok := ownedListings[propertyID]; !ok {
+		return models.Property{}, false
+	}
+	for _, p := range m.properties {
+		if p.ID != propertyID {
+			continue
+		}
+		c := p
+		c.ID = p.ID + "-copy"
+		c.Title = p.Title + " (copy)"
+		c.Slug = p.Slug + "-copy"
+		c.Status = models.StatusDraft
+		c.Views, c.Saves = 0, 0
+		c.IsFeatured = false
+		c.CreatedAt, c.UpdatedAt = m.now, m.now
+		c.ExpiresAt = time.Time{} // nothing expires until it is paid for
+		return c, true
+	}
+	return models.Property{}, false
 }
 
 // Drafts returns unfinished add-listing sessions.
@@ -855,6 +1289,18 @@ func (m *Mock) BannersAll(ctx context.Context) []models.Banner { return banners 
 
 // Packages lists the paid listing tiers.
 func (m *Mock) Packages(ctx context.Context) []models.Package { return packages }
+
+// Promotions lists the paid add-ons a seller can buy per day, both at publish
+// time and later from their own listing management.
+func (m *Mock) Promotions(ctx context.Context) []models.Promotion { return promotions }
+
+// BrokerAdPlan returns the homepage placement's price list.
+func (m *Mock) BrokerAdPlan(ctx context.Context) models.BrokerAdPlan { return brokerAdPlan }
+
+// BrokerMapAdPlan returns the map placement's price list.
+func (m *Mock) BrokerMapAdPlan(ctx context.Context) models.BrokerMapAdPlan {
+	return brokerMapAdPlan
+}
 
 // Testimonials backs the homepage trust section.
 func (m *Mock) Testimonials(ctx context.Context) []models.Testimonial { return testimonials }

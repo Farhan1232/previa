@@ -67,6 +67,27 @@
 }
 [data-theme='dark'] .btn--secondary:hover:not(:disabled) { background: var(--surface-3); }
 
+/*
+  Advertise — the one violet control on the site.
+
+  "Make a violet #8B008B button 'advertise'." The colour is the client's,
+  literally, and the same one the favicon tile and the header logo's tile are
+  painted in, so the three read as one brand accent rather than three purples.
+
+  Declared once and never redefined per theme: it is a named colour, not a
+  semantic token, and a value picked by eye does not flip at night. White text
+  on #8B008B clears AA at this size in both themes.
+*/
+.btn--advertise {
+  background: #8B008B;
+  color: #fff;
+  border-color: #8B008B;
+  font-weight: 600;
+}
+.btn--advertise:hover:not(:disabled) { background: #6F006F; border-color: #6F006F; }
+.btn--advertise:focus-visible { box-shadow: 0 0 0 3px rgba(139, 0, 139, 0.32); }
+.btn--advertise svg { width: 15px; height: 15px; }
+
 /* Ghost — low-emphasis actions inside dense UI. */
 .btn--ghost {
   background: transparent;
@@ -106,6 +127,34 @@
   border-color: var(--error);
 }
 .btn--danger:hover:not(:disabled) { filter: brightness(0.92); }
+
+/*
+  Apply filters, in the search panel's footer.
+
+  "'Apply filters' make in small letters and the area of the button make
+  smaller and the background of this button make green #008000 — the same in
+  day and dark mode."
+
+  All three, literally: the label is lower case in the markup, the button is
+  34px tall with tighter sides and no longer stretches across the footer, and
+  the green is the client's own value rather than --success, which is a muted
+  teal in light and a mint in dark. It is the same #008000 the field focus ring
+  already uses, so the two greens on this panel are one green.
+*/
+/* Two classes, because .btn--sm sets its own 40px height further down this
+   file and would otherwise win the size at equal specificity. */
+.btn--sm.btn--apply {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: var(--fs-xs);
+}
+.btn--apply {
+  background: #008000;
+  color: #fff;
+  border-color: #008000;
+}
+.btn--apply:hover:not(:disabled) { background: #026C02; border-color: #026C02; }
+.btn--apply svg { width: 15px; height: 15px; }
 
 /* On dark imagery (hero, gallery overlays). */
 .btn--on-image {
@@ -195,6 +244,24 @@
 .field__label .req { color: var(--error); }
 .field__hint { font-size: var(--fs-xs); color: var(--text-muted); }
 
+/*
+  A field heading with a control on the right of it.
+
+  The client asked for the advertise button "after the title 'Contry'" and
+  again "after title 'Your location on the map'", which is a heading row rather
+  than a field row: the button belongs to the section, not to the input under
+  it, and putting it inside the input's box would make it look like part of
+  what is being edited.
+*/
+.field__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 34px;
+}
+.field__label-row .field__label { flex: 1; min-width: 0; }
+
 .field__error {
   display: flex;
   align-items: flex-start;
@@ -227,11 +294,18 @@
 .select:hover:not(:disabled),
 .textarea:hover:not(:disabled) { border-color: var(--border-strong); }
 
+/*
+  The frame on the field you are typing in — green, one theme, one pixel.
+
+  See --field-focus in tokens.css for the client's words and for why the colour
+  is fixed rather than themed. Only the three text controls take it: a field is
+  what you type into, and it is the frame around a field that was reported.
+*/
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: var(--focus-color);
-  box-shadow: var(--focus-ring);
+  border-color: var(--field-focus);
+  box-shadow: var(--field-focus-ring);
 }
 
 .input:disabled,
@@ -267,6 +341,40 @@
 
 .field.is-valid .input { border-color: var(--success); }
 
+/*
+  A price cell in a rate table: narrow, because it holds a small number, and
+  short, because a table row is not a form field.
+
+  The width goes on the .num-stepper wrapper previa.js puts around every number
+  field, not on the input: the caret column is pinned to the wrapper's right
+  edge, so narrowing only the input would leave the arrows floating in the gap
+  beside it.
+*/
+.num-stepper:has(.input--rate) { width: 7rem; }
+.input--rate { width: 100%; min-height: 34px; padding: 0 var(--sp-3); text-align: right; }
+
+/*
+  The per-market advertising price list, in the admin panel.
+
+  Two hundred markets is a scroll, so the table gets its own scrolling box with
+  the head pinned rather than pushing the rest of the screen down; the search
+  field above it hides the rows that do not match.
+*/
+.rate-table {
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.rate-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+}
+.rate-table tr[hidden] { display: none; }
+
 /* Input with a leading icon (search, location). */
 .input-icon { position: relative; display: flex; align-items: center; }
 .input-icon svg {
@@ -278,20 +386,110 @@
 }
 .input-icon .input { padding-left: calc(var(--sp-4) * 2 + 18px); }
 
-/* Paired min/max inputs. */
-.range-pair { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--sp-2); }
-.range-pair__dash { color: var(--text-subtle); font-weight: 600; }
+/*
+  Paired min/max inputs.
 
-/* Input with a trailing unit (m², €). */
-.input-unit { position: relative; display: flex; align-items: center; }
-.input-unit .input { padding-right: var(--sp-9); }
-.input-unit__suffix {
-  position: absolute;
-  right: var(--sp-4);
+  No dash between them any more: "Here in the main search menu remove the
+  separator - between these fields." The two boxes are already labelled Min and
+  Max and sit under one heading, so the character was carrying no meaning the
+  placeholders did not. Two equal columns rather than three, so the pair keeps
+  filling the sidebar's width with the middle column gone.
+*/
+.range-pair { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: var(--sp-2); }
+
+/*
+  Number inputs — our own stepper, ruled off at the field's right edge.
+
+  Two client notes, three months of the same complaint. First: "the up/down
+  arrows for the numbers, use the same style as in sexydate, so these arrows are
+  on the right corner of the field. At the moment they are centered." Moving the
+  unit labels out of the fields fixed the centring. Then, with the arrows in the
+  corner: "the up/down arrows need to make better, make the same style as in
+  sexydate, that they sit on the right side of the field."
+
+  What is left to fix is the stepper itself, and the native one cannot be it.
+  Chrome's is a grey slab with no colour, border or size of its own, and
+  Firefox's takes no styling whatsoever — neither can be made to look like the
+  reference, which is two thin carets in a ruled column pinned to the right edge
+  of the field. So the native stepper is hidden here and previa.js wraps every
+  number field in the .num-stepper below.
+*/
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+
+/*
+  The price field on the add-listing form, and the unit it is quoted in.
+
+  "In the add listing price section, if the user has chosen deal type rent or
+  short, then the price must be in case of rent 1000 € / month and in case of
+  short rent 100 € / day."
+
+  A row rather than a suffix floated inside the input: previa.js pins a stepper
+  column to the input's right edge, and text placed under it would either
+  collide with the arrows or push a five-digit price out of view. The unit sits
+  beside the field instead, on the same baseline, so the two read as one price.
+*/
+.price-field { display: flex; align-items: center; gap: var(--sp-3); }
+.price-field .num-stepper { flex: 1; min-width: 0; }
+.price-field__unit {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
   font-size: var(--fs-sm);
+  font-weight: 600;
   color: var(--text-muted);
+}
+
+.num-stepper { position: relative; display: block; }
+/* Room for the arrow column, so a five-digit price never runs under it. */
+.num-stepper .input { padding-right: 34px; }
+
+/*
+  Pinned to the field's inner edge and inset by the border, so the divider is
+  flush with the top and bottom of the field the way the reference draws it.
+  Ignores pointer events itself; only the two buttons take clicks, which leaves
+  the rest of the field clickable straight through to the text cursor.
+*/
+.num-stepper__arrows {
+  position: absolute;
+  top: 1px; right: 1px; bottom: 1px;
+  display: flex;
+  flex-direction: column;
+  width: 26px;
+  border-left: 1px solid var(--border);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  overflow: hidden;
   pointer-events: none;
 }
+.num-stepper__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+/* A hairline between the two, matching the column's own rule. */
+.num-stepper__btn--up { border-bottom: 1px solid var(--border); }
+.num-stepper__btn svg { width: 10px; height: 6px; }
+.num-stepper__btn:hover { background: var(--surface-3); color: var(--text); }
+.num-stepper__btn:active { background: var(--surface-3); color: var(--navy); }
+[data-theme='dark'] .num-stepper__btn:active { color: var(--gold); }
+
+/* The field owns the focus ring; the column must not draw a second one. */
+.num-stepper:focus-within .num-stepper__arrows { border-left-color: var(--border-strong); }
 
 /* --- Checkbox and radio --------------------------------------------------- */
 .check {
@@ -477,7 +675,61 @@
   transform: translate(-50%, -50%);
 }
 .chip__remove:hover { background: var(--surface); color: var(--error); }
+
+/*
+  A tag with no remove control — the last remaining deal type, which cannot be
+  dropped because "no deal type" is not a state the search has. Padded evenly,
+  since there is no button to leave room for on the right, and quieter than its
+  removable neighbours so the missing × reads as deliberate.
+*/
+.chip--fixed { padding: 0 var(--sp-3); background: var(--surface-3); color: var(--text-muted); }
+
+/* The way back into the filter drawer, sitting at the end of the tag bar so
+   adding a tag and removing one are in the same place. */
+.chip--add { padding: 0 var(--sp-3); background: none; border-style: dashed; color: var(--text-muted); }
+.chip--add:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-3); }
+.chip--add svg { width: 14px; height: 14px; }
 .chip__remove svg { width: 12px; height: 12px; }
+
+/* The filter panel's save confirmation: one line, in the success green, under
+   the footer's three controls. */
+.save-search-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--success);
+}
+.save-search-line svg { width: 14px; height: 14px; flex: none; }
+.save-search-line a { color: inherit; text-decoration: underline; }
+
+/*
+  Clear-all, in the active-filter bar.
+
+  "Just the 'Clear all' button replace with red cross (#FF0000) inside rounded
+  rectangle." So: the rectangle is the button, the cross is its whole content,
+  and the red is the client's literal #FF0000 in both themes rather than
+  --error, which is a muted brick in light and a salmon in dark.
+
+  Sized to the 34px chips beside it so the bar stays one row of equal-height
+  objects, and square, because a rounded rectangle around a cross with nothing
+  else in it should not be wider than it is tall.
+*/
+.clear-filters {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  flex: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: #FF0000;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.clear-filters:hover { background: var(--surface-3); border-color: #FF0000; }
+.clear-filters svg { width: 16px; height: 16px; stroke-width: 2.2; }
 
 /* ==========================================================================
    Cards
@@ -510,6 +762,23 @@
 
 .pcard {
   position: relative;
+  /*
+    The card's own layers stay inside the card.
+
+    Badges, hearts, paging zones and the pager all carry z-index values of their
+    own (2 to 4, see the stacking note further down). A positioned element with
+    z-index: auto is not a stacking context, so before this line those numbers
+    were competing with everything else on the page: a heart at 4 painted over
+    an open market menu, and the badges climbed over the homepage's property-type
+    panel. The client reported both as menus "staying behind" the cards.
+
+    isolation: isolate makes the card a stacking context without changing where
+    the card itself paints, so the internal order is preserved and the whole card
+    now sits below any panel that opens over it. It also matches what already
+    happened on hover, where the lift transform created a context anyway — which
+    is why the bug looked intermittent.
+  */
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -555,10 +824,30 @@
 /*
   Favourite control, Airbnb style.
 
-  The white disc behind the heart made it the loudest thing on the card. The
-  disc is gone; what remains is the glyph itself — a translucent dark fill with
-  a white outline, which stays legible over both a bright sky and a dark
-  interior without needing a plate behind it.
+  Two states, exactly as the client described them on 17 August:
+
+    not saved  nothing but the red outline. The heart's body was a translucent
+               grey, which on a photograph read as a grey plate sitting behind
+               the glyph — "make it's background transparent, the borderline red
+               and background transparent … so that only the red heart
+               bordereline on the image and that's it". The fill is now none, so
+               the photograph shows through the middle of the heart
+    saved      red throughout, and no outline of a second colour — the glyph is
+               one solid red heart
+
+  The red is --fav, a literal #FF0000 that does not change between themes:
+  "this featured heart borderline make #FF0000 (in day and dark theme the same)
+  and if clicked then the whole heart color the same #FF0000". It was --error,
+  which is a muted brick in the light theme and a salmon in the dark one — the
+  pink outline the client was looking at.
+
+  Both states use one drawing and one colour, so the change is the fill turning
+  on rather than a second icon.
+
+  What is not a background: the drop shadow. It is cast by the stroke itself,
+  costs no area of its own, and is the only thing keeping a thin red line
+  legible over a red-brick wall or a sunset. Without it an unsaved heart
+  disappears on perhaps one photograph in ten.
 
   The button keeps a 36px box for the tap target even though only the ~22px
   glyph is drawn.
@@ -573,25 +862,25 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: rgba(0, 0, 0, 0.52);
+  color: var(--fav);
   transition: color var(--dur) var(--ease), transform var(--dur-fast) var(--ease);
 }
 /*
-  The white outline is what defines the shape; the translucent body behind it
-  is only there so the outline still reads against a bright sky or a white
-  wall. A 2px stroke on a 22px glyph swallowed the body entirely and the heart
-  came out looking solid white, which is the reference's *selected* weight —
-  hence 1.5.
+  The outline is the whole drawing. 1.75 rather than 2: a heavier stroke on a
+  22px glyph starts to close the gap in the notch at the top and the heart
+  reads as filled when it is not.
 */
 .pcard__fav svg {
   width: 22px; height: 22px;
-  fill: currentColor;          /* the tinted body of the heart */
-  stroke: #fff;                /* the outline that lifts it off the photo */
-  stroke-width: 1.5;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  fill: none;                  /* transparent — the photograph shows through */
+  stroke: var(--fav);          /* the red outline, and nothing else */
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 .pcard__fav:hover { transform: scale(1.08); }
-.pcard__fav[aria-pressed='true'] { color: var(--error); }
+/* Saved: the same red fills the body, so the glyph reads as one solid heart. */
+.pcard__fav[aria-pressed='true'] svg { fill: var(--fav); }
 .pcard__fav:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 50%; }
 
 .pcard__count {
@@ -610,11 +899,31 @@
 }
 .pcard__count svg { width: 13px; height: 13px; }
 
+/*
+  Card text block.
+
+  Tightened at the client's request: the lines that belong together were sitting
+  as far apart as the blocks that do not, so a card read as five separate
+  fragments rather than as price / what / where / facts.
+
+  What changed, and what deliberately did not:
+
+    · the gap between blocks is 12px → 8px. Reduced, not removed — the note was
+      "more compact together, not too much. There must be some space to
+      understand what is what"
+    · the top padding is 20px → 12px, which is the "price move more up closer to
+      the image" part
+    · line-height inside the title and the location is the real change, below:
+      a wrapped title now sets as one block instead of two loose lines
+
+  The rule above the facts row is untouched. It is what separates the copy from
+  the numbers, and tightening the copy makes it do more of the work, not less.
+*/
 .pcard__body {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
-  padding: var(--sp-5);
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5) var(--sp-5);
   flex: 1;
 }
 
@@ -636,10 +945,16 @@
   text-decoration: line-through;
 }
 
+/*
+  A two-line title sets as one block: "Panelised house in / Grunewald" should
+  read as a single name, and at 1.4 the two lines drifted apart far enough to
+  look like separate fields. 1.18 is as close as the ascenders and descenders
+  allow without them touching, which is what the client asked for.
+*/
 .pcard__title {
   font-size: var(--fs-base);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.18;
 }
 .pcard__title a::after {
   /* Full-card click target without nesting interactive elements. */
@@ -650,14 +965,18 @@
 }
 .pcard__title a:hover { color: var(--slate); }
 
+/* Same treatment as the title: a wrapped address — "Grunewald, Berlin, /
+   Germany" — is one place, so it sets as one block. */
 .pcard__location {
   display: flex;
   align-items: flex-start;
   gap: 6px;
   font-size: var(--fs-sm);
+  line-height: 1.22;
   color: var(--text-muted);
 }
-.pcard__location svg { flex: none; width: 15px; height: 15px; margin-top: 2px; }
+/* The pin sits on the first line's cap height, which moves with line-height. */
+.pcard__location svg { flex: none; width: 15px; height: 15px; margin-top: 1px; }
 
 .pcard__facts {
   display: flex;
@@ -755,7 +1074,10 @@
   align-items: center;
   gap: var(--sp-3);
   height: 100%;
-  padding: var(--sp-6) var(--sp-5);
+  /* No padding at the top: the photograph is full-bleed to the card's edges,
+     which is what the kinnisvara24 reference does and what makes it read as a
+     paid placement rather than as a directory row. */
+  padding: 0 var(--sp-5) var(--sp-5);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -771,15 +1093,54 @@
 }
 .bcard:focus-within { box-shadow: var(--focus-ring); }
 
-.bcard__avatar {
-  width: 88px; height: 88px;
-  flex: none;
-  border-radius: 50%;
+/*
+  The photograph.
+
+  The client's note was about size: "make the broker profile picture the same
+  size (only with rounded corners) as in kinnisvara24". Their reference fills
+  the top of the card with a 4:5 portrait rather than showing an 88px medallion,
+  so this is the card's full width, negative-margined out through the padding
+  either side to sit flush with the border.
+
+  4:5 rather than a square: these are portraits, and a square crop takes the top
+  of the head or the bottom of the chin off half of them. `object-position:
+  center top` keeps the face in frame whatever the source ratio.
+
+  Only the top corners are rounded — the bottom two are square because the card
+  carries on underneath. The radius is the card's less its 1px border, so the
+  photograph follows the border rather than leaving a sliver of surface showing
+  in the curve.
+*/
+.bcard__media {
+  position: relative;
+  align-self: stretch;
+  margin: 0 calc(var(--sp-5) * -1) var(--sp-2);
+  overflow: hidden;
+  border-radius: calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0;
+  background: var(--surface-3);
+}
+.bcard__photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
   object-fit: cover;
   object-position: center top;
-  border: 3px solid var(--surface);
-  box-shadow: 0 0 0 1px var(--border), var(--shadow-sm);
 }
+
+/* The listing count, over the photograph's top-left corner as the reference
+   has it. Squared off on the outer two corners so it reads as a flag pinned to
+   the edge rather than a pill floating on the picture. */
+.bcard__count {
+  position: absolute;
+  top: 0; left: 0;
+  padding: 5px 10px;
+  border-radius: 0 0 var(--r-sm) 0;
+  background: var(--navy);
+  color: var(--on-primary);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+[data-theme='dark'] .bcard__count { background: var(--gold); color: var(--text-on-gold); }
 
 /* Fixed identity block: names line up across the row even when the role or
    agency wraps to two lines. */
@@ -807,18 +1168,8 @@
 
 /* Everything below this point is pinned to the bottom of the card. */
 .bcard__foot { margin-top: auto; width: 100%; display: flex; flex-direction: column; gap: var(--sp-3); }
-.bcard__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sp-2) var(--sp-4);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-.bcard__meta > span { display: inline-flex; align-items: center; gap: 5px; }
-/* A rating star must read as filled — an outline star looks like a zero score. */
-.bcard__meta svg { width: 14px; height: 14px; fill: var(--gold); color: var(--gold); flex: none; }
+/* The row that used to sit here carried a star rating and a paid-placement
+   label; the client removed both on 19 August. */
 .bcard__contact {
   display: flex;
   flex-direction: column;
@@ -844,8 +1195,6 @@
 .bcard__actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .bcard__actions .btn { width: 100%; }
 @media (max-width: 380px) { .bcard__actions { grid-template-columns: 1fr; } }
-
-.bcard__rating { display: inline-flex; align-items: center; gap: 4px; }
 
 /* Development card — wider cover, price-from emphasis. */
 .dcard {
@@ -946,7 +1295,37 @@
 .table tbody tr:last-child td { border-bottom: 0; }
 .table tbody tr { transition: background-color var(--dur-fast) var(--ease); }
 .table tbody tr:hover { background: var(--surface-2); }
-.table__actions { display: flex; gap: var(--sp-2); justify-content: flex-end; }
+/*
+  Row actions.
+  
+  Six of them on a listing row — statistics, promote, edit, clone, activate,
+  view, delete — which is what the client's lifecycle needs and more than fits
+  on one line in a narrow column. They wrap rather than pushing the row wider
+  than the table, and the gap is tighter than the page default because these are
+  icon buttons sitting shoulder to shoulder, not a row of labelled controls.
+*/
+.table__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.table__actions .btn--sm { padding-inline: 8px; }
+/*
+  The actions column takes the width it needs and the columns of prose beside it
+  give way, rather than the buttons wrapping into a second row inside a cell
+  that is already tall enough. `width: 1%` with nowrap is the shrink-to-fit
+  idiom: a table gives such a column its minimum content width and distributes
+  what is left among the others.
+
+  Wrapping stays as the fallback: below 700px the table restacks into cards and
+  the row has the full width to play with, so the two never fight.
+*/
+@media (min-width: 701px) {
+  .table td[data-label='Actions'],
+  .table th:last-child { width: 1%; white-space: nowrap; }
+  .table td[data-label='Actions'] .table__actions { flex-wrap: nowrap; }
+}
 .table--fixed { min-width: 0; }
 
 /* --------------------------------------------------------------------------
@@ -1634,7 +2013,22 @@
    is absolutely positioned so it overlays whatever follows rather than pushing
    the form around as it opens and closes.
    -------------------------------------------------------------------------- */
-.location-field { position: relative; }
+/*
+  One set of numbers for the whole control, so every variant of it — the hero
+  panel, the search sidebar, add-listing, the broker directory — insets its pin
+  and its text by the same steps. A variant that needs a tighter control
+  overrides a token here rather than restating a padding, which is how the hero
+  panel's flat 12px gutter came to leave a long value running under the clear
+  button.
+*/
+.location-field {
+  position: relative;
+  --loc-icon-inset: var(--sp-3);   /* pin to the field's left edge */
+  --loc-icon-size: 18px;           /* matches .input-icon svg */
+  --loc-gap: var(--sp-2);          /* pin (and clear button) to the text */
+  --loc-clear-size: 22px;          /* matches .location-field__clear */
+  --loc-clear-inset: var(--sp-2);  /* clear button to the right edge */
+}
 /*
   The control is a block, not the flex row `.input-icon` normally makes, because
   the suggestion list is a sibling that has to span the full width. That means
@@ -1646,7 +2040,7 @@
 .location-field__control > svg {
   top: 50%;
   transform: translateY(-50%);
-  left: var(--sp-3);
+  left: var(--loc-icon-inset);
 }
 
 /*
@@ -1658,8 +2052,9 @@
   control actually occupies plus one step of breathing room.
 */
 .location-field__control .input {
-  padding-left: calc(var(--sp-3) + 18px + var(--sp-2));   /* 38px */
-  padding-right: calc(var(--sp-2) + 22px + var(--sp-2));  /* 38px */
+  /* 38px each side at the default token values. */
+  padding-left: calc(var(--loc-icon-inset) + var(--loc-icon-size) + var(--loc-gap));
+  padding-right: calc(var(--loc-clear-inset) + var(--loc-clear-size) + var(--loc-gap));
   /* A value longer than the field trails off rather than being sliced through
      a letter. Applies when the field is not focused; typing still scrolls. */
   text-overflow: ellipsis;
@@ -1668,12 +2063,12 @@
 .location-field__clear {
   position: absolute;
   top: 50%;
-  right: var(--sp-2);
+  right: var(--loc-clear-inset);
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px; height: 22px;
+  width: var(--loc-clear-size); height: var(--loc-clear-size);
   border: none;
   border-radius: 50%;
   background: none;
@@ -1683,7 +2078,24 @@
 }
 .location-field__clear:hover { background: var(--surface-3); color: var(--text); }
 .location-field__clear:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 1px; }
-.location-field__clear svg { width: 13px; height: 13px; }
+/*
+  position: static, and it matters.
+
+  This svg is a descendant of .input-icon, whose own rule absolutely positions
+  the icon it is written for — the pin — at `left: var(--sp-4)`. That rule
+  reached in here too, so the cross was taken out of the button's flex centring
+  and pinned 16px from the left edge of a 22px button: it hung 7px past the
+  button's right side, missed the hover circle entirely, and drifted over the
+  field's border. Putting it back in flow re-centres it in the button.
+
+  colour with it: .input-icon svg also sets its own colour, which overrode the
+  button's, so the cross never brightened on hover.
+*/
+.location-field__clear svg {
+  position: static;
+  width: 13px; height: 13px;
+  color: inherit;
+}
 /* The drawn button stays small; the area a finger has to find is 32px. */
 .location-field__clear::after {
   content: '';
@@ -1771,6 +2183,27 @@
    Payment method options
    -------------------------------------------------------------------------- */
 
+/*
+  Two columns — "the payment methods make there in 2 columns".
+
+  Two, stated as two: an auto-fit track list reads the client's instruction as a
+  minimum and gives four columns on a wide screen, which is not what was asked
+  for. Rows stretch to the tallest tile in them, so a row with a line of
+  explanation stays level with one that has only a name.
+
+  One column below 520px, where the page is a single column anyway and two
+  tiles would be about 155px each — narrower than the words "Credit card" set
+  on one line.
+*/
+.pay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+@media (max-width: 520px) {
+  .pay-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 .pay-option__name { display: inline-flex; align-items: center; gap: var(--sp-3); }
 
 .pay-logo {
@@ -1796,6 +2229,318 @@
 /* The switch's text label, next to its track — used in the admin tables where
    the state has to be readable as a word as well as a position. */
 .switch__label { font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* ==========================================================================
+   Messenger apps — WhatsApp, Telegram, Viber, Signal, Teams
+   ==========================================================================
+
+   Two faces of the same set of marks: .msg-picker is the row of toggles in the
+   add-listing contact section, .msg-links is the row of live chat links on a
+   listing and on a card.
+
+   The tiles carry their own brand colours. The one thing that does change with
+   the theme is the ink of the glyph on them: the client supplied a day and a
+   night drawing of each app, identical but for white glyphs on the day set and
+   black on the night one. That is what these rules switch — see the note in
+   components/brand-icons.html.
+   -------------------------------------------------------------------------- */
+
+.msg-mark {
+  flex: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: #fff;              /* the day drawings' ink */
+}
+[data-theme='dark'] .msg-mark { color: #000; }   /* the night drawings' ink */
+
+/* Telegram's plane is three-toned: the fold under the wing and the shadow it
+   throws are their own values in both drawings, not tints of the main ink. */
+.msg-mark__fold { fill: #c8daea; }
+.msg-mark__shade { fill: #a9c9dd; }
+[data-theme='dark'] .msg-mark__fold { fill: #4a4a4a; }
+[data-theme='dark'] .msg-mark__shade { fill: #2a2a2a; }
+
+/* The day plane is a warm white rather than pure white, as supplied. */
+.msg-mark--telegram { color: #f6fbfe; }
+
+/* --- The picker in the add-listing form ----------------------------------
+   Laid out to the reference's own proportions: a 20px tickbox, a 40px brand
+   tile, 10px between the two halves of a pair and 16px between pairs. Pairs
+   wrap as a unit, so a box never ends a line orphaned from its icon. */
+
+.msg-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) 16px;
+  margin-top: var(--sp-3);
+}
+
+.msg-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.msg-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+/*
+  The tickbox. The reference fills it in its own site's purple; this uses
+  Previa's accent instead — navy on light, gold on dark — because a borrowed
+  brand colour would be the one thing on the row that belongs to another site.
+*/
+.msg-toggle__box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px; height: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: transparent;
+  transition: background-color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.msg-toggle__box svg { width: 13px; height: 13px; }
+.msg-toggle:hover .msg-toggle__box { border-color: var(--navy); }
+[data-theme='dark'] .msg-toggle:hover .msg-toggle__box { border-color: var(--gold); }
+.msg-toggle input:checked + .msg-toggle__box {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--on-primary);
+}
+[data-theme='dark'] .msg-toggle input:checked + .msg-toggle__box {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--text-on-gold);
+}
+.msg-toggle input:focus-visible + .msg-toggle__box { box-shadow: var(--focus-ring); }
+
+/*
+  The brand tile. Unticked it dims rather than greys out — the reference keeps
+  every icon in full colour, and the tickbox beside it already carries the
+  state, so desaturating as well would say the same thing twice and make the
+  row harder to read at a glance.
+*/
+.msg-toggle__mark {
+  display: block;
+  flex: none;
+  width: 40px; height: 40px;
+  opacity: 0.45;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.msg-toggle input:checked ~ .msg-toggle__mark { opacity: 1; }
+.msg-toggle:hover .msg-toggle__mark { opacity: 1; }
+
+/* --- Live chat links on a listing ----------------------------------------
+   On the reference these sit tight against each other, immediately after the
+   contact line, so the run reads as one strip of apps rather than as five
+   separate buttons. */
+
+.msg-links { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.msg-link {
+  display: inline-flex;
+  width: 26px; height: 26px;
+  border-radius: var(--r-sm);
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+.msg-link:hover { transform: translateY(-1px); opacity: 0.85; }
+.msg-link:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 2px; }
+
+/* Compact row on a property card. */
+.msg-links--sm { margin-top: var(--sp-2); }
+.msg-links--sm .msg-link { width: 22px; height: 22px; }
+
+.msg-block { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+/* ==========================================================================
+   Paid promotion picker
+   ==========================================================================
+
+   A checkbox that opens a price list. Ticked, the row gets a tinted panel so
+   it is obvious that something chargeable has been switched on and that the
+   day options belong to it rather than to the row below.
+   -------------------------------------------------------------------------- */
+
+.promo-picker { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.promo {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.promo.is-on { border-color: var(--gold); background: var(--gold-tint); }
+.promo__check { align-items: flex-start; }
+/* These labels are full sentences, so they wrap — line-height has to suit
+   running text rather than a one-word checkbox. */
+.promo__check .check__text { line-height: 1.5; }
+
+.promo__body { display: flex; flex-direction: column; gap: var(--sp-3); padding-top: var(--sp-3); }
+.promo__info {
+  display: flex;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.promo__info svg { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--text-subtle); }
+
+.promo__tiers { border: 0; padding: 0; margin: 0; }
+.promo__tiers > legend { padding: 0 0 var(--sp-2); }
+.promo__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: var(--sp-2);
+}
+
+/* One day option: days above, price below, the whole tile clickable. */
+.promo__tier { position: relative; cursor: pointer; }
+.promo__tier input { position: absolute; opacity: 0; width: 0; height: 0; }
+.promo__tier-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+.promo__tier:hover .promo__tier-face { border-color: var(--border-strong); }
+.promo__tier input:checked + .promo__tier-face {
+  border-color: var(--navy);
+  box-shadow: inset 0 0 0 1px var(--navy);
+}
+[data-theme='dark'] .promo__tier input:checked + .promo__tier-face {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+.promo__tier input:focus-visible + .promo__tier-face { box-shadow: var(--focus-ring); }
+.promo__tier-days { font-size: var(--fs-xs); color: var(--text-muted); }
+.promo__tier-price { font-size: var(--fs-sm); font-weight: 700; color: var(--text); }
+
+.promo__total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.promo__total strong { font-size: var(--fs-base); color: var(--text); }
+
+/*
+  The broker's two paid placements, on their profile.
+
+  Both are a violet button in a field's heading row and a dialog behind it —
+  see components/broker-ad.html — so the component itself is only a wrapper
+  around the button plus whatever is running now. It is display:contents so the
+  wrapper does not become a box in the middle of the label row: the button is
+  what the row lays out, and the dialog is fixed to the viewport anyway.
+*/
+.broker-ad { display: inline-flex; flex: none; }
+
+/* What is running now, listed under the field the button sits on rather than
+   inside its heading row — see broker-ad-runs in components/broker-ad.html. */
+.broker-ad__runs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+}
+
+.broker-ad__status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--gold-tint);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.broker-ad__status svg { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--gold); }
+.broker-ad__status strong { color: var(--text); }
+
+/*
+  Run length: a number the broker types, with the unit inside the box so the
+  field reads as "10 days" rather than as a bare integer.
+
+  A free number rather than a ladder of fixed runs, because the price is per
+  day per market now — "the broker choosess the Germany and Poland for 10 days"
+  — so there is no tier for the length to have to land on. The chips beside it
+  are shortcuts to the common answers.
+*/
+.days-field { position: relative; display: inline-flex; align-items: center; }
+.days-field .input { width: 7.5rem; padding-right: 3.25rem; }
+.days-field__unit {
+  position: absolute;
+  right: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* A chip that is a button rather than a removable filter. */
+.chip--action { cursor: pointer; background: var(--surface-2); }
+.chip--action:hover { border-color: var(--border-strong); }
+.chip--action.is-on {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--on-primary);
+}
+[data-theme='dark'] .chip--action.is-on {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--text-on-gold);
+}
+
+/*
+  The bill.
+
+  "So the system will calculate a bill: Germany 3 € per day x 10 = 30 €; for
+  Estonia 1 € per day x 10 = 10 €; total: 40 €." One line per market, each
+  showing its own rate and its own arithmetic, then the total — which is the
+  client's layout, not a summary of it. A single "2 markets × 10 days = €40"
+  would hide the one number the whole per-country price list exists to show.
+*/
+.ad-bill {
+  padding: var(--sp-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.ad-bill__lines { list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ad-bill__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ad-bill__line strong { color: var(--text); }
+.ad-bill__total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.ad-bill__total strong { font-size: var(--fs-h4); color: var(--text); }
 
 /*
   Touch targets for the card pager.
@@ -1891,3 +2636,614 @@
   font-size: var(--fs-xs);
   font-weight: 700;
 }
+
+/* ==========================================================================
+   Profile picture and company logo
+   ==========================================================================
+
+   The client's 17 August notes, in order:
+
+     "this avatar, what at the moment is round, make rectangle with rounded
+      corners"
+
+     "make 'your company logo' where the brokers can upload their compay logo,
+      it is rectangle with rounded corners and a bit bigger"
+
+   So both are rounded rectangles and the logo's box is the larger and, more to
+   the point, the wider: a company logo is a wordmark more often than a
+   monogram, and a square frame crops one. Two fields side by side, because the
+   two are not alternatives — a broker has both a face and a brand — and either
+   may be left empty.
+   ========================================================================== */
+
+.upload-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-5);
+}
+.upload-field { display: flex; flex-direction: column; gap: var(--sp-2); }
+.upload-field__body { display: flex; align-items: center; gap: var(--sp-4); }
+.upload-field .btn { align-self: flex-start; }
+
+/* The profile picture. Square, so a portrait is not asked to crop to a circle,
+   with the same corner radius the rest of the interface uses on a small tile. */
+.avatar-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 88px; height: 88px;
+  border-radius: var(--r-md);
+  object-fit: cover;
+  object-position: center top;
+  background: var(--navy-tint);
+  color: var(--slate);
+  font-size: var(--fs-h3);
+  font-weight: 600;
+  overflow: hidden;
+}
+.avatar-tile--empty { border: 1px dashed var(--border-strong); }
+
+/* The company logo. Wider than tall and larger than the avatar, sized to the
+   200 × 56 the seller box and the broker profile both reserve for one. */
+.logo-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 160px; height: 88px;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  object-fit: contain;      /* never crop somebody's logo */
+  background: #fff;         /* a logo is drawn for white, in either theme */
+  overflow: hidden;
+}
+.logo-tile--empty {
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-subtle);
+}
+.logo-tile--empty svg { width: 28px; height: 28px; }
+
+/* ==========================================================================
+   Tag picker
+   ==========================================================================
+
+   The market picker's menu, choosing several instead of one — see
+   components/tag-picker.html. Used for the languages of communication and for
+   the countries a seller is active in.
+   ========================================================================== */
+
+.tagpick { position: relative; }
+
+/*
+  The box and its menu, and nothing else.
+
+  The menu is placed with `top: calc(100% + 4px)`, and a percentage top is a
+  percentage of the *containing block's* height — so while this wrapper did not
+  exist the 100% was the height of the whole field, hint included, and the menu
+  opened that far below the button instead of under it. On the settings screen
+  that dropped it clear of the card, which is what the client saw: "these
+  dropdown menus open in wrong place, make them to be opened in the same place
+  where you click them".
+*/
+.tagpick__anchor { position: relative; }
+
+/* Chosen values and the button that opens the menu, in one box, so the control
+   reads as a single field however many tags are in it. */
+.tagpick__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 48px;
+  padding: 7px var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+}
+.tagpick:focus-within .tagpick__box {
+  border-color: var(--navy);
+  box-shadow: var(--focus-ring);
+}
+[data-theme='dark'] .tagpick:focus-within .tagpick__box { border-color: var(--gold); }
+
+/*
+  "Any language" while nothing is ticked — the resting state of the two search
+  filters, and the whole control at that point.
+
+  Drawn as the field's own text with a chevron rather than as a tag or a dashed
+  pill, because it is not a choice that can be removed: it is what the field
+  says before a choice is made, and the first tag replaces it. Fills the box so
+  the whole field opens the menu, the way clicking a select anywhere opens it.
+*/
+.tagpick__any {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-subtle);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.tagpick__any svg { width: 16px; height: 16px; flex: none; }
+.tagpick__any:hover { color: var(--text); }
+
+.tagpick__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 8px;
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tagpick__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.tagpick__remove svg { width: 12px; height: 12px; }
+.tagpick__remove:hover { background: var(--error-bg); color: var(--error); }
+.tagpick__remove:focus-visible { box-shadow: var(--focus-ring); }
+
+.tagpick__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px var(--sp-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.tagpick__add svg { width: 13px; height: 13px; }
+.tagpick__add:hover { border-color: var(--navy); color: var(--navy); }
+[data-theme='dark'] .tagpick__add:hover { border-color: var(--gold); color: var(--gold); }
+
+/*
+  The menu itself. Anchored to the bottom of the box it opens from, and capped
+  so a long list scrolls inside it instead of running off the card.
+
+  This element does the positioning, not the .menu inside it: two stacked
+  offsets — a relative one here and an absolute one on .menu — were how the
+  original ended up placing the menu twice and landing it in neither place.
+
+  Selected through the anchor rather than on its own, because .dropdown and
+  .dropdown > .menu are declared in pages.css, which loads after this file. At
+  equal specificity those would win and the element would stay `relative` — the
+  same trap the Leaflet popup close button fell into. Two classes beat one
+  whatever the load order.
+*/
+.tagpick__anchor > .tagpick__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: auto;
+  z-index: calc(var(--z-header) + 5);
+  width: min(360px, 100%);
+}
+.tagpick__anchor > .tagpick__dropdown > .menu {
+  position: static;
+  margin-top: 4px;
+}
+
+/* Flipped above the box, set by previaTagPicker.place() when what is below is
+   not tall enough to hold the menu. */
+.tagpick__anchor.is-up > .tagpick__dropdown { top: auto; bottom: 100%; }
+.tagpick__anchor.is-up > .tagpick__dropdown > .menu { margin-top: 0; margin-bottom: 4px; }
+/*
+  Shorter than the market menu's own list, so a picker opening low on a form
+  still shows its menu rather than running under the footer. Scoped through the
+  anchor for the pages.css load-order reason above — .market-menu__list sets
+  min(46vh, 320px) there and would otherwise win.
+*/
+.tagpick__anchor .tagpick__list { max-height: min(260px, 38vh); }
+
+/*
+  An option is a label wrapping a real checkbox, so the whole row is a hit
+  target and the set of checkboxes *is* what the form submits — nothing is
+  mirrored into hidden inputs. The checkbox itself is hidden and the tick on the
+  right is what reports the state, the same arrangement the market menu uses for
+  its current market.
+*/
+.tagpick__option { cursor: pointer; }
+.tagpick__input { position: absolute; opacity: 0; width: 0; height: 0; }
+.tagpick__name { flex: 1; min-width: 0; }
+.tagpick__native {
+  color: var(--text-subtle);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.tagpick__tick { display: none; color: var(--success); }
+.tagpick__tick svg { width: 16px; height: 16px; }
+.tagpick__input:checked ~ .tagpick__tick { display: inline-flex; }
+.tagpick__input:checked ~ .tagpick__native { display: none; }
+.tagpick__option:has(.tagpick__input:checked) { background: var(--surface-3); }
+.tagpick__option:has(.tagpick__input:focus-visible) { box-shadow: var(--focus-ring); }
+
+/* The seller's picture on a listing: the same rounded rectangle as the profile
+   screen it is uploaded on, at the 64px that box gives it. */
+.avatar-tile--sm {
+  width: 64px; height: 64px;
+  font-size: var(--fs-lg);
+  border-radius: var(--r-sm);
+}
+/* The same tile at profile-header size. */
+.avatar-tile--lg { width: 96px; height: 96px; }
+
+/*
+  The seller's picture and name, as one link to their page.
+
+  A block link rather than two, so the picture and the name cannot end up
+  pointing at different places, and only the name takes the link colour on
+  hover: the role and the company inside the anchor are describing the person,
+  not offering a second destination.
+*/
+.seller-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  border-radius: var(--r-md);
+  transition: color var(--dur-fast) var(--ease);
+}
+.seller-identity:hover .seller-identity__name { color: var(--link); }
+/* The picture answers the hover too — a ring rather than a border, so nothing
+   in the row moves by a pixel when the pointer arrives. */
+.seller-identity:hover .avatar-tile { box-shadow: 0 0 0 2px var(--border-strong); }
+.seller-identity:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/*
+  A piece of text that is a link and has to say so without an underline — the
+  address at the top of a listing, which opens Google Maps navigation. The
+  client asked for blue and for no rule under it, in both themes.
+*/
+/*
+  The listing's address, which opens Google Maps directions.
+
+  #0000FF exactly, in both themes, at the client's word on 18 August: "in the
+  single ad page this link works perfectly, just make the color of it #0000FF".
+  It was --link, a softer blue picked per theme for contrast. Hover lightens
+  rather than darkens, since pure blue has nowhere darker to go that still
+  reads as the same colour.
+*/
+.address-link { color: #0000FF; text-decoration: none; }
+.address-link:hover { color: #3333FF; text-decoration: none; }
+
+/*
+  The seller's own line about where they are, under their identity in the
+  listing's contact box. A pin, then their text — and the pin is 16px so it
+  reads as a marker beside a line of type rather than as an icon in its own
+  right.
+*/
+.seller-place {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.seller-place svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--text-subtle); }
+
+/*
+  The company logo at the foot of the seller box.
+
+  A logo is somebody else's artwork: it is never cropped, never tinted and never
+  put on a coloured ground, so the frame is white in both themes and the image
+  is contained rather than covered. The separating rule above it is what marks
+  it as the company behind the person rather than a second control.
+*/
+.seller-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-3);
+  margin-top: var(--sp-1);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.seller-logo:hover { border-color: var(--border-strong); }
+.seller-logo img { max-width: 100%; height: auto; max-height: 56px; object-fit: contain; }
+
+/* The agency's logo in place of a monogram on its profile header. Wider than
+   the tile it replaces, and flush with the heading beside it. */
+.profile-head__logo { flex: none; width: 200px; padding: var(--sp-3) var(--sp-4); }
+
+/* ==========================================================================
+   Direct from the owner
+   ==========================================================================
+
+   "add more one thing 'direct from the owner' and for this in a frontend there
+   is a special label. As sometimes it is important to note that the property
+   owner itself is selling it."
+
+   Its own colour, not a reuse of one already on the card. Gold is a paid
+   placement and green is something Previa has verified; this is neither — it is
+   a fact about who is on the other end of the enquiry, and it has to be
+   tellable apart from both at a glance on a card that may carry all three.
+   Teal is the third accent the palette already holds, so the badge is new
+   without introducing a new hue.
+   ========================================================================== */
+
+.badge--owner {
+  background: var(--teal-tint);
+  color: var(--teal);
+  border: 1px solid var(--teal);
+}
+[data-theme='dark'] .badge--owner {
+  background: var(--teal-tint);
+  color: var(--teal);
+  border-color: var(--teal);
+}
+.badge--owner svg { width: 13px; height: 13px; }
+
+/* A hint under a checkbox, for a control whose effect is not obvious from its
+   own label — "Direct from the owner" being the case it was added for. */
+.check__hint {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   Listing status, and the statistics panel
+   ========================================================================== */
+
+/* A quiet destructive action. Reads as neutral until the pointer is on it,
+   because a row of icon buttons should not have one of them shouting. */
+.btn--danger-quiet:hover { color: var(--error); background: var(--error-bg); }
+
+/* The four totals above the chart. */
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+}
+.stat-strip__item { display: flex; flex-direction: column; gap: 2px; }
+.stat-strip__value {
+  font-size: var(--fs-h4);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-strip__label { font-size: var(--fs-2xs); color: var(--text-muted); }
+
+/*
+  The chart itself.
+
+  Fourteen bars in a dialog is tighter than the admin dashboard's six, so the
+  columns lose their gap and the labels turn on their side rather than
+  overlapping. Everything else is the shared .bars component — one chart
+  treatment on the site, and still no charting library.
+*/
+.stats-chart { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.stats-chart .bars--dense {
+  gap: 6px;
+  height: 190px;
+  padding-top: var(--sp-2);
+  overflow-x: auto;      /* a very narrow dialog scrolls rather than crushing */
+}
+.bars--dense .bars__col { min-width: 26px; gap: 4px; }
+.bars--dense .bars__bar { max-width: none; border-radius: 3px 3px 0 0; }
+.bars--dense .bars__label {
+  font-size: 10px;
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  line-height: 1;
+}
+/* The count above each bar, so the chart is readable as numbers too. */
+.bars__value {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Sort by — the one menu, on the listings page and on the map
+   ==========================================================================
+   "In the maps page there is 'All locations · Newest first' there make the same
+   'sort by' menu as in listing page. And sort by in both places write with
+   small letter."
+
+   One rule for one component, because the client's point was that the two
+   screens should offer the same control rather than two that look alike. The
+   label sits on the same baseline as the field and never wraps: it is two short
+   words, and a "sort" / "by" break would read as two labels.
+
+   Lower-case is set here rather than left to the markup so it survives a
+   translation pass that capitalises its strings: .field__label is used across
+   the site with sentence case, and this is the one place that opts out. */
+.sort-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.sort-field__label {
+  white-space: nowrap;
+  margin: 0;
+  text-transform: lowercase;
+}
+.sort-field__select {
+  min-height: 40px;
+  width: auto;
+}
+
+/* ==========================================================================
+   Distance
+   ==========================================================================
+   "So on every broker profile now come the 'distance' like it is in sexydate
+   page", and for listings: "all the ads displayed have on bottom the distance
+   and distance number is red."
+
+   The reference the client sent puts the word in ordinary ink and the figure in
+   red, and that is the whole design: the label is furniture, the number is what
+   one card is compared with the next on.
+
+   The red is the literal #FF0000 in both themes, matching the hearts and the
+   clear-all cross — every red the client has specified on this site is that
+   one, and --error is a muted brick that does not read as the same instruction.
+
+   One block for both cards, because it is the same fact in both places. */
+.distance-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.distance-line__value {
+  color: #FF0000;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Broker cards beside the map: the narrow column's variant.
+
+   The directory's card is a portrait photograph over a fixed identity block —
+   right for a four-across grid, far too tall for a 420px column that also has
+   to hold listings. So the map variant lays the same content along a row, the
+   way .pcard--map does, and drops the parts that need width: the e-mail
+   address, the second action and the rating's review count.
+
+   Same component and the same class names, so nothing about it can drift from
+   the card a reader met on the homepage — but three of the base card's rules
+   exist only to make the photograph full-bleed at the top of a tall card, and
+   all three have to be undone here: the negative margins that push the media
+   out through the padding, the 4:5 portrait ratio, and the centred text. */
+.bcard--map {
+  /* A positioning context for the locate button. The tall card never needed
+     one, because it has no absolutely positioned child of its own. */
+  position: relative;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  grid-template-areas:
+    'media identity'
+    'foot  foot';
+  gap: 0 var(--sp-3);
+  align-items: start;
+  align-content: start;
+  height: auto;
+  padding: var(--sp-3);
+  text-align: left;
+}
+.bcard--map .bcard__media {
+  grid-area: media;
+  align-self: start;
+  /* The full-bleed margins and the top-only radius are the tall card's; here
+     the photograph is a tile inside the padding. */
+  margin: 0;
+  border-radius: var(--r-md);
+}
+.bcard--map .bcard__photo {
+  aspect-ratio: 1 / 1;
+  border-radius: var(--r-md);
+}
+.bcard--map .bcard__count { display: none; }
+.bcard--map .bcard__identity {
+  grid-area: identity;
+  min-height: 0;
+  gap: 2px;
+}
+.bcard--map .bcard__location { justify-content: flex-start; }
+.bcard--map .bcard__foot { grid-area: foot; margin-top: var(--sp-3); }
+.bcard--map .bcard__contact { align-items: flex-start; }
+.bcard--map .bcard__contact a:first-child { display: none; }
+.bcard--map .bcard__actions { grid-template-columns: 1fr; }
+.bcard--map .bcard__actions .btn--primary { display: none; }
+.bcard--map .distance-line { justify-content: flex-start; }
+/* The locate button, in the same corner a listing card carries it. */
+.bcard__locate { top: var(--sp-3); right: var(--sp-3); }
+
+/* The broker strip inside the search results.
+
+   Advertising, above the listings and marked as a block of its own, because a
+   paid card shuffled between two listings reads as a listing until it is too
+   late. */
+.results-brokers { margin-bottom: var(--sp-6); }
+.results-brokers__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.results-brokers__head svg { width: 16px; height: 16px; flex: none; color: var(--teal); }
+.results-brokers__head strong { color: var(--text); }
+
+/* Brokers, under the deal types in the filter panel.
+
+   One cell rather than three, so it cannot be mistaken for a fourth deal type,
+   and the teal tint says it adds results rather than narrowing them — every
+   other control in the panel takes listings away. */
+.segmented--brokers { margin-top: var(--sp-2); }
+/* The icon sits beside the word, not above it: .icon is display:block across
+   the site, and inside a plain text span that stacks the two. */
+.segmented--brokers .segmented__item > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.segmented--brokers .segmented__item svg { width: 15px; height: 15px; }
+
+/*
+  The line under the Brokers button, tightened.
+
+  "In the main search menu this text 'Show brokers advertising on the map
+  alongside the listings.' move more up closer to it's button and reduce the
+  line spacing of it."
+
+  Both halves are here. The fieldset around them is a .field, which spaces its
+  children with an 8px gap; a negative margin of half that is what closes the
+  distance without changing the gap for every other field on the site. And the
+  hint sets its own line height — 1.3 against the 1.55 it inherits — so the two
+  lines sit as one caption under the control rather than as loose body text.
+*/
+.segmented--brokers + .field__hint {
+  margin-top: calc(var(--sp-1) - var(--sp-2));
+  line-height: var(--lh-snug);
+}
+
+/* The market runs on the profile: one line per market, each with its own
+   countdown, because each was a separate purchase. */
+.broker-ad__runs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+  list-style: none;
+}
+.broker-ad__live { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.broker-ad__live svg { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.broker-map-ad { margin-top: var(--sp-5); }

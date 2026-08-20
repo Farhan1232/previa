@@ -2,8 +2,20 @@
 {{ $d := .Data }}
 {{ $p := $d.Package }}
 
-<div class="container container--narrow section">
-  <nav aria-label="Breadcrumb" style="margin-bottom:var(--sp-5)">
+{{/*
+  Checkout opens close under the header rather than a full section down: the
+  client's note was that the page began with an unnecessary band of empty
+  space above the breadcrumb. --section-y is 48–96px; sp-6 is 24.
+
+  The reading-width container it used to sit in is gone, and that is the price
+  of "the payment methods make there in 2 columns". At 820px the form column
+  beside the sticky summary was 404px wide, so two payment tiles were 175px
+  each — narrower than the words "Credit card" set on one line. On the ordinary
+  container the same column is 864px and a tile is 420px, which is the width
+  the client's own screenshot shows the single column having.
+*/}}
+<div class="container section section--after-head">
+  <nav aria-label="Breadcrumb" style="margin-bottom:var(--sp-4)">
     <ol class="breadcrumbs">
       <li><a href="/pricing">Packages</a> {{ template "icon" "chevron-right" }}</li>
       <li aria-current="page">Checkout</li>
@@ -149,22 +161,35 @@
               Logos are local SVGs — no provider script is loaded and no
               external asset is fetched.
             */}}
-            {{ range $d.Methods }}
-            <label class="option-row pay-option{{ if .Disabled }} is-disabled{{ end }}">
-              <input type="radio" name="method" value="{{ .Value }}"
-                     {{ if .Checked }}checked{{ end }} {{ if .Disabled }}disabled{{ end }}>
-              <span style="flex:1">
-                <span class="row row--between" style="gap:var(--sp-3)">
-                  <span class="strong pay-option__name">
-                    <span class="pay-logo" aria-hidden="true">{{ template "pay-logo" .Logo }}</span>
-                    {{ .Label }}
+            {{/*
+              Two columns, at the client's request on 19 August: "the payment
+              methods make there in 2 columns". The tiles are laid out by the
+              grid rather than by the .stack above, which is why the range sits
+              in its own element — and the columns collapse to one on a phone,
+              where two would leave a provider's name with about eighty pixels
+              to fit in.
+            */}}
+            <div class="pay-grid">
+              {{ range $d.Methods }}
+              <label class="option-row pay-option{{ if .Disabled }} is-disabled{{ end }}">
+                <input type="radio" name="method" value="{{ .Value }}"
+                       {{ if .Checked }}checked{{ end }} {{ if .Disabled }}disabled{{ end }}>
+                <span style="flex:1">
+                  <span class="row row--between" style="gap:var(--sp-3)">
+                    <span class="strong pay-option__name">
+                      <span class="pay-logo" aria-hidden="true">{{ template "pay-logo" .Logo }}</span>
+                      {{ .Label }}
+                    </span>
+                    {{ if .Disabled }}<span class="badge badge--neutral">Coming soon</span>{{ end }}
                   </span>
-                  {{ if .Disabled }}<span class="badge badge--neutral">Coming soon</span>{{ end }}
+                  {{/* A provider whose name is its own explanation carries no
+                       line at all — the empty span it used to leave behind
+                       still took up the gap under the name. */}}
+                  {{ if .Hint }}<span class="text-sm muted">{{ .Hint }}</span>{{ end }}
                 </span>
-                <span class="text-sm muted">{{ .Hint }}</span>
-              </span>
-            </label>
-            {{ end }}
+              </label>
+              {{ end }}
+            </div>
 
             {{/*
               What separates Credit card from Stripe, shown rather than only

@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
+	"previa/pkg/data"
 	"previa/pkg/models"
 )
 
@@ -18,10 +20,48 @@ type ListData struct {
 	Category     string
 	Countries    []models.Country
 	FilterQ      string
-	FilterCity   string
 	FilterLang   string
-	Languages    []string
+	Languages    []LanguageOption
+
+	// The broker directory's map search, which replaced its country and city
+	// selects. FilterLocation is redisplayed in the Location box, FilterRadius
+	// is the chosen distance, and LocationSuggestions backs the box's
+	// autocomplete — the same control and the same catalogue the property
+	// search uses, so a place found there is findable here.
+	FilterLocation      string
+	FilterRadius        int
+	FilterLangs         []string
+	LocationSuggestions []models.LocationSuggestion
+
+	// ByMarket says the directory is showing the header market's paid strip
+	// rather than a radius search, which is the state it opens in.
+	//
+	// The client gave the page two modes and made them exclusive: "on top in
+	// the header is the choose your market button, and so whatever market is
+	// chosen there, then these brokers what have bought ad in this market are
+	// displayed there … and if the user in this search menu enters the location
+	// and radius, then the 'choose your market' system is not active any more."
+	// The page says which one it is running, because a list of four brokers
+	// that does not explain itself reads as a directory with four people in it.
+	ByMarket bool
 }
+
+// LanguageOption is one choice in the broker directory's language filter: the
+// code that travels in the URL, the label a reader sees, and the country whose
+// flag stands for it.
+type LanguageOption struct {
+	Code string
+	Name string
+	Flag string
+}
+
+// DefaultBrokerRadius is the client's figure, used when none is asked for —
+// "from this location and with this radius (50 km) the brokers are displayed".
+//
+// The seven fixed distances that used to sit beside it are gone: the radius is
+// typed now, stepped in tens by the field's own arrows, so any number is
+// reachable and a list of choices would only get in the way.
+const DefaultBrokerRadius = 50
 
 // Developments renders the developments index.
 func (h *Handler) Developments(w http.ResponseWriter, r *http.Request) {
@@ -47,21 +87,77 @@ func (h *Handler) Brokers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
 	pd := h.base(r, "brokers", "Find a broker — Previa",
-		"Search verified real-estate brokers by country, city, language and specialisation.")
+		"Search real-estate brokers on the map by location, radius, language and specialisation.")
 
-	langs := []string{"English", "German", "Spanish", "Estonian", "Finnish",
-		"Portuguese", "Dutch", "Czech", "French", "Russian", "Swedish", "Catalan", "Italian"}
+	// Every language on the catalogue, not only the ones a seeded broker
+	// happens to speak: "in the language section enlist all the languages with
+	// search menu and multiselect function." The picker is the market menu, so
+	// it is searchable, and a language nobody speaks yet simply returns nothing
+	// rather than being missing from the list.
+	var langs []LanguageOption
+	for _, l := range data.SpokenLanguages() {
+		langs = append(langs, LanguageOption{Code: l.Code, Name: l.Name, Flag: l.Flag})
+	}
+
+	// The place, and how far from it to look.
+	//
+	// A label is resolved to a point through the same catalogue the property
+	// search resolves against, so "Tallinn" means the same coordinates in both.
+	// An unresolvable label keeps its text and the filter matches it against
+	// the broker's city and country instead — see data.Mock.Filter.
+	//
+	// With nothing typed into it, the market chosen in the header decides
+	// instead, and the page shows exactly what that market's homepage strip
+	// shows: "whatever market is chosen there, then these brokers what have
+	// bought ad in this market are displayed there — so the same as the
+	// frontpage broker section." data.Mock.Filter is where the two modes are
+	// held apart; the handler only has to hand it both.
+	f := data.BrokerFilter{
+		Location:   strings.TrimSpace(q.Get("location")),
+		RadiusKm:   DefaultBrokerRadius,
+		Languages:  languageCodes(q["language"]),
+		Q:          strings.TrimSpace(q.Get("q")),
+		MarketCode: pd.Country.Code,
+	}
+	if n, err := strconv.Atoi(q.Get("radius")); err == nil && n > 0 {
+		f.RadiusKm = n
+	}
+	if f.Location != "" {
+		if s, ok := h.Store.Catalog.ResolveLocation(f.Location); ok {
+			f.Lat, f.Lng = s.Lat, s.Lng
+		}
+	}
 
 	pd.Data = ListData{
-		Brokers: h.Store.Brokers.Filter(ctx,
-			strings.ToUpper(q.Get("country")), q.Get("city"), q.Get("language"), q.Get("q")),
-		Countries:  h.Store.Catalog.Countries(ctx),
-		FilterQ:    q.Get("q"),
-		FilterCity: q.Get("city"),
-		FilterLang: q.Get("language"),
-		Languages:  langs,
+		Brokers:             h.Store.Brokers.Filter(ctx, f),
+		Countries:           h.Store.Catalog.Countries(ctx),
+		FilterQ:             f.Q,
+		FilterLocation:      f.Location,
+		FilterRadius:        f.RadiusKm,
+		FilterLangs:         f.Languages,
+		Languages:           langs,
+		LocationSuggestions: h.Store.Catalog.LocationSuggestions(ctx),
+		ByMarket:            f.MarketCode != "" && f.IsBrowsing(),
 	}
 	h.View.Render(w, http.StatusOK, "brokers", pd)
+}
+
+// languageCodes normalises the repeated `language` parameter the multi-select
+// submits.
+//
+// "The first selection is 'any'", and Any is the absence of a choice rather
+// than a code of its own — it submits nothing, and an empty list matches every
+// broker. Blanks are dropped so a stray `&language=` in a hand-edited URL
+// cannot become a language nobody speaks.
+func languageCodes(vals []string) []string {
+	var out []string
+	for _, v := range vals {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // Agencies renders the agency directory.
@@ -106,6 +202,16 @@ func (h *Handler) Pricing(w http.ResponseWriter, r *http.Request) {
 		"Compare Basic, Standard, Premium and Agency packages. Publish a property from €19.")
 	pd.Data = ListData{Packages: h.Store.Catalog.Packages(r.Context())}
 	h.View.Render(w, http.StatusOK, "pricing", pd)
+}
+
+// FAQ renders the frequently-asked-questions page.
+//
+// The accordion used to be the last band on /pricing; it is a page of its own
+// now because the footer links to it directly.
+func (h *Handler) FAQ(w http.ResponseWriter, r *http.Request) {
+	pd := h.base(r, "", "FAQ — Previa",
+		"Answers to the questions Previa sellers, buyers and renters ask most often about listings, packages, promotion and contacting a seller.")
+	h.View.Render(w, http.StatusOK, "faq", pd)
 }
 
 // Help renders the help and contact page.
@@ -195,7 +301,7 @@ func (h *Handler) Sitemap(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, p := range []string{"/", "/search", "/developments", "/brokers", "/agencies",
-		"/articles", "/pricing", "/about", "/help"} {
+		"/articles", "/pricing", "/faq", "/about", "/help"} {
 		add(p, "daily", "0.9")
 	}
 	res, _ := h.Store.Properties.Search(ctx, parseAll())

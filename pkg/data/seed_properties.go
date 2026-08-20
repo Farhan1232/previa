@@ -626,17 +626,73 @@ func buildProperties(now time.Time, pool []string) []models.Property {
 		if flags["private"] {
 			p.SellerKind = models.SellerPrivate
 			p.BrokerID = ""
+			// Most private sellers are the owner, and this is the label the
+			// client wanted stated outright — but not all of them are, so it is
+			// deliberately not every private listing. Every third one here is
+			// somebody listing on an owner's behalf: an heir, a landlord's
+			// relative, a company officer. That the two are not the same field
+			// is the whole reason DirectFromOwner exists.
+			p.DirectFromOwner = i%3 != 2
 		} else {
 			p.SellerKind = models.SellerBroker
 			p.AgencyID = agencyForBroker(s.broker)
+			// A broker selling their own flat. Rare, and the point of the
+			// example: the label belongs to the seller's relationship with the
+			// property, not to whether they have an agency behind them.
+			p.DirectFromOwner = i%17 == 0
 		}
+
+		p.ContactPhone = phoneForBroker(s.broker)
+		p.Messengers = buildMessengers(i, p.ContactPhone)
+		p.Languages = saleLanguages(s.broker, p.SellerKind, s.country)
 
 		p.Slug = slugify(s.title) + "-" + p.ID
 		p.Images = buildGallery(pool, s.imgs, p)
 		p.Features = featuresFor(p)
+		p.Amenities = amenitiesFor(p, i)
 		p.Highlights = highlightsFor(p)
 
 		out = append(out, p)
+	}
+	return out
+}
+
+// buildMessengers gives a listing a plausible set of chat apps.
+//
+// Real sellers enable different combinations, and the design has to cope with
+// one icon and with five, so the mock varies them deterministically by index
+// rather than switching them all on everywhere. WhatsApp is on every listing
+// because in practice almost everyone has it.
+//
+// Telegram carries a username handle on some listings and falls back to the
+// phone number on the rest, which exercises both of the link forms the client
+// described. Teams needs an address of its own — there is nothing to derive it
+// from — so it appears only where one is supplied.
+func buildMessengers(i int, phone string) []models.Messenger {
+	if phone == "" {
+		return nil
+	}
+
+	out := []models.Messenger{{Kind: models.MessengerWhatsApp}}
+
+	switch i % 4 {
+	case 0:
+		out = append(out,
+			models.Messenger{Kind: models.MessengerTelegram, Handle: fmt.Sprintf("previa_seller_%02d", i+1)},
+			models.Messenger{Kind: models.MessengerViber},
+		)
+	case 1:
+		out = append(out,
+			models.Messenger{Kind: models.MessengerTelegram},
+			models.Messenger{Kind: models.MessengerSignal},
+		)
+	case 2:
+		out = append(out,
+			models.Messenger{Kind: models.MessengerViber},
+			models.Messenger{Kind: models.MessengerSignal},
+			models.Messenger{Kind: models.MessengerTeams,
+				Handle: fmt.Sprintf("seller%02d@previa.example", i+1)},
+		)
 	}
 	return out
 }
@@ -747,6 +803,56 @@ func featuresFor(p models.Property) []models.Feature {
 		add("year", fmt.Sprintf("Built %d", p.BuildYear), "calendar", true)
 	}
 	return f
+}
+
+// amenitiesFor gives a listing its ticks from the "Features and amenities"
+// catalogue the client asked to be searchable.
+//
+// The eight qualities the seed actually models — parking, balcony, terrace and
+// the rest — come straight off the listing, so a filter on any of them is
+// answering from real data. The rest of the catalogue is not modelled anywhere
+// in this milestone: there is no field on a listing that says whether it has a
+// coffee maker, because nothing has ever asked one. Rather than leave those
+// thirty ticks matching nothing at all — a filter that always returns an empty
+// page reads as broken — each is switched on for a deterministic slice of the
+// stock, spread by the listing's index so the sets differ from tick to tick and
+// are identical on every run.
+//
+// It is mock data, like every price and every photograph in this package, and
+// it goes when the MySQL-backed provider lands: at that point a listing carries
+// the seller's own ticks and this function is deleted rather than ported.
+func amenitiesFor(p models.Property, i int) []string {
+	// What the listing genuinely is.
+	real := map[string]bool{
+		"parking":   p.Parking,
+		"balcony":   p.Balcony,
+		"terrace":   p.Terrace,
+		"garden":    p.Garden,
+		"elevator":  p.Elevator,
+		"sauna":     p.Sauna,
+		"seaview":   p.SeaView,
+		"furnished": p.Furnished,
+	}
+
+	var out []string
+	n := 0
+	for _, g := range models.AmenityGroups {
+		for _, a := range g.Items {
+			if on, known := real[a.Key]; known {
+				if on {
+					out = append(out, a.Key)
+				}
+				continue
+			}
+			// Coprime strides so no two ticks land on the same set of
+			// listings, and every tick lands on some.
+			n++
+			if (i+n*7)%(3+n%4) == 0 {
+				out = append(out, a.Key)
+			}
+		}
+	}
+	return out
 }
 
 // highlightsFor produces the short bullet list under the detail-page title.

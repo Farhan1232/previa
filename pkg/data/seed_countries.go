@@ -1,6 +1,10 @@
 package data
 
-import "previa/pkg/models"
+import (
+	"strings"
+
+	"previa/pkg/models"
+)
 
 // ---------------------------------------------------------------------------
 // The world list
@@ -221,6 +225,31 @@ var worldCountries = []models.Country{
 // Both are built once at init rather than per request: the selector renders on
 // almost every page and the list never changes within a run.
 var allCountries, otherCountries = buildCountryLists()
+
+// CountryName is the display name for an ISO 3166-1 alpha-2 code, over the
+// whole world list rather than the eight seeded markets.
+//
+// Templates need this wherever a country is stored as a code and shown as a
+// name — the "Active in" block on a broker's profile is the first such place,
+// and a broker active in a market Previa has no listings in is exactly the case
+// the eight-market lookup could not answer.
+//
+// Falls back to the code, so an unrecognised value is visible rather than a
+// blank space where a country should be.
+func CountryName(code string) string {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	for _, c := range countries {
+		if c.Code == code {
+			return c.Name
+		}
+	}
+	for _, c := range worldCountries {
+		if c.Code == code {
+			return c.Name
+		}
+	}
+	return code
+}
 
 func buildCountryLists() (all, other []models.Country) {
 	seeded := make(map[string]bool, len(countries))

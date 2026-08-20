@@ -1,0 +1,148 @@
+{{/*
+  The map placement — the second paid service, and the one that runs against the
+  pin rather than against the markets.
+
+  The client's design, 18 August:
+
+    "And the second thing what the broker can do, is to choose under his profile
+     his googlemaps location like described earlier. And in this case, if he
+     wants (this will be a paid service) he can activate that his broker profile
+     is displayed in the googlemaps like the ads."
+
+  And its own control, 19 August:
+
+    "Then after title 'Your location on the map' make the same advertise button.
+     And if open it then is popup menu with option 'Make your broker profile
+     visible on the Google map'. There is no country menu. There is just option
+     make your broker profile visible on the Google map for set amount of days.
+     Can choose 5 days - 1 €, 10 days - 2 €, 20 days - 3 € etc."
+
+  So it is the same violet button and the same kind of dialog as the homepage
+  placement, and deliberately a shorter one: no market picker, because what is
+  bought is one point on one map. That is the whole reason this is its own
+  control and not another market in the strip's picker — there is nothing to
+  multiply, so the price is a plain ladder of run lengths.
+
+  A broker with no pin can still buy it and simply will not appear until they
+  drop one, so the dialog says so rather than refusing the sale.
+
+  Args (dict):
+    Plan     models.BrokerMapAdPlan
+    Ad       models.BrokerMapAd     what is running now, if anything
+    HasPin   bool                   whether a pin has been placed at all
+
+  Nothing is submitted this milestone, as with every other form on the site: the
+  fields are named for whichever backend takes over. See
+  docs/backend-integration-points.md.
+*/}}
+{{ define "broker-map-ad" }}
+{{ $plan := .Plan }}
+{{ $ad := .Ad }}
+<div class="broker-ad broker-map-ad" x-data="previaMapAd()">
+
+  <button type="button" class="btn btn--advertise btn--sm" @click="openDialog()"
+          :aria-expanded="dialog" aria-haspopup="dialog">
+    {{ template "icon" "map-pin" }} advertise
+  </button>
+
+  <div class="modal-backdrop" x-show="dialog" x-cloak
+       x-transition.opacity.duration.150ms
+       @click.self="closeDialog()" @keydown.escape.window="closeDialog()">
+    <div class="modal" role="dialog" aria-modal="true"
+         aria-labelledby="broker-map-ad-title" x-trap.noscroll="dialog">
+      <div class="modal__header">
+        <h2 class="modal__title" id="broker-map-ad-title">
+          Make your broker profile visible on the Google map
+        </h2>
+        <button type="button" class="icon-btn" @click="closeDialog()"
+                aria-label="Close">{{ template "icon" "close" }}</button>
+      </div>
+
+      <div class="modal__body stack">
+        <p>{{ $plan.Info }}</p>
+
+        {{/*
+          Without a pin the placement has nowhere to draw itself. It is still
+          sellable — the pin is one field away, behind this dialog — so this is
+          a warning rather than a locked control.
+        */}}
+        {{ if not .HasPin }}
+        <p class="promo__info">
+          {{ template "icon" "info" }}
+          <span>
+            Drop your pin on the map first — the placement shows your profile at
+            that point, so it stays hidden until there is one.
+          </span>
+        </p>
+        {{ end }}
+
+        <fieldset class="promo__tiers">
+          <legend class="field__label">Show it for</legend>
+          <div class="promo__grid">
+            {{ range $i, $t := $plan.Tiers }}
+            <label class="promo__tier">
+              <input type="radio" id="map-ad-tier-{{ $t.Days }}" name="broker_map_ad_days"
+                     value="{{ $t.Days }}" data-price="{{ $t.Price.Amount }}"
+                     {{ if eq $i 0 }}checked{{ end }} @change="recalc()">
+              <span class="promo__tier-face">
+                <span class="promo__tier-days">{{ $t.Days }} days</span>
+                <span class="promo__tier-price numeric">{{ money $t.Price }}</span>
+              </span>
+            </label>
+            {{ end }}
+          </div>
+        </fieldset>
+
+        {{/* One point, one price — no market multiplier, which is the difference
+             from the homepage strip and worth showing in the total. */}}
+        <p class="ad-bill__total">
+          <span><span x-text="tier"></span> days on the map</span>
+          <strong class="numeric"><span>€</span><span x-text="total"></span></strong>
+        </p>
+
+        <p class="field__hint">
+          {{ template "icon" "info" }}
+          <span>
+            Visitors see it wherever they switch Brokers on in the search
+            filters — your photograph and name at your pin, and your profile
+            card among the results. It always shows your profile as it is now,
+            and the period is counted in UTC.
+          </span>
+        </p>
+      </div>
+
+      <div class="modal__footer">
+        <button type="button" class="btn btn--secondary" @click="closeDialog()">Cancel</button>
+        <input type="hidden" name="broker_map_ad" :value="on ? '1' : ''">
+        <button type="button" class="btn btn--primary" @click="confirm()">
+          <span>Pay €<span x-text="total"></span> and publish</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}
+
+
+{{/*
+  What is running now, under the map rather than beside the title — same reason
+  the homepage placement's status is a block and not a heading-row item, and in
+  UTC for the same reason: the site is global and an expiry has to mean the same
+  moment to everyone reading it.
+
+  Args (dict):
+    Ad  models.BrokerMapAd
+*/}}
+{{ define "broker-map-ad-status" }}
+{{ $ad := .Ad }}
+{{ if $ad.IsLive now }}
+<p class="broker-ad__status">
+  {{ template "icon" "map-pin" }}
+  <span>
+    On the search map — <strong>{{ $ad.DaysLeft now }}</strong>
+    {{ if eq ($ad.DaysLeft now) 1 }}day{{ else }}days{{ end }} left
+    <span class="subtle">· ends {{ utc $ad.EndsAt }}</span>
+  </span>
+</p>
+{{ end }}
+{{ end }}

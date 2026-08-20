@@ -560,32 +560,65 @@ func TestReverseGeocodeReturnsAStructuredPlace(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 11 — the listing-page banner sits inside the results column
+// The listing-page banner fills the header row beside the breadcrumb
 // ---------------------------------------------------------------------------
 
-func TestSearchBannerSitsInsideTheResultsColumn(t *testing.T) {
+// The banner is the first thing in the results column, so the filter sidebar
+// keeps the full height of the page beside it and the listings start beneath
+// it. That much is unchanged.
+//
+// What the client then asked for on top: the strip stretches up to the top of
+// the breadcrumb row, out to the full width of the results column, and carries
+// "choose your market" on itself the way the homepage hero does.
+//
+// The reach upwards is a negative top margin of exactly the breadcrumb row's
+// height, which is why that height is a token rather than a content size — the
+// two numbers have to be the same one. Pulling the banner up rather than
+// moving it into a header row of the grid is what keeps the sidebar *up* where
+// the removed heading left room, instead of pushing it down past the banner.
+func TestSearchBannerReachesTheBreadcrumbRow(t *testing.T) {
 	body := mustGet(t, newServer(t), "/search")
 
+	crumb := strings.Index(body, `class="search-crumb"`)
 	layout := strings.Index(body, `class="search-layout`)
-	banner := strings.Index(body, `class="search-banner"`)
 	sidebar := strings.Index(body, `class="filter-panel"`)
+	banner := strings.Index(body, `class="search-banner"`)
 	results := strings.Index(body, `id="results"`)
 
-	if layout < 0 || banner < 0 || sidebar < 0 || results < 0 {
-		t.Fatal("search page is missing one of layout, banner, sidebar or results")
+	if layout < 0 || crumb < 0 || banner < 0 || sidebar < 0 || results < 0 {
+		t.Fatal("search page is missing one of layout, breadcrumb, banner, sidebar or results")
 	}
-	if banner < layout {
-		t.Error("the banner is still above the whole layout rather than inside the results column")
+	if crumb > layout {
+		t.Error("the breadcrumb must come before the layout: the banner reaches up alongside it")
 	}
 	if banner < sidebar {
-		t.Error("the banner comes before the sidebar; it should sit to its right")
+		t.Error("the banner belongs to the results column, to the right of the filter sidebar")
 	}
 	if results < banner {
 		t.Error("the listings should begin beneath the banner")
 	}
-	// The market picker rides on the banner.
-	if !strings.Contains(between(body, `class="search-banner"`, "</div>\n\n"), "market-picker") {
+
+	// The market picker rides on the banner rather than sitting beside it.
+	if !strings.Contains(between(body, `class="search-banner"`, `id="results"`), "market-picker") {
 		t.Error("Choose your market is not on the banner")
+	}
+
+	// One number, two rules, in two different files.
+	mustContain(t, asset(t, cssDir+"/tokens.css"), "--crumb-h: 22px;",
+		"the breadcrumb row's height has to be a token: the banner's offset is derived from it")
+	mustContain(t, asset(t, cssDir+"/layout.css"), ".search-crumb { height: var(--crumb-h);",
+		"the breadcrumb row must take its height from the token, not from its content")
+	mustContain(t, asset(t, cssDir+"/pages.css"),
+		"margin-top: calc((var(--crumb-h) + var(--sp-3)) * -1);",
+		"the banner must reach up by exactly the breadcrumb row's height")
+
+	// The display heading is gone, at the client's request. An accessible name
+	// stays, but not as a visible one.
+	if strings.Contains(body, `class="display display--h2"`) {
+		t.Error(`the "Property for sale" display heading is still on the search page`)
+	}
+	if !strings.Contains(body, `<h1 class="visually-hidden">`) {
+		t.Error("the search page has no accessible name left after the heading was removed")
 	}
 }
 
@@ -619,7 +652,12 @@ func between(s, start, end string) string {
 func TestDealTypeHasNoAnyOption(t *testing.T) {
 	h := newServer(t)
 
-	// Sidebar and map filter: three radios, and no empty-valued fourth.
+	// Sidebar and map filter: three boxes, and no empty-valued fourth.
+	//
+	// Checkboxes rather than radios since the client asked for several deal
+	// types at once — see TestDealTypeIsMultiSelect. The "no Any option" rule
+	// is unchanged by that: an empty value would mean "every deal type", which
+	// is not one of the three choices.
 	for _, path := range []string{"/search", "/search?view=map"} {
 		body := mustGet(t, h, path)
 		group := between(body, `class="segmented segmented--full segmented--deal"`, "</div>")
@@ -627,7 +665,7 @@ func TestDealTypeHasNoAnyOption(t *testing.T) {
 			t.Fatalf("%s: deal-type group not found", path)
 		}
 		if strings.Contains(group, `value=""`) {
-			t.Errorf("%s: deal type still offers an empty 'Any' radio", path)
+			t.Errorf("%s: deal type still offers an empty 'Any' option", path)
 		}
 		if strings.Contains(group, ">Any<") {
 			t.Errorf("%s: deal type still shows an 'Any' label", path)
@@ -637,21 +675,29 @@ func TestDealTypeHasNoAnyOption(t *testing.T) {
 				t.Errorf("%s: deal type is missing %s", path, want)
 			}
 		}
-		if n := strings.Count(group, `type="radio"`); n != 3 {
-			t.Errorf("%s: deal type has %d radios, want exactly 3", path, n)
+		if n := strings.Count(group, `type="checkbox"`); n != 3 {
+			t.Errorf("%s: deal type has %d boxes, want exactly 3", path, n)
 		}
 	}
 
-	// Homepage: three options, Sell selected, and nothing empty-valued.
+	// Homepage: three options, Sell ticked on arrival, nothing empty-valued.
+	//
+	// This was a <select> of three <option>s until the client asked for the same
+	// multiple choice the sidebar has — see TestHomepageDealTypeIsMultiSelect —
+	// so it is now the sidebar's own segmented group inside a dropdown. The rule
+	// being asserted has not changed: exactly the three deal types, no "Any".
 	home := mustGet(t, h, "/")
-	sel := between(home, `id="hero-deal"`, "</select>")
+	sel := between(home, `class="field type-picker deal-picker"`, "</div>")
+	if sel == "" {
+		t.Fatal("homepage deal-type picker not found")
+	}
 	if strings.Contains(sel, `value=""`) {
 		t.Error("homepage deal type still offers an empty option")
 	}
-	if !regexp.MustCompile(`value="sale"\s+selected`).MatchString(squash(sel)) {
+	if !regexp.MustCompile(`value="sale"\s+checked`).MatchString(squash(sel)) {
 		t.Error("homepage deal type does not default to Sell")
 	}
-	if n := strings.Count(sel, "<option"); n != 3 {
+	if n := strings.Count(sel, `type="checkbox"`); n != 3 {
 		t.Errorf("homepage deal type has %d options, want exactly 3", n)
 	}
 }

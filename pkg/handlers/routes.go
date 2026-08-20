@@ -31,6 +31,7 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /articles", h.Articles)
 	mux.HandleFunc("GET /article/{slug}", h.ArticleDetail)
 	mux.HandleFunc("GET /pricing", h.Pricing)
+	mux.HandleFunc("GET /faq", h.FAQ)
 	mux.HandleFunc("GET /help", h.Help)
 	mux.HandleFunc("GET /about", h.About)
 	mux.HandleFunc("GET /advertising", h.Advertising)
@@ -69,32 +70,39 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("POST /contact-broker", h.ContactBroker)
 	mux.HandleFunc("POST /save-search", h.SaveSearch)
 	mux.HandleFunc("POST /reveal-contact", h.RevealContact)
+	mux.HandleFunc("POST /listing/clone/{id}", h.CloneListing)
 	// Mock reverse geocoding for the add-listing map. Reads seeded data and
 	// writes nothing; a Geocoding API call replaces the handler body.
 	mux.HandleFunc("GET /mock/reverse-geocode", h.ReverseGeocode)
 
 	// --- Admin --------------------------------------------------------------
-	mux.HandleFunc("GET /admin", h.AdminDashboard)
-	mux.HandleFunc("GET /admin/listings", h.AdminListings)
-	mux.HandleFunc("GET /admin/users", h.AdminUsers)
-	mux.HandleFunc("GET /admin/brokers", h.AdminBrokers)
-	mux.HandleFunc("GET /admin/agencies", h.AdminAgencies)
-	mux.HandleFunc("GET /admin/developments", h.AdminDevelopments)
-	mux.HandleFunc("GET /admin/articles", h.AdminArticles)
-	mux.HandleFunc("GET /admin/banners", h.AdminBanners)
-	mux.HandleFunc("GET /admin/packages", h.AdminPackages)
-	mux.HandleFunc("GET /admin/payments", h.AdminPayments)
-	mux.HandleFunc("GET /admin/languages", h.AdminLanguages)
-	mux.HandleFunc("GET /admin/strings", h.AdminStrings)
-	mux.HandleFunc("GET /admin/seo", h.AdminSEO)
-	mux.HandleFunc("GET /admin/maps", h.AdminMaps)
-	mux.HandleFunc("GET /admin/restricted", h.AdminRestricted)
-	mux.HandleFunc("GET /admin/settings", h.AdminSettings)
-	mux.HandleFunc("GET /admin/backups", h.AdminBackups)
-	mux.HandleFunc("GET /admin/files", h.AdminFiles)
-	mux.HandleFunc("GET /admin/database", h.AdminDatabase)
-	mux.HandleFunc("GET /admin/system", h.AdminSystem)
-	mux.HandleFunc("POST /admin/mock-action", h.AdminMockAction)
+	//
+	// Every route here goes through requireAdmin. The client asked what this
+	// section is — "so this admin panel is the website backend? All user's do
+	// not have access there" — and the answer has to be true of the routes and
+	// not only of the menu: hiding the link while leaving /admin open to anyone
+	// who types it is not access control, it is a tidier list.
+	mux.HandleFunc("GET /admin", h.requireAdmin(h.AdminDashboard))
+	mux.HandleFunc("GET /admin/listings", h.requireAdmin(h.AdminListings))
+	mux.HandleFunc("GET /admin/users", h.requireAdmin(h.AdminUsers))
+	mux.HandleFunc("GET /admin/brokers", h.requireAdmin(h.AdminBrokers))
+	mux.HandleFunc("GET /admin/agencies", h.requireAdmin(h.AdminAgencies))
+	mux.HandleFunc("GET /admin/developments", h.requireAdmin(h.AdminDevelopments))
+	mux.HandleFunc("GET /admin/articles", h.requireAdmin(h.AdminArticles))
+	mux.HandleFunc("GET /admin/banners", h.requireAdmin(h.AdminBanners))
+	mux.HandleFunc("GET /admin/packages", h.requireAdmin(h.AdminPackages))
+	mux.HandleFunc("GET /admin/payments", h.requireAdmin(h.AdminPayments))
+	mux.HandleFunc("GET /admin/languages", h.requireAdmin(h.AdminLanguages))
+	mux.HandleFunc("GET /admin/strings", h.requireAdmin(h.AdminStrings))
+	mux.HandleFunc("GET /admin/seo", h.requireAdmin(h.AdminSEO))
+	mux.HandleFunc("GET /admin/maps", h.requireAdmin(h.AdminMaps))
+	mux.HandleFunc("GET /admin/restricted", h.requireAdmin(h.AdminRestricted))
+	mux.HandleFunc("GET /admin/settings", h.requireAdmin(h.AdminSettings))
+	mux.HandleFunc("GET /admin/backups", h.requireAdmin(h.AdminBackups))
+	mux.HandleFunc("GET /admin/files", h.requireAdmin(h.AdminFiles))
+	mux.HandleFunc("GET /admin/database", h.requireAdmin(h.AdminDatabase))
+	mux.HandleFunc("GET /admin/system", h.requireAdmin(h.AdminSystem))
+	mux.HandleFunc("POST /admin/mock-action", h.requireAdmin(h.AdminMockAction))
 
 	// --- SEO ----------------------------------------------------------------
 	mux.HandleFunc("GET /robots.txt", h.Robots)
@@ -104,6 +112,28 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("/", h.Home)
 
 	return securityHeaders(mux)
+}
+
+// requireAdmin lets an administrator through and shows everyone else the 404
+// page.
+//
+// Not a sign-in redirect and not a 403: both of those confirm that something is
+// there. A back office that answers "not found" to everyone who is not supposed
+// to be in it tells a stranger nothing at all, and tells the administrator —
+// who never sees this branch — nothing they need.
+//
+// The check is the account's role, which is where it belongs. When the real
+// backend replaces the mock store this function does not change: it will still
+// be asking the signed-in user whether they are an administrator, against a
+// session instead of against a seed.
+func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !h.Store.Account.CurrentUser(r.Context()).IsAdmin() {
+			h.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}
 }
 
 // cacheStatic adds long-lived caching to static assets.

@@ -24,6 +24,7 @@ type AddListingData struct {
 	Steps      []WizardStep
 	TotalSteps int
 	Packages   []models.Package
+	Promotions []models.Promotion
 	Countries  []models.Country
 	SampleImgs []string
 	// Anchor is the section a "?step=" or "#" deep link should open on. Empty
@@ -71,15 +72,22 @@ func (h *Handler) AddListing(w http.ResponseWriter, r *http.Request) {
 
 	total := len(wizardSteps)
 
+	// Every waypoint starts neutral.
+	//
+	// The rooms section used to be seeded as an error so the design covered
+	// that state on first paint. It was seeded because Living area was required
+	// and empty; the client made both areas optional on 19 August — "these
+	// fields are not obligatory, so remove the red error and restriction from
+	// there" — and a red marker on a section with nothing missing is exactly
+	// the restriction they asked to be rid of.
+	//
+	// The state itself is not gone: recheck() in previa.js counts the empty
+	// [data-required] fields in each section on load and on every keystroke, so
+	// clearing Total rooms still turns this waypoint red. It is earned now
+	// rather than staged.
 	steps := make([]WizardStep, 0, total)
 	for i, s := range wizardSteps {
-		state := "todo"
-		// The rooms section is shown needing attention so the design covers
-		// that state; which section it is follows the list, not a hard number.
-		if s.key == "rooms" {
-			state = "error"
-		}
-		steps = append(steps, WizardStep{Number: i + 1, Key: s.key, Label: s.label, State: state})
+		steps = append(steps, WizardStep{Number: i + 1, Key: s.key, Label: s.label, State: "todo"})
 	}
 
 	// Deep links. "?step=6" used to load a separate screen; now it names the
@@ -113,6 +121,7 @@ func (h *Handler) AddListing(w http.ResponseWriter, r *http.Request) {
 		Steps:               steps,
 		TotalSteps:          total,
 		Packages:            h.Store.Catalog.Packages(ctx),
+		Promotions:          h.Store.Catalog.Promotions(ctx),
 		Countries:           h.Store.Catalog.Countries(ctx),
 		SampleImgs:          imgs,
 		Anchor:              anchor,
@@ -122,7 +131,7 @@ func (h *Handler) AddListing(w http.ResponseWriter, r *http.Request) {
 			ID: "draft", Title: "Your property", City: pd.Country.Name,
 			Coords: models.Coordinates{Lat: pd.Country.Lat, Lng: pd.Country.Lng},
 			Price:  models.Money{Amount: 429000, Currency: pd.Country.Currency},
-		}}, pd.Country, h.Cfg.MapsKey),
+		}}, nil, pd.Country, h.Cfg.MapsKey),
 	}
 	h.View.Render(w, http.StatusOK, "add-listing", pd)
 }

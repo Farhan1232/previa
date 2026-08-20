@@ -42,7 +42,7 @@ func (h *Handler) PropertyDetail(w http.ResponseWriter, r *http.Request) {
 		Similar:   h.Store.Properties.Similar(ctx, p, 4),
 		Favourite: h.Store.Account.IsFavourite(ctx, p.ID),
 		// A single-marker map centred on the listing itself.
-		DetailMap: buildMapConfig([]models.Property{p}, pd.Country, h.Cfg.MapsKey),
+		DetailMap: buildMapConfig([]models.Property{p}, nil, pd.Country, h.Cfg.MapsKey),
 	}
 	if p.BrokerID != "" {
 		dd.Broker, dd.HasBroker = h.Store.Brokers.ByID(ctx, p.BrokerID)
@@ -105,7 +105,7 @@ func (h *Handler) DevelopmentDetail(w http.ResponseWriter, r *http.Request) {
 		Development: d,
 		Units:       h.Store.Properties.ByDevelopment(ctx, d.ID),
 		Similar:     take(similar, 3),
-		DevMap:      buildMapConfig([]models.Property{marker}, pd.Country, h.Cfg.MapsKey),
+		DevMap:      buildMapConfig([]models.Property{marker}, nil, pd.Country, h.Cfg.MapsKey),
 	}
 	h.View.Render(w, http.StatusOK, "development-detail", pd)
 }

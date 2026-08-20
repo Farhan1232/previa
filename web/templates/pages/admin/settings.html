@@ -25,7 +25,9 @@
             </div>
             <div class="field">
               <label class="field__label" for="s-email">Support email</label>
-              <input class="input" id="s-email" type="email" value="hello@previa.estate">
+              {{/* The same address the Help page prints — one contact email,
+                   set in one place. */}}
+              <input class="input" id="s-email" type="email" value="info@previa.estate">
             </div>
             <div class="field">
               <label class="field__label" for="s-default-country">Default country</label>
@@ -45,15 +47,6 @@
       <section class="card">
         <div class="card__header"><h2 class="card__title">Listings</h2></div>
         <div class="card__body stack">
-          <div class="cookie-row">
-            <div>
-              <p class="strong">Moderate new listings before publishing</p>
-              <p class="text-sm muted">New listings enter a pending queue instead of going live immediately.</p>
-            </div>
-            <label class="switch"><input type="checkbox" checked>
-              <span class="switch__track"><span class="switch__thumb"></span></span>
-              <span class="visually-hidden">Moderate new listings</span></label>
-          </div>
           <div class="cookie-row">
             <div>
               <p class="strong">Allow private sellers</p>

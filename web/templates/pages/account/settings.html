@@ -1,9 +1,11 @@
 {{ define "content" }}
-{{ template "account-head" dict "Title" "Profile and settings"
+{{/* Titled "Settings" to match the menus, at the client's request. */}}
+{{ template "account-head" dict "Title" "Settings"
    "Lede" "Your details, preferences and account security." }}
 
-<div class="container section">
-  <div class="shell">
+<div class="container section section--after-head">
+  <div class="shell shell--nav" x-data="previaPanel('previa-account-nav')"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
     {{ template "account-nav" . }}
 
     <div class="stack stack--lg" x-data="{ tab: 'profile' }">
@@ -23,39 +25,399 @@
         <div class="card">
           <div class="card__header"><h2 class="card__title">Your details</h2></div>
           <div class="card__body">
-            <form class="stack" @submit.prevent="previaToast('Profile saved.', 'success')">
-              <div class="row" style="gap:var(--sp-4);margin-bottom:var(--sp-2)">
-                <span class="avatar avatar--xl">{{ initials .User.Name }}</span>
-                <div class="stack stack--sm">
-                  <button type="button" class="btn btn--secondary btn--sm"
-                          @click="previaToast('Photo uploads are mocked in this build.', 'warning')">
-                    {{ template "icon" "upload" }} Upload photo
-                  </button>
-                  <p class="text-xs muted">JPEG or PNG, at least 400×400.</p>
+            <form class="stack stack--lg" @submit.prevent="previaToast('Profile saved.', 'success')">
+
+              {{/*
+                Two uploads, not one.
+
+                The client's distinction: "we have two different type of sellers:
+                the private sellers and brokers. The private sellers might use
+                the profile picture (avatar) which is not obligatory. But the
+                brokers might want to use their company logo as well." So the
+                profile picture and the company logo are separate fields, side
+                by side, and either can be left empty.
+
+                Both are rectangles with rounded corners, at the client's
+                request — the avatar was a circle — and the logo's box is the
+                larger and the wider of the two, because a logo is a wordmark
+                more often than a monogram and a square frame would crop it.
+              */}}
+              <div class="upload-row">
+                <div class="upload-field">
+                  <span class="field__label" id="p-avatar-label">Profile picture</span>
+                  <div class="upload-field__body">
+                    {{ if .User.Avatar }}
+                    <img class="avatar-tile" src="{{ .User.Avatar }}" alt="{{ .User.Name }}"
+                         width="88" height="88">
+                    {{ else }}
+                    <span class="avatar-tile avatar-tile--empty" aria-hidden="true">
+                      {{ initials .User.Name }}
+                    </span>
+                    {{ end }}
+                    <div class="stack stack--sm">
+                      <button type="button" class="btn btn--secondary btn--sm"
+                              aria-describedby="p-avatar-label"
+                              @click="previaToast('Photo uploads are mocked in this build.', 'warning')">
+                        {{ template "icon" "upload" }} Upload photo
+                      </button>
+                      {{/*
+                        The client's exact replacement for "JPEG or PNG, at
+                        least 400×400": "there is no point to mention the jpeg
+                        or png as our system accepts all the image types, and
+                        all of them are converted into .webp anyway."
+                      */}}
+                      <p class="text-xs muted">Profile picture rec. dimensions 400 × 400</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="upload-field">
+                  <span class="field__label" id="p-logo-label">Your company logo</span>
+                  <div class="upload-field__body">
+                    {{ if .User.CompanyLogo }}
+                    <img class="logo-tile" src="{{ .User.CompanyLogo }}"
+                         alt="{{ default "Your company" .User.Company }}" width="200" height="56">
+                    {{ else }}
+                    <span class="logo-tile logo-tile--empty" aria-hidden="true">
+                      {{ template "icon" "building" }}
+                    </span>
+                    {{ end }}
+                    <div class="stack stack--sm">
+                      <button type="button" class="btn btn--secondary btn--sm"
+                              aria-describedby="p-logo-label"
+                              @click="previaToast('Logo uploads are mocked in this build.', 'warning')">
+                        {{ template "icon" "upload" }} Upload logo
+                      </button>
+                      <p class="text-xs muted">
+                        Shown on your listings under your contact details.
+                        Rec. dimensions 400 × 120
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div class="grid grid--2" style="gap:var(--sp-4)">
+                {{/* "Name", not "Full name" — the client's note that a full
+                     name is not obligatory. */}}
                 <div class="field">
-                  <label class="field__label" for="p-name">Full name</label>
-                  <input class="input" id="p-name" type="text" value="{{ .User.Name }}">
+                  <label class="field__label" for="p-name">Name</label>
+                  <input class="input" id="p-name" name="name" type="text" value="{{ .User.Name }}">
+                  {{/*
+                    Direct from the owner, beside the name it qualifies — the
+                    client's "next to the user name add more one thing 'direct
+                    from the owner' and for this in a frontend there is a
+                    special label. As sometimes it is important to note that the
+                    property owner itself is selling it."
+
+                    A claim the seller makes, not something inferred from
+                    whether they have an agency: a private seller is often but
+                    not always the owner, and a broker selling their own flat
+                    is. The hint says what ticking it does, because a label a
+                    seller cannot see the effect of is a label they will tick
+                    without meaning it.
+                  */}}
+                  <label class="check">
+                    <input type="checkbox" name="direct_from_owner" value="1"
+                           {{ if .User.DirectFromOwner }}checked{{ end }}>
+                    <span class="check__text">
+                      Direct from the owner
+                      <span class="check__hint">
+                        Adds a label to your listings saying you own the property
+                        you are selling.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+                {{/*
+                  "next to name field make 'your company' so the user can write
+                  there he's company / franchise name like 'Best House Ltd', if
+                  he does it, then this is displayed in the frontend next to
+                  he's name." Optional, so no required marker.
+                */}}
+                <div class="field">
+                  <label class="field__label" for="p-company">Your company</label>
+                  <input class="input" id="p-company" name="company" type="text"
+                         value="{{ .User.Company }}" placeholder="e.g. Best House Ltd"
+                         autocomplete="organization">
+                  <span class="field__hint">
+                    Optional. Shown beside your name on your listings and profile.
+                  </span>
                 </div>
                 <div class="field">
                   <label class="field__label" for="p-email">Email</label>
-                  <input class="input" id="p-email" type="email" value="{{ .User.Email }}">
+                  <input class="input" id="p-email" name="email" type="email" value="{{ .User.Email }}">
                 </div>
+
+                {{/*
+                  Phone, with the messenger apps directly under it — the
+                  arrangement the client pointed at: "under the phone make the
+                  social icons with checkboxes and Signal / Telegram adress bars
+                  like in sexydate". It is the add-listing form's own control,
+                  reused rather than rebuilt, so a seller sees the same five
+                  apps in the same order in both places.
+                */}}
                 <div class="field">
                   <label class="field__label" for="p-phone">Phone</label>
-                  <input class="input" id="p-phone" type="tel" value="{{ .User.Phone }}">
+                  <input class="input" id="p-phone" name="phone" type="tel" value="{{ .User.Phone }}">
+                  <div class="msg-picker" role="group"
+                       aria-label="Messenger apps buyers can reach you on">
+                    {{ range messengerKinds }}
+                    {{ $k := printf "%s" . }}
+                    <label class="msg-toggle" title="{{ messengerLabel . }}">
+                      <input type="checkbox" name="messengers" value="{{ $k }}"
+                             {{ if hasMessenger $.User.Messengers . }}checked{{ end }}>
+                      <span class="msg-toggle__box" aria-hidden="true">{{ template "icon" "check" }}</span>
+                      <span class="msg-toggle__mark">{{ template "messenger-mark" $k }}</span>
+                      <span class="visually-hidden">{{ messengerLabel . }}</span>
+                    </label>
+                    {{ end }}
+                  </div>
+                  <span class="field__hint">
+                    WhatsApp and Viber are reached on the number above — tick them and
+                    they are connected. Telegram and Signal have their own addresses below.
+                  </span>
+                </div>
+              </div>
+
+              {{/*
+                The apps that carry an address of their own.
+
+                A Telegram account is not necessarily findable by number and
+                Signal's is a share link rather than a number, so both get a
+                field; Teams is addressed by email and has nothing to fall back
+                on. All three are optional.
+              */}}
+              <div class="grid grid--2" style="gap:var(--sp-4)">
+                <div class="field">
+                  <label class="field__label" for="p-telegram">Telegram link</label>
+                  <input class="input" id="p-telegram" name="telegram_link" type="text"
+                         value="{{ messengerHandle .User.Messengers "telegram" }}"
+                         placeholder="t.me/yourname">
+                  <span class="field__hint">
+                    Either form works — a username link like t.me/yourname, or a phone
+                    link. Left empty, your phone number is used.
+                  </span>
                 </div>
                 <div class="field">
-                  <label class="field__label" for="p-country">Country</label>
-                  <select class="select" id="p-country">
-                    {{ range .Countries }}
-                    <option {{ if eq .Code $.User.CountryCode }}selected{{ end }}>{{ .Name }}</option>
-                    {{ end }}
-                  </select>
+                  <label class="field__label" for="p-signal">Signal link</label>
+                  <input class="input" id="p-signal" name="signal_link" type="text"
+                         value="{{ messengerHandle .User.Messengers "signal" }}"
+                         placeholder="signal.me/#p/+372…">
+                  <span class="field__hint">
+                    Copy this from Signal under Settings → your name → Share.
+                  </span>
                 </div>
+                <div class="field">
+                  <label class="field__label" for="p-teams">Teams address</label>
+                  <input class="input" id="p-teams" name="teams_address" type="email"
+                         value="{{ messengerHandle .User.Messengers "teams" }}"
+                         placeholder="you@company.com">
+                  <span class="field__hint">
+                    Teams opens a chat by email address, so this one is required if you
+                    tick Teams.
+                  </span>
+                </div>
+              </div>
+
+              {{/*
+                About.
+
+                "Under broker name is 'About' but at the moment under user
+                profile there is no place the user can edit this text — create
+                it." This is that field: what a visitor reads under the heading
+                "About <name>" on the seller's public profile, written by the
+                person it describes.
+
+                A textarea rather than an input, because the text it fills is a
+                paragraph on the profile — and left optional, like every other
+                field on this screen: a private seller with nothing to say about
+                themselves simply has no About block on their page.
+              */}}
+              <div class="field">
+                <label class="field__label" for="p-about">About you</label>
+                <textarea class="textarea" id="p-about" name="about" rows="5"
+                          placeholder="What you sell, where you work, and anything a buyer should know before they call.">{{ .User.Bio }}</textarea>
+                <span class="field__hint">
+                  Shown on your public profile under “About {{ .User.Name }}”.
+                </span>
+              </div>
+
+              {{/*
+                Languages of communication, and the markets the seller works in.
+
+                Both are the market picker's menu — a search box over a flagged
+                list — and both add removable tags. Countries became a
+                multi-select because, in the client's words, "nowadays some
+                brokers (living near the border) can be active in more countries
+                at once"; the chosen set is what a profile shows as "Active in".
+              */}}
+              <div class="grid grid--2" style="gap:var(--sp-4)">
+                {{ template "tag-picker" dict
+                    "Kind" "language" "Name" "languages" "ID" "p-langs"
+                    "Label" "Languages of communication"
+                    "AddLabel" "Add language"
+                    "Hint" "Buyers can filter listings by the languages they are sold in."
+                    "Selected" .User.Languages }}
+
+                {{/*
+                  Country, and the placement that publishes it.
+
+                  "In the user account settings, where is the 'Choose every
+                  market you are active in. Shown on your public profile as
+                  Active in.' there after the title 'Contry' make a violet
+                  #8B008B button 'advertise' if click there then a popup will
+                  open with the options to insert your broker ad into the broker
+                  section."
+
+                  So the button rides in the picker's own label row — Action is
+                  what the tag picker renders there — rather than sitting under
+                  the field as a separate block. The dialog it opens is
+                  components/broker-ad.html.
+                */}}
+                {{ template "tag-picker" dict
+                    "Kind" "country" "Name" "active_countries" "ID" "p-countries"
+                    "Label" "Country"
+                    "AddLabel" "Add country"
+                    "Hint" "Choose every market you are active in. Shown on your public profile as “Active in”."
+                    "Selected" .User.ActiveCountries
+                    "Countries" .AllCountries
+                    "Action" (dict "Template" "broker-ad" "Args" (dict
+                        "Plan" .Data.BrokerAdPlan
+                        "Ad" .Data.BrokerAd
+                        "Countries" .AllCountries
+                        "Active" .User.ActiveCountries)) }}
+              </div>
+
+              {{/* And what that button has already bought, with each market's
+                   end date: "if the user has activated paid ad then under he's
+                   account he sees the end time/date of the periode." */}}
+              {{ template "broker-ad-runs" dict "Ad" .Data.BrokerAd }}
+
+              {{/*
+                Where this seller is on the map.
+
+                "Under seller's profile add more the googlemaps location place,
+                where user can specify his location on the googlemaps — so in
+                the brokers section the users can search the brokers on the
+                googlemaps." It is the other half of the broker directory's
+                radius search: this pin is the point that search measures from.
+
+                Two ways to set it, the same pair the add-listing form offers —
+                search for the place, or click the map — and both write the same
+                three inputs. Latitude and longitude are hidden rather than
+                typed: they come from the pin, and a field that can disagree
+                with the map is a field that eventually will.
+              */}}
+              <div class="field profile-location" x-data="previaProfileLocation({{ jsonValue .User.Office }})">
+                {{/*
+                  "Then after title 'Your location on the map' make the same
+                  advertise button." Same control, same place in the row — the
+                  label on the left, the violet button on the right — and a
+                  shorter dialog behind it, because this one sells a single pin
+                  rather than a set of markets.
+                */}}
+                <div class="field__label-row">
+                  <span class="field__label" id="p-office-label">Your location on the map</span>
+                  {{ template "broker-map-ad" dict
+                      "Plan" .Data.BrokerMapAdPlan
+                      "Ad" .Data.BrokerMapAd
+                      "HasPin" .User.Office.IsSet }}
+                </div>
+                <p class="field__hint" style="margin-bottom:var(--sp-3)">
+                  Buyers find brokers by searching a place and a radius. Drop your
+                  pin here and you appear in those results.
+                </p>
+
+                {{ template "location-field" dict
+                    "ID" "p-office" "Name" "office_location" "Value" .User.Office.Label
+                    "Suggestions" .Data.LocationSuggestions
+                    "Label" "Search for your address"
+                    "Placeholder" "Country, city, district, street or exact address" }}
+
+                <div class="detail-map profile-location__map" x-data="previaMap({{ .Data.OfficeMap }})"
+                     @previa-location-picked.window="$dispatch('listing-map-goto', $event.detail)">
+                  {{ template "map-surface" . }}
+                </div>
+                <p class="text-xs muted map-hint">
+                  {{ template "icon" "map-pin" }}
+                  <span>Click anywhere on the map to move your pin.</span>
+                </p>
+
+                {{/*
+                  The line other people see, and the map's own reading of the
+                  pin underneath it — the add-listing form's pair, brought here.
+
+                  "So under the seller's profile the googlemaps location add the
+                  same googlemaps fields as in the 'add listing' page. So the
+                  seller sees the data what the googlemaps has, and can edit the
+                  location name what will be displayed for the user."
+
+                  Same components, same order and the same rule about which of
+                  them is editable: this one field is the seller's to write, and
+                  everything below it follows the pin and is read-only, because
+                  a field that can disagree with the map eventually will.
+                */}}
+                <div class="field field--editable-location">
+                  <label class="field__label" for="p-office-public">
+                    {{ template "icon" "edit" }}
+                    Edit your location as you want other users to see it
+                  </label>
+                  <input class="input" id="p-office-public" name="office_public" type="text"
+                         x-model="publicLabel"
+                         placeholder="For example: Old Town, Tallinn — exact address on request">
+                  <span class="field__hint">
+                    This is the location shown beside your name on your listings.
+                    The Google maps data below is not displayed publicly.
+                  </span>
+                </div>
+
+                <p class="overline" style="margin-top:var(--sp-4)">From the map</p>
+                <div class="grid grid--2 readonly-grid" style="gap:var(--sp-4)">
+                  <div class="field">
+                    <label class="field__label" for="p-office-country">Country</label>
+                    <input class="input" id="p-office-country" type="text" readonly x-model="place.country">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="p-office-cc">Country code</label>
+                    <input class="input" id="p-office-cc" type="text" readonly x-model="place.countryCode">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="p-office-state">State / region</label>
+                    <input class="input" id="p-office-state" type="text" readonly x-model="place.state">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="p-office-city">City</label>
+                    <input class="input" id="p-office-city" type="text" readonly x-model="place.city">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="p-office-district">District</label>
+                    <input class="input" id="p-office-district" type="text" readonly x-model="place.district">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="p-office-street">Street / address</label>
+                    <input class="input" id="p-office-street" type="text" readonly x-model="place.address">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="p-office-lat">Latitude</label>
+                    <input class="input numeric" id="p-office-lat" type="text" readonly x-model="lat">
+                  </div>
+                  <div class="field">
+                    <label class="field__label" for="p-office-lng">Longitude</label>
+                    <input class="input numeric" id="p-office-lng" type="text" readonly x-model="lng">
+                  </div>
+                </div>
+
+                {{/* What is actually submitted. The two coordinates are shown
+                     read-only above, so they travel as hidden fields rather
+                     than as named inputs that could be typed over. */}}
+                <input type="hidden" name="office_lat" :value="lat">
+                <input type="hidden" name="office_lng" :value="lng">
+
+                {{/* And what the advertise button on this section's title has
+                     already bought, with the date the period ends. */}}
+                {{ template "broker-map-ad-status" dict "Ad" .Data.BrokerMapAd }}
+
               </div>
 
               <button class="btn btn--primary" type="submit" style="align-self:flex-start">
@@ -198,8 +560,11 @@
               Deleting your account removes your profile, saved searches and
               favourites. Published listings are taken offline. This cannot be undone.
             </p>
+            {{/* Lower case, at the client's request — the same treatment the
+                 listing statuses and the "add listing" nav item already take:
+                 an action, not a proper noun. */}}
             <button type="button" class="btn btn--danger" style="align-self:flex-start"
-                    @click="confirm = true">Delete account</button>
+                    @click="confirm = true">delete account</button>
           </div>
 
           <template x-if="confirm">
@@ -216,7 +581,7 @@
                   <button class="btn btn--secondary" @click="confirm = false">Cancel</button>
                   <button class="btn btn--danger"
                           @click="confirm = false; previaToast('Simulation only — no account was deleted.', 'warning')">
-                    Delete account
+                    delete account
                   </button>
                 </div>
               </div>

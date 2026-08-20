@@ -13,7 +13,9 @@
     </nav>
 
     <div class="profile-head">
-      <img class="avatar avatar--xl" src="{{ $b.Photo }}" alt="{{ $b.Name }}"
+      {{/* The rounded rectangle the client asked for, matching the shape the
+           picture is uploaded and cropped to in account settings. */}}
+      <img class="avatar-tile avatar-tile--lg" src="{{ $b.Photo }}" alt="{{ $b.Name }}"
            width="96" height="96">
       <div class="profile-head__text">
         <h1 class="page-head__title">{{ $b.Name }}</h1>
@@ -22,21 +24,48 @@
           {{ if $b.IsVerified }}
           <span class="badge badge--success">{{ template "icon" "check" }} Verified broker</span>
           {{ end }}
-          {{ if $b.IsPromoted }}
-          <span class="badge badge--featured">{{ template "icon" "sparkle" }} Promoted</span>
-          {{ end }}
           <span class="badge badge--outline">{{ template "icon" "map-pin" }} {{ $b.City }}</span>
         </div>
       </div>
       <div class="profile-head__actions">
-        <a class="btn btn--primary" href="mailto:{{ $b.Email }}">{{ template "icon" "mail" }} Contact Broker</a>
-        <a class="btn btn--secondary" href="tel:{{ $b.Phone }}">{{ template "icon" "phone" }} {{ $b.Phone }}</a>
+        <div class="profile-head__buttons">
+          <a class="btn btn--primary" href="mailto:{{ $b.Email }}">{{ template "icon" "mail" }} Contact Broker</a>
+          <a class="btn btn--secondary" href="tel:{{ $b.Phone }}">{{ template "icon" "phone" }} {{ $b.Phone }}</a>
+        </div>
+        {{/*
+          The chat apps this broker has ticked, under the number they are
+          reached on.
+
+          "Under the broker / seller profile on the right where is his phone
+          number, if the user has marked any social apps, then these will be
+          listed there as well. The social apps are on the bottom of every ad,
+          this is good. Now add them under the seller's phone as well. And they
+          are everywhere hyperlinks, if click on them they will open with this
+          seller's contact."
+
+          The same component the listings use, so the marks, their order and
+          their links are identical in both places — each one opens a chat with
+          this broker, addressed by the number above or by the handle they
+          gave. A broker who has ticked nothing gets no row: the component
+          renders nothing for an empty list.
+        */}}
+        {{ template "messenger-links" dict
+            "Messengers" $b.Messengers "Phone" $b.Phone }}
       </div>
     </div>
   </div>
 </div>
 
-<div class="container section">
+{{/*
+  The body opens on the tighter step, not a full section's padding.
+
+  "In the broker single page the page content move more up, next to the header,
+  there is too big empty area." The page head already ends in 48px of its own,
+  and --section-y added up to 96 more on top of it, which is what left the gap
+  between the profile band and "About …". .section--after-head is the same 24px
+  the account screens and the broker directory use directly under a page head.
+*/}}
+<div class="container section section--after-head">
   <div class="detail-layout">
     <div class="stack stack--lg">
       <section class="stack">
@@ -47,7 +76,10 @@
       <section class="stack">
         <div class="section__head" style="margin-bottom:var(--sp-5)">
           <div class="section__head-text">
-            <h2 class="section__title">Current listings</h2>
+            {{/* "The title 'Current listings' there replace with 'Active
+                 Listings'" — the client's capitalisation, which is also the
+                 words the panel beside it uses. */}}
+            <h2 class="section__title">Active Listings</h2>
             <p class="section__subtitle">{{ pluralize (len $d.Listings) "property" "properties" }} on the market</p>
           </div>
         </div>
@@ -67,23 +99,66 @@
     </div>
 
     <aside class="detail-aside">
+      {{/*
+        One row, because one of the four was checkable.
+
+        "In the brokers profile remove the ratings, years active and completed
+        sales — as there is no way we can verify it. The active listings will
+        stay." A rating, a sales history and a career length are all claims the
+        site takes on trust; how many properties this broker has on the market
+        is something it counts itself, and it is the number the listings below
+        this panel add up to.
+      */}}
       <div class="card">
-        <div class="card__header"><h2 class="card__title">Track record</h2></div>
+        <div class="card__header"><h2 class="card__title">Active listings</h2></div>
         <div class="card__body">
           <dl class="kv">
-            <dt>Rating</dt><dd class="numeric">{{ $b.Rating }} / 5 ({{ $b.Reviews }})</dd>
-            <dt>Active listings</dt><dd class="numeric">{{ $b.ActiveListings }}</dd>
-            <dt>Completed sales</dt><dd class="numeric">{{ $b.SoldCount }}</dd>
-            <dt>Years active</dt><dd class="numeric">{{ $b.YearsActive }}</dd>
+            <dt>On the market</dt><dd class="numeric">{{ $b.ActiveListings }}</dd>
           </dl>
         </div>
       </div>
 
+      {{/*
+        Active in.
+
+        The client's reason for making the account's country field a
+        multi-select: "nowadays some brokers (living near the border) can be
+        active in more countries at once. These 'active in' countries will be
+        displayed under the user profile in the frontend." This is that display.
+
+        Flagged rather than named alone, so the block is readable at a glance
+        and matches every other place a market is named on the site.
+      */}}
+      {{ if $b.ActiveCountries }}
       <div class="card">
-        <div class="card__header"><h2 class="card__title">Languages</h2></div>
+        <div class="card__header"><h2 class="card__title">Active in</h2></div>
         <div class="card__body">
           <div class="row row--tight">
-            {{ range $b.Languages }}<span class="badge badge--outline">{{ . }}</span>{{ end }}
+            {{ range $b.ActiveCountries }}
+            <span class="badge badge--outline">
+              {{ template "flag" . }} {{ countryName . }}
+            </span>
+            {{ end }}
+          </div>
+        </div>
+      </div>
+      {{ end }}
+
+      {{/*
+        Languages of communication, from the same catalogue the account's tag
+        picker and the search filter read, so a language chosen on the profile
+        is the language a buyer can search for. Stored as codes and drawn with
+        their name and flag here.
+      */}}
+      <div class="card">
+        <div class="card__header"><h2 class="card__title">Languages of communication</h2></div>
+        <div class="card__body">
+          <div class="row row--tight">
+            {{ range $b.Languages }}
+            <span class="badge badge--outline">
+              {{ template "flag" (langFlagFor .) }} {{ langName . }}
+            </span>
+            {{ end }}
           </div>
         </div>
       </div>
@@ -101,6 +176,14 @@
       <div class="card">
         <div class="card__body stack stack--sm">
           <p class="overline">Agency</p>
+          {{/* The company logo the broker uploaded, where the company is named.
+               Optional — an agency with none keeps the name alone. */}}
+          {{ if $b.CompanyLogo }}
+          <span class="seller-logo">
+            <img src="{{ $b.CompanyLogo }}" alt="{{ $d.Agency.Name }}"
+                 width="200" height="56" loading="lazy" decoding="async">
+          </span>
+          {{ end }}
           <p class="strong">{{ $d.Agency.Name }}</p>
           <p class="text-xs muted">{{ $d.Agency.Address }}</p>
           <a class="btn btn--quiet btn--sm btn--block" href="/agency/{{ $d.Agency.Slug }}">

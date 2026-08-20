@@ -32,3 +32,99 @@
 </svg>
 {{- end }}
 {{ end }}
+
+
+{{/*
+  Messenger app marks — WhatsApp, Telegram, Viber, Signal, Microsoft Teams.
+
+  These are the client's own files, supplied as ten SVGs — a day and a night
+  drawing per app — after the set drawn from their earlier screenshots was
+  rejected. The paths below are those files verbatim, on their own 512 grid,
+  with the brand tile colours they carry:
+
+      WhatsApp #25d366   Telegram #37aee2   Viber #7b519d
+      Signal   #3a76f0   Teams    #6264a7
+
+  Day and night differ only in the ink of the glyph: white on the day drawings,
+  black on the night ones. That is one value, so it is `currentColor` here and a
+  single pair of CSS rules in components.css rather than ten separate files
+  shipped and switched at runtime — which would also mean two <img> requests per
+  app on every card. Telegram's plane carries two further tones for its fold and
+  its shadow; those follow the same switch through .msg-mark__fold and
+  .msg-mark__shade.
+
+  Usage: {{ template "messenger-mark" "whatsapp" }}
+
+  Everything that shows a messenger goes through this template, so the artwork
+  is swappable in one place.
+*/}}
+{{ define "messenger-mark" }}
+<svg class="msg-mark msg-mark--{{ . }}" viewBox="0 0 512 512" width="24" height="24"
+     aria-hidden="true" focusable="false">
+{{- if eq . "whatsapp" }}
+  <rect width="512" height="512" rx="15%" fill="#25d366"/>
+  <path fill="#25d366" stroke="currentColor" stroke-width="26" d="M123 393l14-65a138 138 0 1150 47z"/>
+  <path fill="currentColor" d="M308 273c-3-2-6-3-9 1l-12 16c-3 2-5 3-9 1-15-8-36-17-54-47-1-4 1-6 3-8l9-14c2-2 1-4 0-6l-12-29c-3-8-6-7-9-7h-8c-2 0-6 1-10 5-22 22-13 53 3 73 3 4 23 40 66 59 32 14 39 12 48 10 11-1 22-10 27-19 1-3 6-16 2-18"/>
+{{- else if eq . "telegram" }}
+  <rect width="512" height="512" rx="15%" fill="#37aee2"/>
+  <path class="msg-mark__fold" d="M199 404c-11 0-10-4-13-14l-32-105 245-144"/>
+  <path class="msg-mark__shade" d="M199 404c7 0 11-4 16-8l45-43-56-34"/>
+  <path fill="currentColor" d="M204 319l135 99c14 9 26 4 30-14l55-258c5-22-9-32-24-25L79 245c-21 8-21 21-4 26l83 26 190-121c9-5 17-3 11 4"/>
+{{- else if eq . "viber" }}
+  <rect width="512" height="512" rx="64" ry="64" fill="#7b519d"/>
+  <g fill="currentColor" fill-rule="evenodd">
+    <path d="M421.915 345.457c-12.198-9.82-25.233-18.634-38.064-27.638-25.59-17.973-48.996-19.37-68.091 9.546-10.723 16.234-25.734 16.945-41.43 9.823-43.27-19.62-76.683-49.85-96.255-93.83-8.658-19.458-8.544-36.903 11.713-50.665 10.725-7.278 21.53-15.89 20.666-31.793-1.128-20.736-51.475-90.033-71.357-97.347-8.227-3.027-16.42-2.83-24.79-.017-46.62 15.678-65.93 54.019-47.437 99.417 55.17 135.442 152.26 229.732 285.91 287.282 7.62 3.277 16.085 4.587 20.371 5.763 30.428.306 66.073-29.01 76.367-58.104 9.911-27.99-11.035-39.1-27.603-52.437zM272.06 77.439c97.707 15.025 142.768 61.485 155.21 159.895 1.154 9.09-2.232 22.768 10.737 23.02 13.554.259 10.288-13.217 10.402-22.316 1.146-92.684-79.669-178.606-173.524-181.774-7.081 1.019-21.733-4.883-22.647 10.988-.609 10.7 11.727 8.942 19.822 10.187z"/>
+    <path d="M291.172 104.422c-9.398-1.132-21.805-5.56-24.001 7.48-2.293 13.687 11.535 12.297 20.42 14.286 60.346 13.487 81.358 35.451 91.294 95.311 1.451 8.727-1.432 22.31 13.399 20.059 10.991-1.674 7.021-13.317 7.94-20.118.487-57.47-48.758-109.778-109.052-117.018z"/>
+    <path d="M296.713 151.416c-6.273.155-12.43.834-14.736 7.538-3.463 10.02 3.822 12.409 11.237 13.6 24.755 3.974 37.783 18.571 40.256 43.257.668 6.7 4.92 12.129 11.392 11.365 8.969-1.07 9.78-9.053 9.505-16.634.443-27.734-30.904-59.79-57.654-59.126z"/>
+  </g>
+{{- else if eq . "signal" }}
+  <rect width="512" height="512" rx="15%" fill="#3a76f0"/>
+  <path fill="currentColor" d="M256 100a156 156 0 00-132 239l-15 64 64-15a156 156 0 1083-288z"/>
+  <path fill="none" stroke="currentColor" stroke-width="18" stroke-dasharray="54.5,17"
+        d="M403 147A183 183 0 0097 346l-18 76c0 3 0 6 3 8a9 9 0 008 3l76-18A183 183 0 00402 146M79 422c0 3 0 6 3 8a9 9 0 008 3"/>
+{{- else if eq . "teams" }}
+  <rect width="512" height="512" rx="15%" fill="#6264a7"/>
+  <g transform="translate(256 256) scale(16.2) translate(-12 -11.5)">
+    <path fill="currentColor" d="M20.625 8.127q-.55 0-1.025-.205-.475-.205-.832-.563-.358-.357-.563-.832Q18 6.053 18 5.502q0-.54.205-1.02t.563-.837q.357-.358.832-.563.474-.205 1.025-.205.54 0 1.02.205t.837.563q.358.357.563.837.205.48.205 1.02 0 .55-.205 1.025-.205.475-.563.832-.357.358-.837.563-.48.205-1.02.205zm0-3.75q-.469 0-.797.328-.328.328-.328.797 0 .469.328.797.328.328.797.328.469 0 .797-.328.328-.328.328-.797 0-.469-.328-.797-.328-.328-.797-.328zM24 10.002v5.578q0 .774-.293 1.46-.293.685-.803 1.194-.51.51-1.195.803-.686.293-1.459.293-.445 0-.908-.105-.463-.106-.85-.329-.293.95-.855 1.729-.563.78-1.319 1.336-.756.557-1.67.861-.914.305-1.898.305-1.148 0-2.162-.398-1.014-.399-1.805-1.102-.79-.703-1.312-1.664t-.674-2.086h-5.8q-.411 0-.704-.293T0 16.881V6.873q0-.41.293-.703t.703-.293h8.59q-.34-.715-.34-1.5 0-.727.275-1.365.276-.639.75-1.114.475-.474 1.114-.75.638-.275 1.365-.275t1.365.275q.639.276 1.114.75.474.475.75 1.114.275.638.275 1.365t-.275 1.365q-.276.639-.75 1.113-.475.475-1.114.75-.638.276-1.365.276-.188 0-.375-.024-.188-.023-.375-.058v1.078h10.875q.469 0 .797.328.328.328.328.797zM12.75 2.373q-.41 0-.78.158-.368.158-.638.434-.27.275-.428.639-.158.363-.158.773 0 .41.158.78.159.368.428.638.27.27.639.428.369.158.779.158.41 0 .773-.158.364-.159.64-.428.274-.27.433-.639.158-.369.158-.779 0-.41-.158-.773-.159-.364-.434-.64-.275-.275-.639-.433-.363-.158-.773-.158zM6.937 9.814h2.25V7.94H2.814v1.875h2.25v6h1.875zm10.313 7.313v-6.75H12v6.504q0 .41-.293.703t-.703.293H8.309q.152.809.556 1.5.405.691.985 1.19.58.497 1.318.779.738.281 1.582.281.926 0 1.746-.352.82-.351 1.436-.966.615-.616.966-1.43.352-.815.352-1.752zm5.25-1.547v-5.203h-3.75v6.855q.305.305.691.452.387.146.809.146.469 0 .879-.176.41-.175.715-.48.304-.305.48-.715t.176-.879Z"/>
+  </g>
+{{- end }}
+</svg>
+{{ end }}
+
+
+{{/*
+  A listing's messenger apps, rendered as links that open a chat with the
+  seller directly — tapping WhatsApp lands in a WhatsApp conversation with
+  that number, not on a profile page.
+
+  Args (dict):
+    Messengers  []models.Messenger
+    Phone       string   the listing's contact number, used by the apps that
+                         address people by number
+    Size        string   optional, "sm" for the compact row on a card
+
+  An app whose link cannot be built — Teams with no address, say — is skipped
+  rather than rendered dead, so the row only ever shows what actually works.
+
+  rel=noopener because these open in a new tab; target=_blank because the
+  handler is usually the desktop or mobile app, and losing the listing behind
+  it would be a poor trade.
+*/}}
+{{ define "messenger-links" }}
+{{ $phone := .Phone }}
+{{ if .Messengers }}
+<div class="msg-links {{ if eq (default "" .Size) "sm" }}msg-links--sm{{ end }}">
+  {{ range .Messengers }}
+  {{/* messengerHref, not .Link directly: html/template rewrites any scheme
+       outside http/https/mailto to "#ZgotmplZ", which would break Viber. */}}
+  {{ $href := messengerHref (.Link $phone) }}
+  {{ if $href }}
+  <a class="msg-link" href="{{ $href }}" target="_blank" rel="noopener noreferrer"
+     title="Chat on {{ .Label }}" aria-label="Chat with the seller on {{ .Label }}">
+    {{ template "messenger-mark" (printf "%s" .Kind) }}
+  </a>
+  {{ end }}
+  {{ end }}
+</div>
+{{ end }}
+{{ end }}

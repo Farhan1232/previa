@@ -4,6 +4,14 @@
 <div class="page-head">
   <div class="container container--narrow">
     <div class="page-head__inner">
+      {{/* Breadcrumb, in the same place as on every other page: the client
+           asked for it "always there in the same place". */}}
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">{{ $d.Heading }}</li>
+        </ol>
+      </nav>
       <h1 class="page-head__title">{{ $d.Heading }}</h1>
       <p class="text-sm muted">Last updated {{ $d.Updated }}</p>
     </div>

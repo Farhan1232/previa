@@ -24,8 +24,13 @@ import (
 
 const (
 	cssDir = "../../public/static/css"
-	jsDir  = "../../public/static/js"
-	imgDir = "../../public/static/img"
+	// componentDir is where the shared templates live. A few blocks are
+	// structural enough to be worth pinning at the source: html/template drops
+	// HTML comments, so a rendered component cannot carry an end marker and a
+	// slice of the page would have to guess where one stops.
+	componentDir = "../../web/templates/components"
+	jsDir        = "../../public/static/js"
+	imgDir       = "../../public/static/img"
 )
 
 // asset reads a static file that ships with the site.
@@ -166,9 +171,10 @@ func TestMiniSearchStillFunctional(t *testing.T) {
 	for _, field := range []string{`name="deal"`, `name="location"`, `id="hero-type"`} {
 		mustContain(t, form, field, "the mini-search must keep all three fields")
 	}
-	// And the three actions.
-	mustContain(t, form, "Search properties", "the primary action must remain")
-	mustContain(t, form, "Advanced filters", "the advanced-filters action must remain")
+	// And the three actions. All three are lowercase, at the client's request —
+	// the same house style as "add listing" in the header.
+	mustContain(t, form, "search properties", "the primary action must remain")
+	mustContain(t, form, "advanced filters", "the advanced-filters action must remain")
 	mustContain(t, form, "search on map", "the map action must remain")
 	mustContain(t, form, `name="filters" value="open"`, "advanced filters must still open the sidebar")
 	mustContain(t, form, `name="view" value="map"`, "the map action must still switch to map view")
@@ -225,9 +231,9 @@ func TestSearchButtonStaysCompact(t *testing.T) {
 	// Its name survives losing its visible label.
 	h := newServer(t)
 	btn := section(t, mustGet(t, h, "/"), `class="btn btn--primary searchbox__submit"`, "</button>", "submit button")
-	mustContain(t, btn, `aria-label="Search properties"`,
+	mustContain(t, btn, `aria-label="search properties"`,
 		"the button must keep its accessible name when the label is hidden")
-	mustContain(t, btn, "Search properties</span>", "the label must still be in the markup")
+	mustContain(t, btn, "search properties</span>", "the label must still be in the markup")
 
 	// Nothing may fake the reduction with a transform.
 	sb := section(t, pages, "/* --- Hero search panel", "/* ====", "mini-search block")
@@ -249,15 +255,32 @@ func TestMiniSearchIsTwoRowsOnPhones(t *testing.T) {
 	pages := asset(t, cssDir+"/pages.css")
 	phone := section(t, pages, "@media (max-width: 700px) {", "\n}", "phone mini-search rules")
 
-	mustContain(t, phone, "'deal type type'", "the two selects must share the first row")
+	mustContain(t, phone, "'deal type .'", "the two selects must share the first row")
 	mustContain(t, phone, "'loc  loc  go'", "Location and the submit must share the second row")
+
+	// Each field is placed by the class that identifies it alone.
+	//
+	// This is the 17 August bug: "in the narrower screen the frontpage search
+	// menu brokes". The deal picker's element carries `field type-picker
+	// deal-picker` and the property picker's carries `field type-picker`, so a
+	// rule for `> .field` claimed both and a later rule for `> .type-picker`
+	// claimed both back. The two controls were assigned the same cell and drawn
+	// on top of each other.
 	for _, area := range []string{
-		"> .field { grid-area: deal; }",
-		"> .type-picker { grid-area: type; }",
+		"> .deal-picker { grid-area: deal; }",
+		"> .type-picker:not(.deal-picker) { grid-area: type; }",
 		"> .location-field { grid-area: loc; }",
 		".searchbox__submit { grid-area: go; }",
 	} {
 		mustContain(t, phone, area, "every field must be placed by name")
+	}
+	// A selector that matches both pickers can never place them in two cells.
+	if regexp.MustCompile(`>\s*\.field\s*\{\s*grid-area`).MatchString(phone) {
+		t.Error("`> .field` matches the deal picker and the property picker alike; " +
+			"place each by the class that is unique to it")
+	}
+	if regexp.MustCompile(`>\s*\.type-picker\s*\{\s*grid-area`).MatchString(phone) {
+		t.Error("`> .type-picker` matches the deal picker too; exclude it explicitly")
 	}
 
 	// The reduction is geometry, not a transform, at every width.
@@ -318,6 +341,15 @@ func TestSidebarItemOrder(t *testing.T) {
 		"Favourites",
 		"Saved searches",
 		"Settings",
+		// Listings joined the browse group on 17 August, when the client asked
+		// for it in the header bar. The bar is hidden at this width, so the
+		// drawer is where a phone reaches it — first, exactly as in the bar.
+		"Listings",
+		// And Map beside it, from the client's 18 August note 61: "in the
+		// header after Listings add section 'Map' so this is the map page."
+		// The bar and the drawer have to agree on the order, so it is second
+		// here as well.
+		"Map",
 		"Articles",         // 3
 		"Brokers",          // 4
 		"Developments",     // 5
@@ -712,10 +744,13 @@ func TestSearchFieldHasNoSelectorFrame(t *testing.T) {
 		"focus must still be visible, as a neutral border change rather than a coloured frame")
 	mustNotContain(t, rule, "var(--focus-color)", "the field must not take the theme's focus colour")
 
-	// Every other field keeps the normal ring: only this one was reported.
+	// Every other field keeps a frame of its own: only this one was reported.
+	// The colour of that frame changed on 18 August — green, one pixel, one
+	// theme; see TestTheFieldYouTypeInIsFramedInGreen. What matters here is
+	// that this field is still the exception and the others still show focus.
 	components := asset(t, cssDir+"/components.css")
-	mustContain(t, components, ".input:focus,\n.select:focus,\n.textarea:focus {\n  border-color: var(--focus-color);\n  box-shadow: var(--focus-ring);",
-		"the ordinary form fields must keep their focus ring")
+	mustContain(t, components, ".input:focus,\n.select:focus,\n.textarea:focus {\n  border-color: var(--field-focus);\n  box-shadow: var(--field-focus-ring);",
+		"the ordinary form fields must keep a visible focus frame")
 
 	// Typing still works: the field is a real input that filters the list, and
 	// nothing about it is autocompleted by the browser on top of our own list.
@@ -908,7 +943,6 @@ func TestFixedControlsFollowTheShell(t *testing.T) {
 		"the shell gutter must be a token so every fixed control uses the same one")
 
 	for _, c := range []struct{ file, rule, why string }{
-		{"layout.css", ".floating-menu {", "the floating menu button"},
 		{"base.css", ".skip-link {", "the skip link"},
 		{"components.css", ".toast-stack {", "the toast stack"},
 	} {
@@ -917,6 +951,24 @@ func TestFixedControlsFollowTheShell(t *testing.T) {
 			t.Errorf("%s must offset itself by --shell-gutter so it stays on the website's edge", c.why)
 		}
 	}
+
+	// The floating menu button used to be in that list and is not any more.
+	//
+	// --shell-gutter only moves it in past 1440px, and the client's 19 August
+	// note is about every width: "make that it stays always inside the page, so
+	// it is always under the header right side. So that this menu's right side
+	// is aligned to header right side." Below 1440px the token is 0 and the
+	// button sat against the window rather than against the website. It is
+	// positioned by layout now — see .floating-menu-shell, which is the
+	// header's own box — so it lands on the page edge at every width, which is
+	// strictly more than the token gave it.
+	layout := asset(t, cssDir+"/layout.css")
+	shell := section(t, layout, ".floating-menu-shell {", "}", "the floating menu's shell")
+	mustContain(t, shell, "width: var(--page-width);",
+		"the shell must be the same box as the header")
+	mustContain(t, shell, "margin-inline: auto;", "…centred the same way")
+	mustContain(t, shell, "padding-inline: max(var(--gutter)",
+		"…with the header's own inside gutter, so the button lands on its content edge")
 }
 
 // The stylesheets and the script still parse as balanced documents. A stray

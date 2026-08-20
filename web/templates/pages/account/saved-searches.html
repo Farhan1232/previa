@@ -4,8 +4,9 @@
 {{ template "account-head" dict "Title" "Saved searches"
    "Lede" "Your stored filters, and how often we tell you about new matches." }}
 
-<div class="container section">
-  <div class="shell">
+<div class="container section section--after-head">
+  <div class="shell shell--nav" x-data="previaPanel('previa-account-nav')"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
     {{ template "account-nav" . }}
 
     <div class="stack stack--lg">
@@ -20,7 +21,7 @@
               <div style="flex:1;min-width:0">
                 <div class="row row--tight">
                   <h2 class="card__title" style="font-size:var(--fs-base)">
-                    <a href="/search?{{ .Query }}">{{ .Name }}</a>
+                    <a href="{{ searchURL .Query }}">{{ .Name }}</a>
                   </h2>
                   {{ if .NewMatches }}
                   <span class="badge badge--featured numeric">{{ .NewMatches }} new</span>
@@ -28,7 +29,10 @@
                 </div>
                 <p class="text-sm muted" style="margin-top:4px">{{ .Summary }}</p>
                 <p class="text-xs subtle" style="margin-top:var(--sp-2)">
-                  {{ .ResultCount }} matches · saved {{ timeAgo .CreatedAt }}
+                  {{/* pluralize, because a search saved from the filter panel
+                       reports the count it actually found — and "1 matches"
+                       was the first thing that showed. */}}
+                  {{ pluralize .ResultCount "match" "matches" }} · saved {{ timeAgo .CreatedAt }}
                 </p>
               </div>
 
@@ -43,7 +47,7 @@
               </div>
 
               <div class="row row--tight" style="flex:none">
-                <a class="btn btn--secondary btn--sm" href="/search?{{ .Query }}">Run search</a>
+                <a class="btn btn--secondary btn--sm" href="{{ searchURL .Query }}">Run search</a>
                 <button type="button" class="btn btn--quiet btn--sm" x-data
                         @click="previaToast('Saved search removed in this demonstration view.', 'success')"
                         aria-label="Delete saved search {{ .Name }}">

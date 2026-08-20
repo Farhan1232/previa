@@ -1,32 +1,172 @@
 {{/*
-  Previa logo — original mark.
-  A globe with meridian lines, three rooflines sitting on the sphere, and a
-  small gold locator dot. Colours come from CSS custom properties so the mark
-  inverts correctly in dark mode without a second asset.
+  Previa logo — a planet carrying three properties.
+
+  Third pass, to the client's 17 August notes. What changed and why:
+
+    · the continents are real. They were four hand-drawn blobs, which is what
+      the client meant by "the green earth is wrong shape ... take it from the
+      carwelt logo, there are the continents exactly the right shape". Every
+      landmass below is now a coarse lon/lat coastline put through a genuine
+      orthographic projection, viewed from 32°E 17°N: Europe high and clear,
+      Africa filling the middle, Arabia and India off to the right, the coasts
+      that run over the horizon cut exactly at the rim rather than chorded
+      across the face
+    · each property disc is one flat colour and nothing else. The cream collar,
+      the navy hairline and the warm sheen arc are gone — "they have 2
+      borderlines, remove the borderlines. There is only the background color on
+      the circle"
+    · the three colours are the client's blue, red and green. Which disc takes
+      which is a legibility call, set in DISC_FILLS in the generator: green sits
+      on the sea at the upper left, red over the Arabian Sea, blue on Africa.
+      A green disc on a green continent had no edge left to read, which is the
+      opposite of what removing the borderlines was for
+    · the houses are untouched — "the 3 houses are on the right place, these
+      stay like they are"
+    · nothing rings the planet any more. The rim stroke and the limb darkening
+      that deepened its outer fifth were what the client saw on 18 August:
+      "around the earth there is a borderline, this remove completely, so the
+      earth stretches now till to the end (do not make it smaller)". The sea
+      gradient is now the outermost thing drawn and it runs to the full radius;
+      the globe keeps its roundness from that gradient's off-centre light
+
+  The sea is yellow and the land green, the palette of the carwelt mark they
+  sent as reference. Two of the three discs still sit over the rim rather than
+  inside it, each keeping roughly a third of itself past the edge: enough to
+  break the outline, not so much that the circle stops reading as a ball.
+
+  How the depth is built, since none of it is decoration for its own sake:
+
+    · the sea is a radial gradient with its focus off to the upper left, so the
+      globe is lit from one direction instead of being an evenly tinted disc
+    · the same gradient ends deep amber at the rim, which is now the only
+      thing making the circle read as a ball. The separate limb-darkening layer
+      that used to sit over its outer fifth was removed with the rim stroke:
+      together they were the borderline the client asked to take off
+    · the equator and one meridian curve the surface. A full net over green
+      landmasses turned the face to hatching at 34px
+    · each disc casts a soft shadow onto the globe, so the three read as raised
+      objects on a curved surface. The shadow is on the planet, not around the
+      disc, so it is not one of the borderlines that came off
+
+  Colours are literal rather than theme variables. The mark is one object with
+  its own lighting; inverting a lit sphere per theme would only flatten it, and
+  it holds on a white header, on the dark theme's surface and over photography
+  alike. Only the wordmark follows the theme.
+
+  Gradient ids are suffixed per variant so two logos on one page (the auth
+  screens render an aside and a banner) cannot collide. Variants that would
+  share an id are by definition identical, so sharing one definition is correct.
+
+  Geometry is generated, not hand-placed: the coastlines, the projection, every
+  disc centre and every house come from docs/logo_gen.py. The favicon in
+  public/static/img/favicon.svg is the same drawing inside the rounded rectangle
+  the client asked to keep there; regenerate one and regenerate both.
+
+  The tile, added 19 August: "with the logo lets try no this that the same
+  rounded rectangle background, what is behind favicon, make it in the header
+  as well. The current logo in the header stays the same place and same size,
+  just put this background there."
+
+  So it is the favicon's rectangle — the same #8B008B, the same corner ratio —
+  and nothing else moves: the planet, the discs and the houses are untouched
+  and the lockup keeps its size and its place in the bar. The rect is drawn to
+  the drawing's own ink box plus a small margin rather than to the full 64-unit
+  viewBox, because the mark is inset from that box on every side; a tile at the
+  viewBox edge would be a third larger than the thing it sits behind and would
+  fill the header from top to bottom.
 
   Args (via dict, all optional):
     Size   — "sm" | "md" (default) | "lg"
-    Mono   — true to render the wordmark in currentColor (used in the footer)
+    Mono   — true to render the wordmark in currentColor (used over photography)
 */}}
 {{ define "logo" }}
 {{ $size := "md" }}{{ if and . (hasField . "Size") }}{{ $size = .Size }}{{ end }}
 {{ $mono := false }}{{ if and . (hasField . "Mono") }}{{ $mono = .Mono }}{{ end }}
+{{ $uid := $size }}{{ if $mono }}{{ $uid = printf "%s-m" $size }}{{ end }}
 <span class="logo logo--{{ $size }}{{ if $mono }} logo--mono{{ end }}">
-  <svg class="logo__mark" viewBox="0 0 40 40" role="img" aria-hidden="true" focusable="false">
-    <circle cx="20" cy="20" r="17" class="logo__globe" />
-    <g class="logo__meridians">
-      <ellipse cx="20" cy="20" rx="7.4" ry="17" />
-      <path d="M3.6 14.4h32.8M3.6 25.6h32.8" />
+  <svg class="logo__mark" viewBox="0 0 64 64" role="img" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="pvS{{ $uid }}" cx=".34" cy=".26" r=".86">
+        <stop offset="0" stop-color="#FFEFB8"/>
+        <stop offset=".40" stop-color="#F8CE55"/>
+        <stop offset=".78" stop-color="#EDAE30"/>
+        <stop offset="1" stop-color="#D89A22"/>
+      </radialGradient>
+      <linearGradient id="pvN{{ $uid }}" x1=".15" y1="0" x2=".85" y2="1">
+        <stop offset="0" stop-color="#48A863"/>
+        <stop offset="1" stop-color="#22794A"/>
+      </linearGradient>
+      <linearGradient id="pvL{{ $uid }}" x1=".12" y1=".08" x2=".88" y2=".92">
+        <stop offset="0" stop-color="#0C4A2C" stop-opacity=".34"/>
+        <stop offset="1" stop-color="#0C4A2C" stop-opacity=".14"/>
+      </linearGradient>
+      <radialGradient id="pvD{{ $uid }}">
+        <stop offset=".38" stop-color="#5A3708" stop-opacity=".34"/>
+        <stop offset="1" stop-color="#5A3708" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="pvH{{ $uid }}">
+        <stop offset="0" stop-color="#fff" stop-opacity=".34"/>
+        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+      </radialGradient>
+      <clipPath id="pvC{{ $uid }}"><circle cx="32" cy="32.4" r="22"/></clipPath>
+    </defs>
+
+    {{/* The favicon's tile, behind everything. Ink runs from about 10 to 55 on
+         both axes, so 5.5 → 58.5 leaves an even margin the whole way round;
+         the radius is the favicon's 14/64 at this size. */}}
+    <rect class="logo__tile" x="5.5" y="5.5" width="53" height="53" rx="11.6" fill="#8B008B"/>
+
+    <circle cx="32" cy="32.4" r="22" fill="url(#pvS{{ $uid }})"/>
+    <g clip-path="url(#pvC{{ $uid }})">
+      <g fill="url(#pvN{{ $uid }})">
+        <path d="M21.5 21.3 L21.3 22 L20.6 23 L20.5 23.6 L21 24.1 L22.1 24.1 L23.3 22.8 L24.1 22.5 L24.3 22 L24.7 22.1 L25.8 21.9 L26.1 22.4 L26.5 23.1 L27.2 23.6 L28.1 23.6 L27.5 23 L27.1 21.6 L27.5 22.1 L28.3 22.7 L28.4 23.2 L29.4 23.7 L29.5 24.5 L30.4 24.1 L31.1 23.4 L32.9 23.1 L34.7 23.2 L33.9 22.5 L33.5 22 L32.4 21.7 L31.7 21.5 L31.1 22 L30.9 22.6 L30.3 23.4 L31.1 23.6 L33.2 25.2 L33.1 25.8 L32.8 27 L32.2 27 L32.6 25.6 L33.1 25 L33.4 26.3 L33 27.6 L34.3 29.7 L36.1 33.9 L36.8 34.2 L38.1 33.3 L40.1 31.9 L41.2 30.4 L41.5 29.6 L40.1 28.3 L38.7 28.2 L37.4 27.2 L37.8 27.6 L40.1 28.6 L41.8 28.5 L43.3 28.2 L44 28.6 L45.3 29.3 L45.6 30.2 L46 31.3 L47.1 33.3 L47.6 33.9 L48 31.8 L48.1 30.3 L48.8 28.5 L49.1 27.8 L49.6 27.5 L50.5 28.8 L51.2 29 L51.8 31.1 L52.3 32.8 L52.4 33 L52.5 33.2 L52.6 33.4 L52.7 33.6 L52.8 33.8 L52.9 34 L52.9 33.5 L52.9 33 L52.8 32.6 L52.8 32.1 L52.8 31.6 L52.7 31.2 L52.8 31 L52.8 30.9 L52.8 30.7 L52.8 30.6 L52.8 30.4 L52.8 30.3 L52.8 29.9 L52.8 29.6 L52.8 29.3 L52.8 28.9 L52.8 28.6 L52.7 28.3 L52.7 28.1 L52.6 27.9 L52.5 27.7 L52.4 27.6 L52.3 27.4 L52.2 27.2 L52.2 27 L52.2 26.8 L52.2 26.6 L52.2 26.4 L52.2 26.2 L52.1 26.1 L52.1 25.9 L52.1 25.8 L52.1 25.6 L52.1 25.5 L52.1 25.3 L52.1 25.2 L52.1 24.9 L52.1 24.7 L52.1 24.4 L52 24.2 L51.9 24 L51.9 23.7 L51.8 23.5 L51.7 23.3 L51.6 23 L51.5 22.8 L51.4 22.6 L51.2 22.3 L51.1 22.1 L51 21.9 L50.9 21.6 L50.8 21.4 L50.6 21.3 L50.5 21.1 L50.4 20.9 L50.3 20.7 L50.1 20.6 L50 20.5 L49.9 20.3 L49.8 20.2 L49.7 20.1 L49.6 20 L49.4 19.9 L49.4 19.7 L49.3 19.6 L49.2 19.4 L49.1 19.3 L49.1 19.2 L49 19 L48.9 18.8 L48.9 18.6 L49.1 18.8 L49.2 19 L49.4 19.2 L49.6 19.3 L49.7 19.5 L49.8 19.6 L49.7 19.5 L49.6 19.3 L49.5 19.1 L49.3 19 L49.2 18.8 L49.1 18.6 L49 18.5 L48.8 18.4 L48.7 18.3 L48.6 18.2 L48.5 18 L48.4 17.9 L48.3 17.8 L48.2 17.7 L48.1 17.5 L48 17.4 L47.9 17.3 L47.8 17.2 L47.5 16.9 L47.3 16.7 L47 16.4 L46.7 16.2 L46.5 15.9 L46.2 15.7 L45.9 15.5 L45.7 15.2 L45.4 15 L45.1 14.8 L44.8 14.6 L44.6 14.4 L44.2 14.2 L43.9 14 L43.6 13.8 L43.3 13.6 L42.9 13.4 L42.6 13.2 L42.5 13.1 L42.3 13 L42.2 12.9 L42.1 12.9 L41.9 12.8 L41.8 12.7 L42.3 12 L36.9 10 L36.7 10.9 L37 11 L37.2 11 L37.4 11.1 L37.6 11.2 L37.8 11.2 L37.9 11.4 L37.9 11.5 L37.9 11.7 L38 11.8 L38.1 12 L38.3 12.1 L38.4 12.2 L38.2 12.2 L38 12.2 L37.7 12.2 L37.5 12.2 L37.3 12.2 L37.1 12.2 L36.6 12.3 L36.6 12.6 L36.6 12.9 L36.6 13.6 L36 13.8 L35.4 14.5 L35.2 15 L34.6 14.8 L33.7 15.3 L33.2 15.6 L32.6 16 L32.2 15.7 L31.7 16 L31.9 16.7 L31.3 17.3 L30.5 17.4 L30.2 16.5 L30.7 15.8 L30.3 15.8 L29.5 16.6 L29.4 17.3 L28.8 18.3 L27.9 18.3 L27.7 17.8 L27.1 18.1 L26.9 18.7 L25.9 19 L25.4 19.5 L24.4 19.9 L24.2 19.8 L23.3 20.1 L23.6 20.9 L23.3 21.7 L23.1 21.8 L22.5 21.6 L21.5 21.3 Z"/>
+        <path d="M26.7 17.6 L27.1 16.9 L27.9 16.3 L28.5 16.1 L29.3 15.5 L29.8 15.1 L30.5 14.8 L31.1 14.6 L31.6 14.6 L31.9 14.8 L31.7 16 L30.7 15.8 L30.2 16.5 L29.5 16.6 L27.9 17.5 L27.3 17.7 L26.7 17.6 Z"/>
+        <path d="M23.5 19.6 L24.1 19.2 L24.2 18.6 L24.7 18.2 L24.4 17.9 L25.1 17.1 L25.4 17.2 L25.4 17.5 L25.2 17.8 L25.2 18.6 L25.3 19 L24.9 19.4 L24.4 19.5 L23.5 19.6 Z"/>
+        <path d="M22.8 18.9 L23.4 18.4 L23.4 18.1 L24.1 17.9 L24.2 18.2 L23.9 18.6 L23.6 18.9 L23.1 19 L22.8 18.9 Z"/>
+        <path d="M24.4 14.7 L24.9 14.6 L25.5 14.8 L25.3 15.2 L24.5 15.4 L24.1 15.2 L24.4 14.7 Z"/>
+        <path d="M21.2 24.2 L19.5 25.5 L18.2 26.6 L16.6 28.7 L16 30.6 L16 32.1 L16.5 33.4 L17 34.2 L18 35.7 L19.4 35.8 L20.8 35.7 L22.2 36.6 L23.3 36.7 L23.6 37.6 L23.5 38.6 L24.4 39.5 L24.6 40.5 L25.1 41.6 L24.7 43.9 L25.9 46.1 L27.1 47.9 L27.7 49.1 L28.2 49.6 L30 49.5 L31.3 48.7 L32.3 47.4 L33.3 45.9 L35.1 44.3 L35.2 42.7 L34.8 41.2 L35.7 39.5 L36.4 38 L38.2 36.5 L39.2 34.6 L37.9 34.3 L36.3 34.6 L36.1 33.9 L34.4 32.2 L33.9 30.8 L33.2 29.7 L32.7 28.4 L32.2 27.5 L31.7 26.9 L29.7 26.7 L27.9 27.1 L26.7 26.3 L25.4 25.8 L25.6 24.6 L24.9 24.4 L23.5 24.3 L22.3 24.5 L21.2 24.2 Z"/>
+        <path d="M38.4 42.8 L38.7 43.9 L38.3 44.6 L37.8 45.8 L37.2 47 L36.5 47.1 L36 46.1 L36.1 44.7 L37.1 44 L37.9 43.3 L38.4 42.8 Z"/>
+        <path d="M34.9 9.6 L26.8 10.1 L26.8 11 L26.7 11.1 L26.5 11.1 L26.3 11.1 L26.2 11.2 L26 11.2 L25.9 11.3 L25.7 11.3 L25.6 11.4 L25.4 11.5 L25.3 11.6 L25.5 11.6 L25.7 11.6 L26 11.6 L25.7 11.7 L25.5 11.8 L25.3 11.9 L25 12 L24.8 12.1 L24.6 12.2 L24 12.5 L23.4 12.7 L22.8 13 L22.2 13.2 L21.6 13.5 L21.1 13.8 L20.7 14.1 L20.3 14.4 L20 14.7 L19.6 15 L19.3 15.3 L18.9 15.6 L18.6 15.8 L18.3 16 L18 16.2 L17.7 16.4 L17.4 16.6 L17.1 16.8 L17.1 16.7 L17.1 16.5 L16.9 16.6 L16.7 16.7 L16.6 16.9 L16.5 16.9 L16.3 17 L16.2 17.1 L16.1 17.2 L16 17.3 L15.9 17.4 L15.3 16.8 Z"/>
+        <path d="M21.3 14.9 L21.6 14.6 L21.9 14.4 L22.2 14.1 L22.5 13.9 L22.8 13.7 L23.1 13.5 L23.3 13.3 L23.6 13.2 L23.8 13.1 L24 13 L24.3 12.9 L24.5 12.7 L24.8 12.6 L25.1 12.5 L25.5 12.4 L25.8 12.2 L26.2 12.1 L26.5 12 L26.8 11.9 L27.1 11.9 L27.3 11.8 L27.6 11.7 L27.9 11.6 L28.2 11.6 L28.4 11.6 L28.6 11.6 L28.8 11.6 L29 11.6 L29.2 11.7 L29.4 11.7 L29.4 11.9 L29.4 12.1 L27.9 13 L25.9 13.9 L24 14.3 L22.2 14.8 L21.3 14.9 Z"/>
+        <path d="M9.3 26.8 L11.8 43.2 L12.4 42.4 L12.4 42.2 L12.4 42.1 L12.3 41.9 L12.3 41.7 L12.2 41.5 L12.2 41.3 L12.2 41.1 L12.2 40.9 L12.1 40.5 L12.1 40.2 L12 39.8 L11.9 39.4 L11.9 39.1 L11.8 38.7 L11.9 38.5 L11.9 38.4 L11.9 38.2 L11.9 38.1 L11.9 38 L11.9 37.8 L11.8 37.5 L11.7 37.2 L11.6 36.9 L11.5 36.6 L11.4 36.3 L11.3 36 L11.2 35.8 L11.1 35.6 L11 35.4 L10.9 35.3 L10.8 35.1 L10.7 34.9 L10.6 34.6 L10.5 34.3 L10.4 34.1 L10.3 33.8 L10.3 33.6 L10.2 33.3 L10.2 33 L10.2 32.7 L10.2 32.5 L10.2 32.2 L10.2 31.9 L10.2 31.7 L10.2 31.4 L10.1 31.2 L10.1 31 L10.1 30.8 L10.1 30.5 L10.1 30.3 L10.1 30.1 L10.2 29.8 L10.2 29.6 L10.2 29.4 L9.4 29 Z"/>
+        <path d="M52.2 41.2 L52.1 41.4 L52 41.6 L51.9 41.8 L51.8 42 L52.5 42.6 L53.2 41.1 L52.3 40.9 L52.2 41 L52.2 41.2 Z"/>
+        <path d="M53.5 33.1 L53.5 33 L53.6 32.8 L53.6 32.7 L53.6 32.5 L53.7 32.4 L53.7 32.2 L53.8 32 L53.8 31.7 L53.9 31.4 L53.9 31.6 L53.9 31.7 L53.9 31.9 L53.9 32.1 L54 32.2 L54 32.4 L54 32.7 L54 33 L53.9 33.3 L53.9 33.6 L53.9 33.9 L53.9 34.2 L53.8 34.4 L53.8 34.5 L53.6 34.7 L53.5 34.8 L53.5 34.6 L53.4 34.4 L53.4 34.2 L53.4 34.1 L53.4 33.9 L53.4 33.7 L53.5 33.5 L53.5 33.3 L53.5 33.1 Z"/>
+        <path d="M51.6 33.2 L52.1 33.7 L52.7 34.6 L52.7 34.9 L52.8 35.2 L52.9 35.5 L52.9 35.8 L53 36.1 L53 36.4 L53.2 36.4 L53.4 36.4 L53.6 36.3 L53.6 36.1 L53.6 35.9 L53.5 36 L53.3 36.2 L53.2 36.3 L53 36.4 L52.9 36.1 L52.8 35.9 L52.6 35.7 L52.6 35.5 L52.5 35.3 L52.4 35.1 L52.3 34.9 L52.2 34.7 L52.1 34.5 L51.6 33.2 Z"/>
+        <path d="M50.6 20.6 L50.5 20.5 L50.4 20.3 L50.3 20.2 L50.2 20 L50.1 19.9 L50 19.7 L49.9 19.5 L50.5 19 L50.3 18.6 L49.7 19.3 L49.8 19.4 L49.9 19.6 L50 19.7 L50.1 19.9 L50.2 20 L50.2 20.1 L50.3 20.2 L50.4 20.4 L50.5 20.5 L50.6 20.6 Z"/>
+        <path d="M48.1 33.1 L48.5 33.4 L48.7 33.9 L48.4 34.5 L48.1 33.9 L48.1 33.1 Z"/>
+      </g>
+      <g fill="none" stroke="url(#pvL{{ $uid }})" stroke-width=".8">
+        <path d="M10.2 33.3 L11.1 34.4 L12.6 35.4 L14.7 36.4 L17.3 37.2 L20.3 37.9 L23.8 38.4 L27.4 38.7 L31.2 38.8 L35.1 38.8 L38.8 38.5 L42.3 38.1 L45.5 37.5 L48.3 36.7 L50.7 35.8 L52.4 34.8 L53.5 33.7 L54 32.6"/>
+        <path d="M28 54 L26.2 53.3 L24.5 52 L23.1 50.1 L21.9 47.6 L21 44.7 L20.5 41.4 L20.3 37.9 L20.5 34.1 L21 30.3 L21.9 26.6 L23.1 23.1 L24.5 19.8 L26.2 16.9 L28 14.5 L30 12.6 L32 11.4"/>
+      </g>
+      <ellipse cx="20.4" cy="21.2" rx="8.1" ry="7.7" fill="url(#pvD{{ $uid }})"/>
+      <ellipse cx="49.5" cy="25.5" rx="7.4" ry="7" fill="url(#pvD{{ $uid }})"/>
+      <ellipse cx="31.4" cy="45.8" rx="7.7" ry="7.3" fill="url(#pvD{{ $uid }})"/>
+      <ellipse cx="22.8" cy="21" rx="10.1" ry="6.6" fill="url(#pvH{{ $uid }})" transform="rotate(-26 22.8 21)"/>
     </g>
-    <g class="logo__houses">
-      {{/* left house */}}
-      <path d="M8.4 22.6 13 18.6l4.6 4v6.2H8.4z" />
-      {{/* centre house, tallest, sits on the equator */}}
-      <path d="M15.9 17.4 21.4 12.6l5.5 4.8v9.2h-11z" />
-      {{/* right house */}}
-      <path d="M25.4 23.4 29.2 20l3.8 3.4v5.4h-7.6z" />
+    <g class="logo__badges">
+      <circle cx="19.3" cy="19.7" r="7" fill="#7CFC00"/>
+      <circle cx="48.4" cy="24" r="6.4" fill="#FF0000"/>
+      <circle cx="30.3" cy="44.3" r="6.6" fill="#FF00FF"/>
     </g>
-    <circle cx="21.4" cy="21.6" r="1.9" class="logo__pin" />
+    <g class="logo__houses" fill="#FAF4E6">
+      <path d="M16.1 24.6 L16.1 19 L14.8 19 L19.3 14.1 L23.8 19 L22.5 19 L22.5 24.6 Z"/>
+      <path d="M45.5 28.5 L45.5 23.4 L44.3 23.4 L48.4 18.9 L52.5 23.4 L51.3 23.4 L51.3 28.5 Z"/>
+      <path d="M27.3 48.9 L27.3 43.6 L26.1 43.6 L30.3 39 L34.6 43.6 L33.3 43.6 L33.3 48.9 Z"/>
+    </g>
+    <path d="M14.8 19 L19.3 14.1 L23.8 19 Z" fill="#C25A3C"/>
+    <path d="M44.3 23.4 L48.4 18.9 L52.5 23.4 Z" fill="#1F6F66"/>
+    <path d="M26.1 43.6 L30.3 39 L34.6 43.6 Z" fill="#2A5C8A"/>
+    <g fill="#123A56">
+      <path d="M18.2 24.6 L18.2 21.4 L20.4 21.4 L20.4 24.6 Z"/>
+      <path d="M47.4 28.5 L47.4 25.6 L49.4 25.6 L49.4 28.5 Z"/>
+      <path d="M29.3 48.9 L29.3 45.9 L31.4 45.9 L31.4 48.9 Z"/>
+    </g>
+    <g fill="none" stroke="#0A2438" stroke-opacity=".85" stroke-width=".75" stroke-linejoin="round">
+      <path d="M16.1 24.6 L16.1 19 L14.8 19 L19.3 14.1 L23.8 19 L22.5 19 L22.5 24.6 Z"/>
+      <path d="M45.5 28.5 L45.5 23.4 L44.3 23.4 L48.4 18.9 L52.5 23.4 L51.3 23.4 L51.3 28.5 Z"/>
+      <path d="M27.3 48.9 L27.3 43.6 L26.1 43.6 L30.3 39 L34.6 43.6 L33.3 43.6 L33.3 48.9 Z"/>
+    </g>
   </svg>
   <span class="logo__word">Previa</span>
 </span>

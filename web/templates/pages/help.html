@@ -2,6 +2,14 @@
 <div class="page-head">
   <div class="container">
     <div class="page-head__inner">
+      {{/* Breadcrumb, in the same place as on every other page: the client
+           asked for it "always there in the same place". */}}
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">Help and contact</li>
+        </ol>
+      </nav>
       <h1 class="page-head__title">Help and contact</h1>
       <p class="lede">
         Search the help topics below, or send us a message and we'll come back
@@ -79,10 +87,12 @@
     <aside class="detail-aside">
       <div class="card">
         <div class="card__header"><h2 class="card__title">Contact details</h2></div>
+        {{/*
+          The address the client asked for, and nothing else: the office hours
+          and the reply-time promise were both removed at their request.
+        */}}
         <div class="card__body stack stack--sm">
-          <p class="text-sm"><a href="mailto:hello@previa.estate">hello@previa.estate</a></p>
-          <p class="text-sm muted">Monday to Friday, 9:00–17:00 CET</p>
-          <p class="text-sm muted">Typical reply time: under one working day.</p>
+          <p class="text-sm"><a href="mailto:info@previa.estate">info@previa.estate</a></p>
         </div>
       </div>
 

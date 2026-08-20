@@ -1,0 +1,88 @@
+{{ define "content" }}
+{{/*
+  FAQ.
+
+  This accordion used to be the "Common questions" band at the foot of the
+  packages page. The client asked for it renamed to FAQ and given a section of
+  its own, so it moved here in full and the packages page lost it — the answers
+  are the same text, not a copy left behind in two places.
+*/}}
+{{/*
+  The head is left-aligned and compact, at the client's request: "in FAQ page
+  this title and nav-bar align to left like everywhere ... then make this
+  'second header' area smaller and the menu block below move more up."
+
+  Centring was this page's own arrangement and nothing else on the site did it,
+  which is what "like everywhere" is asking to end. Smaller is the account
+  screens' own --compact variant, which exists for the same complaint about a
+  head that opens with too much air, and .section--after-head below is its other
+  half: the 48–96px section step becomes a fixed 24px.
+*/}}
+<div class="page-head page-head--compact">
+  <div class="container">
+    <div class="page-head__inner">
+      {{/* Breadcrumb, in the same place as on every other page: the client
+           asked for it "always there in the same place". */}}
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">FAQ</li>
+        </ol>
+      </nav>
+      <h1 class="page-head__title">FAQ</h1>
+    </div>
+  </div>
+</div>
+
+{{/*
+  The questions sit at the page gutter, under the title, rather than in a
+  centred column.
+
+  "Align to left like everywhere" is about the page, not only the heading: on
+  every other page the block under the head starts at the same left edge the
+  title does, and leaving the accordion centred would have left the title
+  hanging off to one side of it. The measure stays close to what the centred
+  column had — a question and its answer are prose, and prose does not want
+  1200px of line — so only the alignment changes.
+*/}}
+<div class="container section section--after-head">
+  <div class="stack faq-list" x-data="{ open: 0 }">
+    {{ $faqs := list
+       "How long does it take to publish a listing?"
+       "Can I edit a listing after it goes live?"
+       "What happens when my package expires?"
+       "Do you charge commission on a sale?"
+       "Can I pay by bank transfer?"
+       "How do I feature my listing on the homepage?"
+       "Can I buy promotion after my listing is already live?"
+       "How do I contact a seller?" }}
+    {{ $answers := list
+       "Most sellers finish the wizard in about fifteen minutes. Listings appear in search results as soon as they pass an automated check, which usually takes a few minutes."
+       "Yes. Price, description, photos and availability can be changed at any time from My listings, and updates appear immediately."
+       "The listing comes off search results but stays in your account, with all its photos and statistics intact. Renewing puts it straight back online."
+       "No. Previa charges for the listing package only. What you agree with a broker is a separate arrangement between you and them."
+       "Card and PayPal are processed immediately. Paysera bank links cover a wide range of European banks, and agencies on the Agency package can be invoiced monthly."
+       "Tick <em>Featured listing</em> when you publish, then choose how many days you want it to run. A featured listing carries a golden frame and appears on the homepage under Featured properties."
+       "Yes. Featured days and search bumps can be bought at any time from My listings, for as many days as you like, and they can be topped up again later while the listing is still online."
+       "Every listing shows the ways that seller chose to be reached — phone, email, the Previa message form, and any messenger apps they enabled. Tapping a messenger icon opens a chat with them directly." }}
+
+    {{ range $i, $q := $faqs }}
+    <div class="faq" :class="{ 'is-open': open === {{ $i }} }">
+      <button type="button" class="faq__q" @click="open = open === {{ $i }} ? -1 : {{ $i }}"
+              :aria-expanded="open === {{ $i }}">
+        <span>{{ $q }}</span>
+        {{ template "icon" "chevron-down" }}
+      </button>
+      <div class="faq__a" x-show="open === {{ $i }}" x-collapse>
+        <p>{{ index $answers $i | safeHTML }}</p>
+      </div>
+    </div>
+    {{ end }}
+  </div>
+
+  {{/* The "Still stuck? Help & contact reaches a person, not a queue" note was
+       removed at the client's request, along with the lede above it. Help &
+       contact is in the footer of every page and in the header drawer, so the
+       page loses a pointer, not a route. */}}
+</div>
+{{ end }}

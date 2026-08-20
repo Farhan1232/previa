@@ -42,7 +42,13 @@ const (
 // Pointer fields distinguish "not set" from "set to zero", which matters for
 // price and area bounds.
 type PropertyFilter struct {
-	Deal        models.DealType
+	// Deals is a multiple choice, like Types below: the client asked to be able
+	// to look at Rent and Short rent together, and for each chosen deal type to
+	// appear as its own removable tag. A listing matches when its deal is any
+	// one of them.
+	//
+	// Never empty after ParseFilter — Sell is the arrival state.
+	Deals       []models.DealType
 	CountryCode string
 	// CountryName is filled in by the handler so the active-filter chip can
 	// show "Germany" rather than "DE". It is never used for matching.
@@ -51,37 +57,75 @@ type PropertyFilter struct {
 	// round-tripped in the `location` query parameter and redisplayed in the
 	// field; the City/District/Address fields below are what actually match,
 	// filled in by ResolveLocationInto from the chosen suggestion.
-	LocationLabel  string
-	City           string
-	District       string
-	Address        string
-	Types          []models.PropertyType
-	PriceMin       *float64
-	PriceMax       *float64
-	Currency       string
-	Rooms          int
-	Bedrooms       int
-	Bathrooms      int
-	AreaMin        *float64
-	AreaMax        *float64
-	LandAreaMin    *float64
-	YearMin        int
-	YearMax        int
-	Conditions     []models.Condition
-	Furnished      bool
-	Parking        bool
-	Balcony        bool
-	Garden         bool
-	Elevator       bool
+	LocationLabel string
+	City          string
+	District      string
+	Address       string
+	// Lat, Lng is where LocationLabel resolved to, when it resolved at all.
+	//
+	// Nothing is *matched* on it: the client was explicit that entering a
+	// location must not reorder the results — "the order of the real-estate ads
+	// here is not automatically according to nearest distance. The order stays
+	// like it is set up in the 'sort by' menu." It is carried so every card can
+	// say how far away it is, and so the brokers shown alongside the listings
+	// can be measured from the same point the properties are.
+	Lat, Lng    float64
+	Types       []models.PropertyType
+	PriceMin    *float64
+	PriceMax    *float64
+	Currency    string
+	Rooms       int
+	Bedrooms    int
+	Bathrooms   int
+	AreaMin     *float64
+	AreaMax     *float64
+	LandAreaMin *float64
+	YearMin     int
+	YearMax     int
+	Conditions  []models.Condition
+	Furnished   bool
+	Parking     bool
+	Balcony     bool
+	Garden      bool
+	Elevator    bool
+	// Amenities are the ticks from models.AmenityGroups that are not one of the
+	// five booleans above, as amenity keys. Repeated in the URL —
+	// amenity=sauna&amenity=dishwasher — and matched with AND: a buyer who
+	// ticks a sauna and a dishwasher wants both, which is what ticking two
+	// boxes on a filter has always meant.
+	//
+	// The five above keep their own parameters rather than joining this list,
+	// so every bookmark, saved search and shared URL written before the full
+	// catalogue existed still resolves to the same search.
+	Amenities      []string
 	EnergyRating   string
 	SellerKind     models.SellerKind
 	NewDevelopment bool
 	FeaturedOnly   bool
-	Keyword        string
-	Sort           SortOrder
-	Page           int
-	PerPage        int
+	// Languages narrows to listings sold in any one of these, as ISO 639-1
+	// codes. Multiple choice, and optional — the client's "this option is not
+	// obligatory" — so an empty list is not a constraint and removes nothing.
+	Languages []string
+	Keyword   string
+	// ShowBrokers turns the brokers who bought the map placement on, both as
+	// pins on the map and as cards among the results.
+	//
+	// The client's 18 August note put the control in a fixed place: "in the
+	// main search menu, where is 'deal type' sell and buy, there add 'brokers'
+	// so the user can choose if he wants the brokers will be displayed or not.
+	// Then the system with the brokers is the same as with real estate."
+	//
+	// Off by default. A reader who came to look at property gets property until
+	// they ask for anything else.
+	ShowBrokers bool
+	Sort        SortOrder
+	Page        int
+	PerPage     int
 }
+
+// HasPoint reports whether the typed location resolved to somewhere on the map,
+// which is what makes a distance sayable.
+func (f PropertyFilter) HasPoint() bool { return f.Lat != 0 || f.Lng != 0 }
 
 // SearchResult is one page of matches plus the metadata the results bar and
 // map need.
@@ -164,13 +208,94 @@ type LocationCount struct {
 	Coords      models.Coordinates
 }
 
+// BrokerFilter is what the broker directory searches on.
+//
+// The client replaced the directory's country and city selects with one
+// Google-Maps-style Location box and a radius: "the broker search we relate to
+// googlemaps … the user enters the location and radius, so from this location
+// and with this radius (50 km) the brokers are displayed."
+//
+// So there is no country or city field here on purpose. A place is a point and
+// a distance from it, which is the only thing that can answer "brokers near
+// me" honestly — a city filter would miss the broker ten minutes over the
+// boundary and keep the one at the far end of a large city.
+type BrokerFilter struct {
+	// Location is the label the reader typed or picked; Lat, Lng is where it
+	// resolved to. A label that resolves to nothing leaves the point unset, and
+	// the filter then falls back to matching the label as text rather than
+	// silently returning every broker on the site.
+	Location string
+	Lat, Lng float64
+	// RadiusKm applies only when the location resolved. Zero means no radius.
+	RadiusKm int
+	// Languages are language codes, any of which is a match — a buyer who
+	// speaks German and English wants brokers reachable in either, not brokers
+	// who speak both. Empty matches everyone, which is what "Any" selects.
+	Languages []string
+	// Q is the free-text name-or-speciality box.
+	Q string
+
+	// MarketCode is the market chosen in the header, and it is what the
+	// directory falls back to when nothing has been typed into it.
+	//
+	// The client gave the page two modes, 18 August: "On top in the header is
+	// the choose your market button, and so whatever market is chosen there,
+	// then these brokers what have bought ad in this market are displayed there
+	// — so the same as the frontpage broker section. And if the user in this
+	// search menu enters the location and radius, then the 'choose your market'
+	// system is not active any more and now the system displays there only
+	// these brokers what are in this range and in this order, who is closer."
+	//
+	// So the two modes are exclusive by construction: a location, typed or
+	// resolved, switches this off. Empty means no market restriction at all,
+	// which is what the search modes use.
+	MarketCode string
+
+	// CountryCode narrows to brokers working in one market — their home
+	// country or any of the countries they list themselves as active in.
+	//
+	// It is where the broker *is*, which is a different question from
+	// MarketCode above (where they *bought* an ad). The search page uses it
+	// when the reader typed a whole country into the location box: a 50 km
+	// circle around a country's centre is a field, not a country.
+	CountryCode string
+
+	// MapAdOnly narrows to brokers who bought the map placement and dropped a
+	// pin — the set the search page draws, as pins on the map and as cards
+	// beside them.
+	MapAdOnly bool
+}
+
+// HasPoint reports whether a radius search is possible: a place was entered and
+// it resolved to somewhere on the map.
+func (f BrokerFilter) HasPoint() bool { return f.Lat != 0 || f.Lng != 0 }
+
+// IsBrowsing reports whether nothing at all has been searched for — which is
+// when the header's market decides what the directory shows.
+//
+// The client named the location field when they described the switch: "if the
+// user in this search menu enters the location and radius, then the 'choose
+// your market' system is not active any more." The rule underneath it is
+// browsing versus searching, so every input in that menu ends the market mode,
+// not only the first one. A reader who has asked for brokers who speak Czech
+// has searched, and answering with "nobody in your market speaks Czech" when
+// three of them do elsewhere would be the market quietly overruling the
+// question they actually asked.
+func (f BrokerFilter) IsBrowsing() bool {
+	return f.Location == "" && len(f.Languages) == 0 && f.Q == ""
+}
+
 // BrokerRepository serves brokers and agencies.
 type BrokerRepository interface {
 	All(ctx context.Context) []models.Broker
 	ByID(ctx context.Context, id string) (models.Broker, bool)
 	BySlug(ctx context.Context, slug string) (models.Broker, bool)
 	Promoted(ctx context.Context, countryCode string, limit int) []models.Broker
-	Filter(ctx context.Context, country, city, language, q string) []models.Broker
+	Filter(ctx context.Context, f BrokerFilter) []models.Broker
+	// OnMap serves the search page: the brokers whose map placement is paid up
+	// and who have a pin to place, narrowed by the same location and radius the
+	// property search used. See BrokerFilter.MapAdOnly.
+	OnMap(ctx context.Context, f BrokerFilter) []models.Broker
 	Agencies(ctx context.Context) []models.Agency
 	AgencyBySlug(ctx context.Context, slug string) (models.Agency, bool)
 	BrokersByAgency(ctx context.Context, agencyID string) []models.Broker
@@ -193,9 +318,27 @@ type AccountRepository interface {
 	IsFavourite(ctx context.Context, propertyID string) bool
 	ToggleFavourite(ctx context.Context, propertyID string) bool
 	SavedSearches(ctx context.Context) []models.SavedSearch
+	// AddSavedSearch stores a search the reader asked to keep and returns it
+	// with the id and timestamp the store gave it.
+	//
+	// The client's note is about what happens after the click — "then add there
+	// button 'save search', if hit that then this search will be saved under
+	// user's 'saved searches' menu" — so the panel's button has to leave a row
+	// behind rather than only say it did. In the mock the row lives for as long
+	// as the process does; the MySQL implementation writes it to a table and
+	// nothing above this line changes.
+	AddSavedSearch(ctx context.Context, s models.SavedSearch) models.SavedSearch
 	Notifications(ctx context.Context) []models.Notification
 	UnreadCount(ctx context.Context) int
 	MyListings(ctx context.Context, status models.ListingStatus) []models.Property
+	// ListingStats is the per-day visitor series behind the statistics panel on
+	// My listings. days is how far back to go; the result runs oldest first.
+	// The second return is false for a listing the user does not own, so a
+	// hand-edited id cannot read another seller's numbers.
+	ListingStats(ctx context.Context, propertyID string, days int) (models.ListingStats, bool)
+	// CloneListing duplicates a listing as a new draft and returns it. The
+	// copy is never active: a duplicate has not been paid for.
+	CloneListing(ctx context.Context, propertyID string) (models.Property, bool)
 	Drafts(ctx context.Context) []models.Draft
 	Payments(ctx context.Context) []models.Payment
 }
@@ -229,6 +372,13 @@ type CatalogRepository interface {
 	// the ones currently switched off.
 	BannersAll(ctx context.Context) []models.Banner
 	Packages(ctx context.Context) []models.Package
+	Promotions(ctx context.Context) []models.Promotion
+	// BrokerAdPlan is the homepage broker strip as a purchasable placement,
+	// sold per market — see models.BrokerAd.
+	BrokerAdPlan(ctx context.Context) models.BrokerAdPlan
+	// BrokerMapAdPlan is the other placement a broker buys — their pin on the
+	// search map. Bought once rather than per market; see models.BrokerMapAd.
+	BrokerMapAdPlan(ctx context.Context) models.BrokerMapAdPlan
 	Testimonials(ctx context.Context) []models.Testimonial
 	Languages(ctx context.Context) []models.Language
 	RestrictedCountries(ctx context.Context) []models.RestrictedCountry
@@ -272,7 +422,6 @@ type Values interface {
 // degrades to a broader search instead of a failure page.
 func ParseFilter(v Values, multi func(string) []string) PropertyFilter {
 	f := PropertyFilter{
-		Deal:          models.DealType(strings.ToLower(v.Get("deal"))),
 		CountryCode:   strings.ToUpper(v.Get("country")),
 		LocationLabel: strings.TrimSpace(v.Get("location")),
 		City:          v.Get("city"),
@@ -286,14 +435,25 @@ func ParseFilter(v Values, multi func(string) []string) PropertyFilter {
 		PerPage:       atoiDefault(v.Get("per_page"), 12),
 	}
 
-	// Deal type always has one of the three selected — the client asked for
-	// Sell to be the state a visitor arrives in. There is no "any deal type":
-	// with the Any option removed, an unset or unrecognised value falls back
-	// to Sell rather than quietly widening the search to everything.
-	switch f.Deal {
-	case models.DealSale, models.DealRent, models.DealShortRent:
-	default:
-		f.Deal = models.DealSale
+	// Deal type is a multiple choice — the parameter repeats, deal=rent&deal=short_rent.
+	//
+	// There is still no "any deal type": with the Any option removed, an empty
+	// or entirely unrecognised selection falls back to Sell, which the client
+	// asked to be the state a visitor arrives in, rather than quietly widening
+	// the search to everything.
+	seenDeal := map[models.DealType]bool{}
+	for _, raw := range multi("deal") {
+		d := models.DealType(strings.ToLower(strings.TrimSpace(raw)))
+		switch d {
+		case models.DealSale, models.DealRent, models.DealShortRent:
+			if !seenDeal[d] {
+				seenDeal[d] = true
+				f.Deals = append(f.Deals, d)
+			}
+		}
+	}
+	if len(f.Deals) == 0 {
+		f.Deals = []models.DealType{models.DealSale}
 	}
 	if f.Sort == "" {
 		f.Sort = SortNewest
@@ -330,6 +490,21 @@ func ParseFilter(v Values, multi func(string) []string) PropertyFilter {
 		}
 	}
 
+	// Language of communication, the client's 17 August addition. Repeated,
+	// like deal and property type: language=de&language=en. An unknown code is
+	// dropped rather than obeyed — a hand-edited URL would otherwise filter on
+	// something that exists nowhere and return an empty page with no
+	// explanation for it.
+	seenLang := map[string]bool{}
+	for _, raw := range multi("language") {
+		v := strings.ToLower(strings.TrimSpace(raw))
+		if v == "" || seenLang[v] || !IsSpokenLanguage(v) {
+			continue
+		}
+		seenLang[v] = true
+		f.Languages = append(f.Languages, v)
+	}
+
 	f.PriceMin = parseFloat(v.Get("price_min"))
 	f.PriceMax = parseFloat(v.Get("price_max"))
 	f.AreaMin = parseFloat(v.Get("area_min"))
@@ -342,6 +517,21 @@ func ParseFilter(v Values, multi func(string) []string) PropertyFilter {
 	f.YearMin = atoiDefault(v.Get("year_min"), 0)
 	f.YearMax = atoiDefault(v.Get("year_max"), 0)
 
+	// The rest of the "Features and amenities" catalogue, added to the search
+	// menu on the client's 19 August note. Unknown keys are dropped for the
+	// same reason an unknown property type is: a hand-edited URL would
+	// otherwise filter on something that exists nowhere and return an empty
+	// page with no explanation for it.
+	seenAmenity := map[string]bool{}
+	for _, raw := range multi("amenity") {
+		key := strings.ToLower(strings.TrimSpace(raw))
+		if key == "" || seenAmenity[key] || !models.IsAmenity(key) {
+			continue
+		}
+		seenAmenity[key] = true
+		f.Amenities = append(f.Amenities, key)
+	}
+
 	f.Furnished = isOn(v.Get("furnished"))
 	f.Parking = isOn(v.Get("parking"))
 	f.Balcony = isOn(v.Get("balcony"))
@@ -349,6 +539,7 @@ func ParseFilter(v Values, multi func(string) []string) PropertyFilter {
 	f.Elevator = isOn(v.Get("elevator"))
 	f.NewDevelopment = isOn(v.Get("new_development"))
 	f.FeaturedOnly = isOn(v.Get("featured"))
+	f.ShowBrokers = isOn(v.Get("brokers"))
 
 	switch strings.ToLower(v.Get("seller")) {
 	case "broker":
@@ -374,13 +565,19 @@ func (f PropertyFilter) Chips() []ActiveChip {
 		out = append(out, ActiveChip{Label: label, Key: key, Value: value})
 	}
 
-	switch f.Deal {
-	case models.DealSale:
-		add("Sell", "deal", "")
-	case models.DealRent:
-		add("Rent", "deal", "")
-	case models.DealShortRent:
-		add("Short rent", "deal", "")
+	// One chip per selected deal type, each removable on its own — so a search
+	// across Rent and Short rent can drop back to either without clearing both.
+	//
+	// The last remaining deal chip is not removable: dropping it would leave no
+	// deal type at all, which the parser reads as "Sell", so the chip would
+	// appear to do nothing. Chips() marks it by leaving Key empty and the
+	// template renders it without a remove button.
+	for _, d := range f.Deals {
+		key := "deal"
+		if len(f.Deals) == 1 {
+			key = ""
+		}
+		out = append(out, ActiveChip{Label: DealLabel(d), Key: key, Value: string(d)})
 	}
 	if f.CountryCode != "" {
 		label := f.CountryName
@@ -443,6 +640,11 @@ func (f PropertyFilter) Chips() []ActiveChip {
 	if f.Elevator {
 		add("Elevator", "elevator", "")
 	}
+	// One chip per ticked amenity, each removable on its own, so a search
+	// narrowed by six of them can drop back one at a time.
+	for _, key := range f.Amenities {
+		add(models.AmenityLabel(key), "amenity", key)
+	}
 	if f.EnergyRating != "" {
 		add("Energy "+f.EnergyRating, "energy", "")
 	}
@@ -460,8 +662,20 @@ func (f PropertyFilter) Chips() []ActiveChip {
 	if f.YearMin > 0 {
 		add("Built after "+strconv.Itoa(f.YearMin), "year_min", "")
 	}
+	// One chip per language, each removable on its own, like the deal and
+	// property types above — a search across German and English can drop back
+	// to either without clearing both.
+	for _, l := range f.Languages {
+		add(LanguageName(l), "language", l)
+	}
 	if f.Keyword != "" {
 		add("“"+f.Keyword+"”", "q", "")
+	}
+	// Brokers last, because it does not narrow the property search — it adds a
+	// second kind of result to it. Removable like any other tag, which is how
+	// the map's tag bar can switch them off again without opening the drawer.
+	if f.ShowBrokers {
+		add("Brokers", "brokers", "")
 	}
 	return out
 }
@@ -522,6 +736,21 @@ func formatThousands(f float64) string {
 		b.WriteString(s[i : i+3])
 	}
 	return b.String()
+}
+
+// DealLabel is the human-readable name of a deal type, from the single
+// catalogue in package models — so a chip reads "Short rent", exactly as the
+// filter control that set it does.
+//
+// Distinct from view.DealLabel, which renders the badge wording on a card
+// ("For sale"). A filter tag names the choice, not the listing.
+func DealLabel(d models.DealType) string {
+	for _, dt := range models.DealTypes {
+		if dt.Value == d {
+			return dt.Label
+		}
+	}
+	return string(d)
 }
 
 // TypeLabel is the human-readable name of a property category, from the single

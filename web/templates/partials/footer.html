@@ -2,63 +2,66 @@
 {{/*
   Footer.
 
-  Cut down at the client's request to two link columns and one legal row.
-  Removed outright, and not replaced by anything: the "Popular searches on
-  Previa" SEO matrix and every link inside it, the whole "Explore" column, and
-  the brand block that carried the logo, the description paragraph and the row
-  of round social buttons. The two of those buttons worth keeping — email and
-  account — moved down into the legal row rather than staying behind in a
-  section of their own.
+  Cut down twice at the client's request. The first pass removed the "Popular
+  searches on Previa" SEO matrix, the "Explore" column and the brand block; the
+  second removed the column headings and everything the client did not name.
+
+  What is left is one flat row of five links spread evenly across the footer
+  width, plus the legal strip. There are deliberately no column titles and no
+  duplicate of Terms / Privacy / Cookies — those already live in the legal row
+  below the separator, which is unchanged.
 */}}
 <footer class="site-footer">
   <div class="container">
 
-    <div class="footer__main">
-      <div>
-        <h2 class="footer__col-title">Sell &amp; rent out</h2>
-        <ul class="footer__links">
-          <li><a href="/add-listing">Add a listing</a></li>
-          <li><a href="/pricing">Listing packages</a></li>
-          <li><a href="/pricing#agency">For agencies</a></li>
-          <li><a href="/dashboard">Your dashboard</a></li>
-          <li><a href="/my-listings">Manage listings</a></li>
-          <li><a href="/billing">Billing &amp; invoices</a></li>
-        </ul>
-      </div>
+    {{/*
+      The mark, on the left, level with the header's.
 
-      <div>
-        <h2 class="footer__col-title">Company</h2>
-        <ul class="footer__links">
-          <li><a href="/about">About Previa</a></li>
-          <li><a href="/help">Help &amp; contact</a></li>
-          <li><a href="/advertising">Advertise with us</a></li>
-          <li><a href="/terms">Terms of service</a></li>
-          <li><a href="/privacy">Privacy policy</a></li>
-          <li><a href="/cookies">Cookie preferences</a></li>
-        </ul>
-      </div>
-    </div>
+      "The same logo insert into footer left side as well. So the footer text
+      'Listing packages' and '© 2026 Previa, all rights reserved!' move to the
+      right and place the logo there, in the same place as it is in the header —
+      so they are aligned to each other."
 
-    <div class="footer__bottom">
-      <p>© 2026 Previa, all rights reserved!</p>
-      <nav class="footer__legal" aria-label="Legal">
-        {{/*
-          The email and account icons, in their new home beside the legal
-          links. Both carry an accessible name of their own, because neither
-          sits next to text that would supply one.
-        */}}
-        <a class="footer__legal-icon" href="/help" aria-label="Email Previa support">
-          {{ template "icon" "mail" }}
-        </a>
-        <a class="footer__legal-icon" href="/dashboard" aria-label="Your Previa account">
-          {{ template "icon" "user" }}
-        </a>
-        <a href="/terms">Terms</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/cookies">Cookies</a>
-        <a href="/sitemap.xml">Sitemap</a>
+      One grid, two columns: the logo takes the first and spans both rows, so
+      the link row and the legal strip both start to the right of it and the
+      two rows keep the shared baseline they had. The footer's container is the
+      header's — same width, same gutter — so a logo at the start of this
+      column sits on the same pixel as the one at the start of the header's.
+    */}}
+    <div class="footer__grid">
+      <a class="footer__logo" href="/" aria-label="Previa — go to homepage">
+        {{ template "logo" dict "Size" "md" }}
+      </a>
+
+      <nav class="footer__main" aria-label="Footer">
+        <a href="/pricing">Listing packages</a>
+        <a href="/faq">FAQ</a>
+        <a href="/about">About Previa</a>
+        <a href="/help">Help &amp; contact</a>
+        <a href="/advertising">Advertise with us</a>
       </nav>
-    </div>
+
+      <div class="footer__bottom">
+        <p>© 2026 Previa, all rights reserved!</p>
+        <nav class="footer__legal" aria-label="Legal">
+          {{/*
+            The email and account icons, in their new home beside the legal
+            links. Both carry an accessible name of their own, because neither
+            sits next to text that would supply one.
+          */}}
+          <a class="footer__legal-icon" href="/help" aria-label="Email Previa support">
+            {{ template "icon" "mail" }}
+          </a>
+          <a class="footer__legal-icon" href="/dashboard" aria-label="Your Previa account">
+            {{ template "icon" "user" }}
+          </a>
+          <a href="/terms">Terms</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/cookies">Cookies</a>
+          <a href="/sitemap.xml">Sitemap</a>
+        </nav>
+      </div>
+    </div>{{/* /.footer__grid */}}
   </div>
 </footer>
 {{ end }}

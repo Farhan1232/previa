@@ -9,11 +9,28 @@
    Logo
    ========================================================================== */
 
-.logo { display: inline-flex; align-items: center; gap: 10px; }
-.logo__mark { flex: none; width: 34px; height: 34px; }
+/*
+  Lockup sizes.
+
+  A fifth again on top of the 50% granted the day before: "then make this logo
+  more 20 % bigger. The header part do not make bigger any more, the header
+  size stays. But inside the current header there is more room, so can make the
+  logo a bit bigger."
+
+  So the header keeps --header-h and only the lockup grows: 60→72 in the
+  header, 51→61 compact, 78→94 large, and each wordmark by the same factor, the
+  whole lockup scaling together the way it has each time.
+
+  72px is exactly the header's height, which sounds like an overflow and is
+  not: the drawing occupies about 70% of its viewBox — the discs overhang the
+  planet, so the mark is inset from the box on every side — leaving some 50px
+  of ink inside a 72px row. That is the room the client could see going spare.
+*/
+.logo { display: inline-flex; align-items: center; gap: 12px; }
+.logo__mark { flex: none; width: 72px; height: 72px; }
 .logo__word {
   font-family: var(--font-display);
-  font-size: 25px;
+  font-size: 44px;
   font-weight: 400;
   letter-spacing: -0.015em;
   color: var(--navy);
@@ -21,30 +38,32 @@
 }
 [data-theme='dark'] .logo__word { color: var(--text); }
 
-.logo__globe { fill: var(--navy); }
-[data-theme='dark'] .logo__globe { fill: #E8EDF3; }
-.logo__meridians { fill: none; stroke: var(--surface); stroke-width: 1.1; opacity: 0.42; }
-[data-theme='dark'] .logo__meridians { stroke: #0B1620; opacity: 0.34; }
-.logo__houses { fill: var(--surface); }
-[data-theme='dark'] .logo__houses { fill: #0B1620; }
-.logo__pin { fill: var(--gold); }
+/*
+  The mark carries its own lighting and its own colours — see the note in
+  components/logo.html. It is one lit object, so it does not repaint per theme:
+  the yellow sea and green land hold their own contrast, which is what lets the
+  same drawing sit on a white header, on the dark theme's surface and over
+  photography. Only the wordmark below follows the theme.
+*/
 
-.logo--sm .logo__mark { width: 28px; height: 28px; }
-.logo--sm .logo__word { font-size: 21px; }
-.logo--lg .logo__mark { width: 44px; height: 44px; }
-.logo--lg .logo__word { font-size: 32px; }
+.logo--sm .logo__mark { width: 61px; height: 61px; }
+.logo--sm .logo__word { font-size: 37px; }
+.logo--lg .logo__mark { width: 94px; height: 94px; }
+.logo--lg .logo__word { font-size: 58px; }
 
+/* Over photography (the auth screens): only the wordmark needs to change, and
+   it stays white in both themes because what is behind it is a photograph, not
+   a themed surface. */
 .logo--mono .logo__word { color: #fff; }
-.logo--mono .logo__globe { fill: #fff; }
-.logo--mono .logo__houses { fill: var(--navy); }
-.logo--mono .logo__meridians { stroke: var(--navy); }
-[data-theme='dark'] .logo--mono .logo__word { color: var(--text); }
-[data-theme='dark'] .logo--mono .logo__globe { fill: #E8EDF3; }
-[data-theme='dark'] .logo--mono .logo__houses { fill: #0B1620; }
 
+/*
+  Below 480px the lockup shares the bar with a burger and the account button and
+  cannot take the full increase — but it still grows, by as much as the row has
+  to give: 44→53 and 27→32, against a header that drops to 64px there.
+*/
 @media (max-width: 480px) {
-  .logo__word { font-size: 21px; }
-  .logo__mark { width: 28px; height: 28px; }
+  .logo__word { font-size: 32px; }
+  .logo__mark { width: 53px; height: 53px; }
 }
 
 /* ==========================================================================
@@ -159,7 +178,19 @@
    Hero
    ========================================================================== */
 
-.hero { position: relative; isolation: isolate; }
+/*
+  isolation keeps the hero's own layers — the photograph at -2, the market
+  picker at 2 — inside it. z-index is what puts the whole hero above the
+  sections that follow it in the document.
+
+  Without that number the hero was a stacking context with z-index: auto, which
+  paints in document order alongside the positioned cards below it: an open
+  property-type or deal-type panel hangs over the Featured row, and every card
+  in that row painted over it. The client reported the panel "staying hidden"
+  behind the listings. 3 clears the sections below while staying well under the
+  header at 100.
+*/
+.hero { position: relative; isolation: isolate; z-index: 3; }
 
 /*
   Flush hero.
@@ -173,6 +204,17 @@
 .hero--flush {
   margin-top: calc(var(--header-h) * -1);
   padding-top: var(--header-h);
+  /* Cut to the page width, like the header it runs up under: "in the frontpage
+     make the width of the headet and banner the same as the content in the
+     listings page, and banner down corners cut round". The two are the same
+     --page-width, so the bar's edges and the photograph's are one line.
+
+     No overflow: hidden here, deliberately. The rounding is drawn on
+     .hero__media below, which is the layer that actually shows a colour;
+     clipping the hero itself would also clip the deal-type and property-type
+     panels that open downwards out of the search box. */
+  width: var(--page-width);
+  margin-inline: auto;
 }
 
 /* Market picker sits top-right of the hero, above the search panel. */
@@ -193,7 +235,16 @@
 /* With a banner present the picker tucks under it instead of adding a second
    block of vertical space. */
 .hero__banner-wrap + .hero__market { padding-top: var(--sp-3); }
-.hero__media { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
+/* The photograph, and with it the banner's bottom corners: "banner down corners
+   cut round". It already clips its own image, so the radius is all that is
+   needed. The top corners stay square — the header sits on them. */
+.hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  border-radius: 0 0 var(--r-xl) var(--r-xl);
+}
 .hero__media img { width: 100%; height: 100%; object-fit: cover; }
 .hero__media::after {
   content: '';
@@ -275,6 +326,29 @@
   --sb-label: var(--fs-xs);    /* 13 — compact, still readable */
 }
 
+/*
+  Panel width — a ceiling, not a percentage.
+
+  The panel stops short of the container's full width, at the client's request,
+  so it reads as a signpost sitting on the photograph rather than as a bar
+  stretched across it. It stays flush left, under the headline it belongs to.
+
+  That used to be a 70-per-cent max-width above 1200px and nothing below, which
+  made the panel *grow* as the window narrowed: at 1400px it was 70% of the 1216px
+  content box (851px), and at 1150px the rule stopped applying and it sprang out
+  to the full ~1085px content width. The client saw a compact panel on a full
+  screen turn huge the moment they dragged the window in.
+
+  So the limit is now an absolute one, and it applies at every width: the panel
+  looks exactly as it does today on a large screen, never exceeds that on any
+  smaller one, and once the container itself drops below the ceiling the panel
+  simply shrinks with it. --hero-search-max carries the number and why it is
+  what it is.
+*/
+.hero__inner .searchbox {
+  max-width: min(100%, var(--hero-search-max));
+}
+
 .searchbox__body {
   display: grid;
   grid-template-columns: 1.5fr 1fr 1.2fr 0.9fr auto;
@@ -289,8 +363,10 @@
 .searchbox__body--three { grid-template-columns: 0.9fr 1.6fr 1fr auto; }
 
 /* Controls and labels are shorter here than in the page forms, which keep the
-   full 48px. Scoped to the panel so nothing else moves. */
-.searchbox .field { gap: 4px; }
+   full 48px. Scoped to the panel so nothing else moves. The label-to-control
+   step is the sidebar's 6px rather than 4: the panel stays compact, and a
+   label 4px off its field reads as sitting on it. */
+.searchbox .field { gap: 6px; }
 .searchbox .field__label {
   font-size: var(--sb-label);
   line-height: 1.2;
@@ -306,7 +382,21 @@
 /* The location field's leading pin sits closer in too, so its text starts at
    the same inset as the other controls. */
 .searchbox .input-icon svg { left: var(--sp-3); }
-.searchbox .input-icon .input { padding-left: var(--sp-8); }
+.searchbox .input-icon .input { padding-left: calc(var(--sp-3) + 18px + var(--sp-2)); }
+/*
+  The location control keeps its own two gutters inside this panel.
+
+  `.searchbox .input` above sets a flat 12px padding-inline, which is right for
+  a plain field and wrong for this one: it lands after the component's own rule
+  in the cascade, so the right-hand gutter collapsed to 12px while the clear
+  button still sat 8px in at 22px wide — a typed value ran under the cross by
+  18px. Restating both sides from the same tokens the component uses keeps the
+  pin-to-text and text-to-cross steps identical here and in the sidebar.
+*/
+.searchbox .location-field__control .input {
+  padding-left: calc(var(--loc-icon-inset) + var(--loc-icon-size) + var(--loc-gap));
+  padding-right: calc(var(--loc-clear-inset) + var(--loc-clear-size) + var(--loc-gap));
+}
 
 .searchbox__footer {
   display: flex;
@@ -369,18 +459,50 @@
   and leaves the button only what it needs. The DOM order is untouched, so the
   tab sequence and the submitted field order still match the desktop layout.
 */
+/*
+  The three fields are addressed by the class that identifies each one, not by
+  the classes they happen to share.
+
+  This is the bug the client photographed: the deal picker's element is
+  `field type-picker deal-picker` and the property picker's is `field
+  type-picker`, so a rule for `> .field` claimed both of them and the later rule
+  for `> .type-picker` then claimed both of them back. Both fields ended up
+  assigned to the same grid cell, drawn one on top of the other — which is why
+  the panel read "Deapltyrpe type" with two controls stacked underneath.
+
+  The empty cell above the submit button is deliberate. Letting the property
+  picker span into it would make the two pickers unequal by the width of the
+  button, and they are a matched pair.
+*/
 @media (max-width: 700px) {
   .searchbox__body,
   .searchbox__body--three {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     grid-template-areas:
-      'deal type type'
+      'deal type .'
       'loc  loc  go';
   }
-  .searchbox__body--three > .field { grid-area: deal; }
-  .searchbox__body--three > .type-picker { grid-area: type; }
+  .searchbox__body--three > .deal-picker { grid-area: deal; }
+  .searchbox__body--three > .type-picker:not(.deal-picker) { grid-area: type; }
   .searchbox__body--three > .location-field { grid-area: loc; }
   .searchbox__submit { grid-area: go; }
+
+  /*
+    Both pickers open a panel wider than the field that triggers them, so each
+    one hangs off the side it is nearest and is capped at what is left of the
+    screen. The general rule below takes the panel down to the field's own
+    width at this size, which for the property grid is about 140px — three
+    words per line and a scroll bar.
+  */
+  .searchbox .type-picker__panel {
+    left: 0;
+    right: auto;
+    width: min(420px, calc(100vw - var(--gutter) * 2 - var(--sb-pad) * 2));
+  }
+  .searchbox__body--three > .type-picker:not(.deal-picker) .type-picker__panel {
+    left: auto;
+    right: 0;
+  }
 
   /*
     The button keeps the magnifier and drops the words. Beside a location field
@@ -416,50 +538,19 @@
    Homepage sections
    ========================================================================== */
 
-/* Browse by property type */
-.type-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--sp-4);
-}
-@media (max-width: 1024px) { .type-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 560px)  { .type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-
-.type-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sp-3);
-  padding: var(--sp-6) var(--sp-3);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  text-align: center;
-  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease),
-              box-shadow var(--dur) var(--ease);
-}
-.type-tile:hover {
-  transform: translateY(-4px);
-  border-color: var(--slate);
-  box-shadow: var(--shadow-md);
-}
-.type-tile__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 52px; height: 52px;
-  background: var(--navy-tint);
-  border-radius: var(--r-md);
-  color: var(--navy);
-}
-[data-theme='dark'] .type-tile__icon { background: var(--surface-3); color: var(--gold); }
-.type-tile__icon svg { width: 26px; height: 26px; }
-.type-tile__name { font-size: var(--fs-sm); font-weight: 600; }
-.type-tile__count { font-size: var(--fs-xs); color: var(--text-muted); }
+/* The .type-grid / .type-tile block that styled the homepage's browse-by-type
+   section was removed with the section itself. The search controls use
+   .type-check-grid, which is a different component and is untouched. */
 
 /* Popular locations */
-.loc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-4); }
+/*
+  The tiles sit on --card-gap like every other card grid on the site rather
+  than on a gap of their own. The 16px they used to carry read as a tighter
+  block than the property, development and article rows above and below them,
+  and the difference was plainest inside a panel, where the grid's gutters and
+  the panel's own 32px inset are visible in the same glance.
+*/
+.loc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--card-gap); }
 @media (max-width: 900px) { .loc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .loc-grid { grid-template-columns: 1fr; } }
 
@@ -479,9 +570,11 @@
   inset: 0;
   background: linear-gradient(to top, rgba(8,20,32,0.82) 0%, rgba(8,20,32,0.22) 52%, rgba(8,20,32,0.05) 100%);
 }
+/* City and count sit on the same inset from all three edges they touch, so the
+   caption reads as padded rather than as text dropped near a corner. */
 .loc-tile__text {
   position: absolute;
-  left: var(--sp-5); right: var(--sp-5); bottom: var(--sp-4);
+  left: var(--sp-5); right: var(--sp-5); bottom: var(--sp-5);
   z-index: 1;
   color: #fff;
 }
@@ -489,11 +582,43 @@
 .loc-tile__count { font-size: var(--fs-sm); opacity: 0.88; }
 
 /* Trust / why Previa */
-.trust-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-7); }
-@media (max-width: 960px) { .trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-6); } }
+/*
+  Four columns on --card-gap, which is the gap every other grid on the page
+  uses and which steps down with the breakpoints on its own — so the 960px
+  rule below only changes the column count now.
+
+  The three rows are declared on the grid and each column spans them as a
+  subgrid, which is what keeps the icons, the titles and the descriptions on
+  the same lines across the four columns: before this a title that wrapped to
+  two lines pushed its own description down and nothing else's, and the block
+  read as four independent columns rather than one row of them. Browsers
+  without subgrid drop the one declaration and fall back to the plain
+  three-row column this always was.
+*/
+.trust-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: auto auto auto;
+  gap: var(--card-gap);
+}
+/*
+  Once the four columns wrap, one feature sits under another and the gap
+  between them is doing a different job from the gap beside them: it has to
+  read as larger than the 12px inside a feature, which --card-gap no longer is
+  by the time it steps down to 16. So the row gap holds at 24 while the column
+  gap keeps following the breakpoints.
+*/
+@media (max-width: 960px) {
+  .trust-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: var(--sp-6); }
+}
 @media (max-width: 520px) { .trust-grid { grid-template-columns: 1fr; } }
 
-.trust-item { display: flex; flex-direction: column; gap: var(--sp-3); }
+.trust-item {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  row-gap: var(--sp-3);
+}
 .trust-item__icon {
   display: inline-flex;
   align-items: center;
@@ -505,7 +630,11 @@
 }
 [data-theme='dark'] .trust-item__icon { background: var(--surface-3); color: var(--gold); }
 .trust-item__icon svg { width: 24px; height: 24px; }
-.trust-item__title { font-size: var(--fs-h4); font-weight: 600; }
+/* balance, because these four titles sit in a row and one of them is a word
+   longer than its column: without it "Search the map, not a list" leaves the
+   word "list" alone on the second line, which reads as a mistake beside three
+   single-line neighbours. */
+.trust-item__title { font-size: var(--fs-h4); font-weight: 600; text-wrap: balance; }
 .trust-item__text { font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.65; }
 
 .section--navy .trust-item__title { color: #fff; }
@@ -535,6 +664,23 @@
 .tcard__role { font-size: var(--fs-xs); color: var(--text-muted); }
 
 /* Promoted brokers strip */
+/*
+  The way in for a broker who wants one of the placements above. Quiet — it is
+  addressed to the few readers who sell rather than the many who buy — and it
+  sits under the strip so it reads as a note about what they just looked at.
+*/
+.broker-strip__sell {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.broker-strip__sell svg { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--gold); }
+.broker-strip__sell a { color: var(--link); font-weight: 600; }
+.broker-strip__sell a:hover { color: var(--link-hover); }
+
 .broker-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--card-gap); }
 @media (max-width: 1024px) { .broker-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px)  { .broker-strip { grid-template-columns: 1fr; } }
@@ -589,6 +735,17 @@
   color: var(--text-subtle);
 }
 
+/*
+  The index's five-across cards are about 224px wide — the same width the
+  property cards live at — so they take the property card's density rather than
+  the homepage row's. Scoped to the grid, because the homepage still shows three
+  wide cards and the client asked to shrink the index, not that section.
+*/
+.grid--articles .acard__body { padding: var(--sp-4); gap: 6px; }
+.grid--articles .acard__title { font-size: var(--fs-base); line-height: 1.3; }
+.grid--articles .acard__excerpt { font-size: var(--fs-xs); line-height: 1.55; }
+.grid--articles .acard__meta { padding-top: var(--sp-2); }
+
 /* ==========================================================================
    Map screens
    ========================================================================== */
@@ -600,12 +757,37 @@
      size the row to its own content and stretch the map pane thousands of
      pixels tall, pushing markers out of view. */
   grid-template-rows: minmax(0, 1fr);
+  /*
+    100dvh, not 100vh, with vh kept as the fallback for anything that does not
+    know the unit.
+
+    Nothing on this screen scrolls the page — the shell is exactly the height
+    of what is left below the header and the results column scrolls inside it.
+    On a phone, 100vh is the height with the browser chrome *retracted*, so the
+    shell was taller than the visible area by the height of the address bar and
+    the last part of the list could not be reached however far it was scrolled.
+    dvh measures what is actually on screen.
+  */
   height: calc(100vh - var(--header-h));
+  height: calc(100dvh - var(--header-h));
   overflow: hidden;
 }
 .map-shell > * { min-height: 0; }
 .map-shell.is-panel-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
 .map-shell--full { grid-template-columns: minmax(0, 1fr); }
+
+/*
+  Grid mode gives the results column more room.
+
+  The client asked for "3 or 4 ads in one row" beside the map. At 42% of the
+  window a card would be about 150px wide at three across — narrower than the
+  price it has to carry — so the column widens when the grid is chosen and
+  returns to its reading width when the list is. Nothing re-requests: the class
+  follows the same listMode the layout does.
+*/
+@media (min-width: 901px) {
+  .map-shell.is-grid-mode { grid-template-columns: minmax(420px, 56%) minmax(0, 1fr); }
+}
 
 .map-results {
   display: flex;
@@ -614,8 +796,20 @@
   min-height: 0;
   border-right: 1px solid var(--border);
   background: var(--bg);
+  /*
+    The results column is what the card grid inside it measures against, not
+    the window. It is a share of the window on a desktop, the whole window on a
+    phone and nothing at all when collapsed, so a viewport media query would be
+    answering the wrong question in two of those three states.
+  */
+  container-type: inline-size;
+  container-name: map-results;
 }
 .map-shell.is-panel-collapsed .map-results { display: none; }
+
+/* The head and the tag bar together, as one out-of-band swap target. Fixed
+   height by content: only the results list below it scrolls. */
+#map-results-top { flex: none; }
 
 .map-results__head {
   display: flex;
@@ -626,6 +820,22 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
+
+/*
+  Tag bar under the head. It carried these numbers as an inline style before it
+  became a shared block; the padding is unchanged, and it is scoped by ancestor
+  rather than by a second class so the element's own class stays exactly
+  `active-filters`, which is how the rest of the site addresses a tag bar.
+
+  It is rendered even with no tags in it, so a filter change always has an
+  element to swap into, and collapses to nothing when empty — the template trims
+  its whitespace so :empty genuinely matches.
+*/
+#map-results-top .active-filters {
+  padding: var(--sp-3) var(--sp-4) 0;
+  margin: 0;
+}
+#map-results-top .active-filters:empty { display: none; }
 .map-results__list {
   flex: 1;
   min-height: 0;
@@ -639,6 +849,22 @@
 /* Cards must keep their intrinsic height — inside a height-constrained flex
    column they would otherwise shrink to slivers. */
 .map-results__list > * { flex: 0 0 auto; }
+
+/*
+  The fixed Filters edge tab belongs to the /search grid, where the filter rail
+  is hidden below 1024px and nothing else opens the drawer. The map screens
+  carry their own Filters button — in the results toolbar on the split view, in
+  the floating toolbar on the full-screen one — so between 900 and 1024px the
+  tab was a second control for the same drawer, pinned over the left-hand
+  column of result cards.
+
+  It stays when the results panel is not on screen: on a phone showing the map,
+  and on a desktop with the panel collapsed, the toolbar button goes with it and
+  the tab is the only way back to the filters.
+*/
+body:has(.map-shell:not(.is-map-visible):not(.is-panel-collapsed)) .filter-fab {
+  display: none;
+}
 
 .map-pane { position: relative; min-width: 0; background: var(--surface-3); }
 .map-canvas { position: absolute; inset: 0; }
@@ -699,7 +925,20 @@
   padding: 0 11px;
   background: var(--navy);
   color: var(--on-primary);
-  border: 2px solid var(--surface);
+  /*
+    The ring is transparent in the light theme and drawn in the dark one.
+
+    In daylight the map tiles are pale and the pill is already navy against
+    them, so the white collar the border used to draw was pure noise — the
+    client called the markers out for it. At night the pill inverts to a light
+    surface on dark tiles, and there the ring is what separates one overlapping
+    marker from the next, so it stays.
+
+    A transparent border rather than `border: 0`: the background paints under it
+    either way, so the pill keeps exactly the same geometry, hit area and stem
+    alignment in both themes.
+  */
+  border: 2px solid transparent;
   border-radius: var(--r-pill);
   box-shadow: var(--shadow-pin);
   font-size: var(--fs-xs);
@@ -718,10 +957,17 @@
   left: 50%;
   width: 8px; height: 8px;
   background: inherit;
-  border-right: 2px solid var(--surface);
-  border-bottom: 2px solid var(--surface);
+  border-right: 2px solid transparent;
+  border-bottom: 2px solid transparent;
   transform: translateX(-50%) rotate(45deg);
   border-radius: 0 0 2px 0;
+}
+
+/* Dark theme keeps the collar: see the note on .map-pin above. */
+[data-theme='dark'] .map-pin { border-color: var(--surface); }
+[data-theme='dark'] .map-pin::after {
+  border-right-color: var(--surface);
+  border-bottom-color: var(--surface);
 }
 .map-pin:hover,
 .map-pin.is-active {
@@ -733,6 +979,28 @@
 .map-pin.is-featured { box-shadow: 0 0 0 2px var(--gold), var(--shadow-pin); }
 
 .leaflet-marker-icon:focus-visible .map-pin { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+/*
+  The pin on a one-point map — the seller profile's location.
+
+  A teardrop rather than the price pill, because there is no price to put in it
+  and nothing to click through to: it marks a place. It reuses .map-pin's
+  positioning and stem, and only replaces the pill's dimensions with a circle.
+*/
+.map-pin--drop {
+  width: 22px; height: 22px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+  cursor: default;
+}
+.map-pin--drop::after { bottom: -4px; width: 7px; height: 7px; }
+.map-pin--drop:hover {
+  background: var(--navy);
+  transform: translate(-50%, -100%);
+  box-shadow: var(--shadow-pin);
+}
+[data-theme='dark'] .map-pin--drop:hover { background: var(--surface); }
 
 /* --- Popup ---------------------------------------------------------------- */
 /*
@@ -750,17 +1018,58 @@
 }
 .map-popup-shell .leaflet-popup-content { margin: 0; width: 280px !important; }
 .map-popup-shell .leaflet-popup-tip { background: var(--surface); border: 0; }
-.map-popup-shell .leaflet-popup-close-button {
+/*
+  Close button.
+
+  Two things were wrong with it, both reported by the client: it did not close
+  the popup, and it did not look like a button.
+
+  It did not close because .map-popup__media-link — the invisible link over the
+  photograph that opens the listing — carries z-index: 1 and the close button
+  carries none, so the link painted over it and took the click. A press on the
+  cross opened the property instead of dismissing the card. It sits at 3 now,
+  clear of both the link and the pager at 2.
+
+  It did not look like a button because Leaflet's own rule for it is
+  `.leaflet-container a.leaflet-popup-close-button` — three parts to our two —
+  and leaflet.css loads last, so its `background: transparent` and its 24px box
+  quietly won and the styling here never applied. Every selector below carries
+  the container and the element type so it outranks the vendor rule without
+  reaching for !important.
+
+  The shape is the rounded rectangle the client asked for, and the fill changes
+  on hover so it reads as pressable rather than as a mark printed on the photo.
+*/
+.leaflet-container .map-popup-shell a.leaflet-popup-close-button {
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 8px; right: 8px;
   width: 28px; height: 28px;
-  padding: 0 !important;
-  color: var(--text) !important;
-  font-size: 20px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 50%;
-  margin: 8px 8px 0 0;
+  margin: 0;
+  padding: 0;
+  font: 600 18px/1 var(--font-sans);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--r-md);
   box-shadow: var(--shadow-sm);
+  transition: background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
-[data-theme='dark'] .map-popup-shell .leaflet-popup-close-button { background: rgba(16, 38, 53, 0.9); }
+.leaflet-container .map-popup-shell a.leaflet-popup-close-button:hover,
+.leaflet-container .map-popup-shell a.leaflet-popup-close-button:focus-visible {
+  background: var(--navy);
+  color: var(--on-primary);
+}
+[data-theme='dark'] .leaflet-container .map-popup-shell a.leaflet-popup-close-button {
+  background: rgba(16, 38, 53, 0.92);
+}
+[data-theme='dark'] .leaflet-container .map-popup-shell a.leaflet-popup-close-button:hover,
+[data-theme='dark'] .leaflet-container .map-popup-shell a.leaflet-popup-close-button:focus-visible {
+  background: var(--gold);
+  color: var(--text-on-gold);
+}
 
 .map-popup__card { display: flex; flex-direction: column; }
 
@@ -780,16 +1089,45 @@
 }
 @media (prefers-reduced-motion: reduce) { .map-popup__track { transition: none; } }
 .map-popup__slide { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; }
-/* Opens the listing from the photograph, under the pager so the controls win. */
+/* Opens the listing from the photograph, under the zones and the pager so the
+   controls win the outer thirds and the middle stays the link. */
 .map-popup__media-link { position: absolute; inset: 0; z-index: 1; }
 
-/* Same pager as the property card: green arrows either side of green dots. */
+/*
+  Paging zones, the property card's .pcard__zone at popup scale.
+
+  The client's note was that the whole photograph was a link — "at the moment
+  there is only finger and no matter where click this ad will open in single
+  page". These take the outer thirds back for paging and leave the middle to
+  the link, and each carries a directional cursor so the behaviour is visible
+  before anything is clicked. They stop above the pager so the capsule below
+  them stays reachable.
+*/
+.map-popup__zone {
+  position: absolute;
+  top: 0;
+  bottom: 34px;
+  width: 30%;
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.map-popup__zone--prev { left: 0; cursor: w-resize; }
+.map-popup__zone--next { right: 0; cursor: e-resize; }
+
+/*
+  Same pager as the property card: green arrows either side of green dots, and
+  the same fade — it appears when the pointer is over the photograph rather than
+  sitting on it permanently. That is the "if move the mouse to the right side of
+  the image then these left-right arrows will come" the client described.
+*/
 .map-popup__pager {
   position: absolute;
   left: 50%;
   bottom: 8px;
   transform: translateX(-50%);
-  z-index: 2;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   gap: 2px;
@@ -798,7 +1136,16 @@
   background: rgba(8, 20, 32, 0.55);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease);
 }
+.map-popup__media:hover .map-popup__pager,
+.map-popup__media:focus-within .map-popup__pager { opacity: 1; }
+/* No hover on touch: show it rather than never showing it. */
+@media (hover: none) {
+  .map-popup__pager { opacity: 1; }
+}
+
 .map-popup__arrow {
   display: inline-flex;
   align-items: center;
@@ -815,18 +1162,47 @@
 .map-popup__arrow:hover { color: #fff; background: rgba(255, 255, 255, 0.16); }
 .map-popup__arrow:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
-.map-popup__dots { display: inline-flex; align-items: center; gap: 4px; padding: 0 2px; }
+/*
+  Dot strip. `touch-action: pan-y` is the load-bearing line, as on the card: the
+  browser may still scroll vertically from here, but sideways movement is ours,
+  and it is only claimed once the gesture has been confirmed horizontal.
+*/
+.map-popup__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 2px;
+  margin: -4px 0;          /* the extra grab height costs the capsule nothing */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.map-popup__dots.is-holding { cursor: grabbing; }
+
 .map-popup__dot {
   width: 6px; height: 6px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
+  cursor: inherit;
   transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
+.map-popup__dot:hover { background: rgba(255, 255, 255, 0.85); }
 .map-popup__dot.is-on { background: var(--success-on-dark); transform: scale(1.25); }
 .map-popup__dot:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Held: the active dot swells while the press lasts and settles back on
+   release, and the capsule is pinned open — a scrub easily carries the pointer
+   off the photograph, and the hover rule would otherwise fade the control away
+   in the middle of the gesture. */
+.map-popup__dots.is-holding .map-popup__dot.is-on { transform: scale(2.1); }
+.map-popup__media:has(.map-popup__dots.is-holding) .map-popup__pager { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .map-popup__dot { transition: none; }
+}
 
 /*
   Compact text block. The gaps between price, title and location were doing the
@@ -1010,7 +1386,9 @@
   z-index: calc(var(--z-drawer) + 1);
   width: min(380px, 90vw);
   max-height: none;
-  border-radius: 0;
+  /* Rounded on the right, top and bottom — the two corners that meet the page,
+     as the client asked. The left pair are flush with the screen edge. */
+  border-radius: 0 var(--r-lg) var(--r-lg) 0;
   box-shadow: var(--shadow-panel);
   transform: translateX(-100%);
   visibility: hidden;
@@ -1018,7 +1396,8 @@
   overflow-y: auto;
 }
 .filter-panel--overlay.is-open { transform: translateX(0); visibility: visible; }
-.filter-panel--overlay .filter-panel__header { border-radius: 0; }
+.filter-panel--overlay .filter-panel__header { border-radius: 0 var(--r-lg) 0 0; }
+.filter-panel--overlay .filter-panel__footer { border-radius: 0 0 var(--r-lg) 0; }
 
 .map-results__mobile-bar { display: none; padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--border); background: var(--surface); }
 @media (max-width: 900px) {
@@ -1057,7 +1436,31 @@
   .gallery__side { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
 }
 
-.gallery__open { position: absolute; right: var(--sp-4); bottom: var(--sp-4); }
+/*
+  The gallery's "5 photos" button.
+
+  "The background color of this button is bad, make it better. Make it the same
+  half-way transparent like the choose your market button in the frontpage
+  banner." So it takes that chip's treatment exactly — a dark navy at 55%, a
+  white hairline, white lettering and the same blur — instead of .btn--on-image,
+  whose 14% white wash turned milky over a bright photograph. Written here
+  rather than on .btn--on-image because that class is also used on buttons that
+  sit on a panel rather than on a photograph.
+*/
+.gallery__open {
+  position: absolute;
+  right: var(--sp-4); bottom: var(--sp-4);
+  background: rgba(12, 45, 72, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.gallery__open:hover:not(:disabled) {
+  background: rgba(12, 45, 72, 0.72);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
 
 .detail-price {
   font-size: clamp(1.75rem, 1.4rem + 1.4vw, 2.25rem);
@@ -1176,41 +1579,130 @@
    Add-listing wizard
    ========================================================================== */
 
-.wizard { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--sp-8); align-items: start; }
-@media (max-width: 1024px) { .wizard { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); } }
+/*
+  The wizard and its waypoint rail.
 
+  The rail is the mirror image of the search page's filter panel: the same two
+  states, the same component in previa.js, the same rail and edge-tab classes —
+  only hinged on the right. The client asked for exactly that, because the rail
+  used to compress against the right edge as the window narrowed instead of
+  getting out of the way.
+*/
+.wizard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--sp-8);
+  align-items: start;
+  transition: grid-template-columns var(--dur-slow) var(--ease);
+}
+.wizard.is-collapsed { grid-template-columns: minmax(0, 1fr) 0; gap: 0; }
+.wizard.is-collapsed .stepper { display: none; }
+
+/*
+  Cut down on the client's 19 August note: "in the add listing page this right
+  side progress bar, at first make this title 'your progress' more up and cut
+  it's section together, there is too much empty room at the moment."
+
+  Two figures did it. The panel's own padding drops a step, which takes the
+  title up to the panel's top edge, and the twelve waypoints below lose the
+  7px of air each was carrying above and below its 25px marker — see
+  .stepper__item. Nothing is smaller: the type, the markers and the connector
+  are what they were, and only the empty room between them is gone.
+*/
 .stepper {
   position: sticky;
   top: calc(var(--header-h) + var(--sp-5));
-  padding: var(--sp-5);
+  max-height: calc(100vh - var(--header-h) - var(--sp-9));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--sp-4);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
 }
+
+/* Sticky, so the way out of the panel stays on screen however far the list is
+   scrolled. Negative side margins let it span the panel's full width. */
+.stepper__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.stepper__header .overline { margin: 0; }
+
+.wizard .filter-rail { display: none; }
+.wizard.is-collapsed .filter-rail { display: block; }
+/* Same clearance as the panel it replaces. */
+.wizard .filter-rail--right { top: var(--floating-menu-band); }
+
 @media (max-width: 1024px) {
-  .wizard > .stepper { order: -1; position: static; }
-  .stepper__list { display: flex; overflow-x: auto; gap: var(--sp-1); scrollbar-width: none; }
-  .stepper__list::-webkit-scrollbar { display: none; }
-  .stepper__item { flex: none; }
-  .stepper__item::after { display: none; }
-  .stepper__label { display: none; }
-  .stepper__item.is-current .stepper__label { display: block; }
+  .wizard { grid-template-columns: minmax(0, 1fr); gap: var(--sp-5); }
+  .wizard .filter-rail { display: none; }
+  .wizard .filter-fab { display: inline-flex; }
+
+  /* Off-canvas on the right. The list keeps its vertical form here — it is a
+     full-height panel, not a strip above the form, so there is no reason to
+     flatten it into a horizontal scroller as it used to be. */
+  .wizard .stepper {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    z-index: calc(var(--z-drawer) + 1);
+    width: min(320px, 86vw);
+    max-height: none;
+    border-radius: var(--r-lg) 0 0 var(--r-lg);
+    border-right: 0;
+    box-shadow: var(--shadow-panel);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform var(--dur-slow) var(--ease), visibility var(--dur-slow);
+  }
+  .wizard .stepper.is-open { transform: translateX(0); visibility: visible; }
+  .wizard .stepper__header { border-radius: var(--r-lg) 0 0 0; }
+  .wizard .filter-panel__collapse { display: none; }
+  .wizard .filter-panel__close { display: inline-flex; }
+
+  .wizard .filter-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-drawer);
+    background: var(--overlay);
+  }
 }
 
 .stepper__list { display: flex; flex-direction: column; list-style: none; }
-.stepper__item { position: relative; display: flex; align-items: center; gap: var(--sp-3); padding: 7px 0; }
+.stepper__item { position: relative; display: flex; align-items: center; gap: var(--sp-3); padding: 3px 0; }
 /* connector line between compact step markers */
 .stepper__item::after {
   content: '';
   position: absolute;
   left: 12px;
-  top: 32px;
-  bottom: -7px;
+  top: 28px;
+  bottom: -3px;
   width: 1px;
   background: var(--border);
 }
 .stepper__item:last-child::after { display: none; }
-.stepper__item.is-done::after { background: var(--success); }
+/*
+  "Then the green there make #008000."
+
+  A token of its own rather than a change to --success: the client named this
+  colour for this rail, and --success is the site's status green — it paints
+  the paid badge, the saved-listing notice and the published state, none of
+  which were asked to move. Declared once, outside both theme blocks, because
+  a value the client picked by eye does not flip at night.
+*/
+.stepper { --stepper-done: #008000; }
+.stepper__item.is-done::after { background: var(--stepper-done); }
 
 .stepper__marker {
   position: relative;
@@ -1228,7 +1720,7 @@
   color: var(--text-muted);
 }
 .stepper__marker svg { width: 13px; height: 13px; }
-.stepper__item.is-done .stepper__marker { background: var(--success); border-color: var(--success); color: #fff; }
+.stepper__item.is-done .stepper__marker { background: var(--stepper-done); border-color: var(--stepper-done); color: #fff; }
 .stepper__item.is-current .stepper__marker { background: var(--navy); border-color: var(--navy); color: var(--on-primary); }
 .stepper__item.is-error .stepper__marker { background: var(--error); border-color: var(--error); color: #fff; }
 .stepper__label { font-size: var(--fs-sm); color: var(--text-muted); }
@@ -1347,20 +1839,6 @@
   text-align: center;
 }
 
-/* Reveal/hide control inside a password field */
-.input-unit__action {
-  position: absolute;
-  right: var(--sp-3);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px; height: 32px;
-  border-radius: var(--r-sm);
-  color: var(--text-muted);
-}
-.input-unit__action:hover { background: var(--surface-3); color: var(--text); }
-.input-unit__action svg { width: 18px; height: 18px; }
-
 /* Photo uploader mock */
 .uploader {
   display: flex;
@@ -1386,17 +1864,46 @@
   font-size: 10px;
   font-weight: 700;
 }
-.photo-thumb__remove {
-  position: absolute;
-  top: 6px; right: 6px;
+/*
+  Tile controls — remove, and the two reorder arrows below.
+
+  Both sit on top of a photograph, so neither can rely on the page background
+  for contrast. They share one treatment: an opaque disc with a hairline ring
+  and a shadow, which separates the control from whatever is behind it, plus a
+  clear hover state. The client's note was that in dark mode the pale
+  translucent discs all but disappeared against a bright photo and gave no
+  feedback on hover, so the dark palette is defined outright rather than left
+  to shine through from the image.
+*/
+.photo-thumb__remove,
+.photo-thumb__move button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px; height: 24px;
-  background: rgba(255,255,255,0.92);
+  width: 26px; height: 26px;
+  border: 1px solid rgba(8, 20, 32, 0.16);
   border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(8, 20, 32, 0.35);
+  transition: background-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
+}
+[data-theme='dark'] .photo-thumb__remove,
+[data-theme='dark'] .photo-thumb__move button {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: #16232F;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+.photo-thumb__remove {
+  position: absolute;
+  top: 6px; right: 6px;
   color: var(--error);
 }
+.photo-thumb__remove:hover { background: var(--error); border-color: var(--error); color: #FFFFFF; }
+[data-theme='dark'] .photo-thumb__remove { color: #FF8A80; }
+[data-theme='dark'] .photo-thumb__remove:hover { background: var(--error); border-color: var(--error); color: #FFFFFF; }
 .photo-thumb__remove svg { width: 12px; height: 12px; }
 
 /* ==========================================================================
@@ -1577,10 +2084,26 @@
   flex-wrap: wrap;
 }
 .profile-head__text { flex: 1; min-width: 240px; }
-.profile-head__actions { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+/*
+  A column now: the two buttons in a row, and under them the chat apps this
+  broker can be reached on — "now add them under the seller's phone as well".
+  Right-aligned, so the marks sit under the phone button rather than under the
+  left edge of the pair.
+*/
+.profile-head__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-3);
+}
+.profile-head__buttons { display: flex; gap: var(--sp-3); flex-wrap: wrap; justify-content: flex-end; }
+/* Bigger than the row on a card: this is the page's own contact block. */
+.profile-head__actions .msg-links { gap: var(--sp-2); }
+.profile-head__actions .msg-link { width: 32px; height: 32px; }
 @media (max-width: 640px) {
   .profile-head { gap: var(--sp-4); }
-  .profile-head__actions { width: 100%; }
+  .profile-head__actions { width: 100%; align-items: stretch; }
+  .profile-head__buttons { justify-content: stretch; }
   .profile-head__actions .btn { flex: 1; }
 }
 
@@ -1588,6 +2111,30 @@
 
 .article-cover { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--r-lg); }
 @media (max-width: 640px) { .article-cover { border-radius: var(--r-md); } }
+
+/*
+  The byline in the article's page head: who wrote it on the left, when it was
+  published on the right.
+
+  The picture is .avatar-tile, the rounded rectangle the seller box, the broker
+  profile and the settings screen all use — "the author image is rectangle with
+  rounded corners like it is everywhere". The date sits at the far end rather
+  than beside the name because it belongs to the article, not to the author.
+*/
+.article-byline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-top: var(--sp-5);
+}
+.article-byline__who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.article-byline__when { margin-left: auto; white-space: nowrap; }
+
+/* Below 560px the date drops under the author rather than squeezing the name. */
+@media (max-width: 560px) {
+  .article-byline { flex-wrap: wrap; gap: var(--sp-3); }
+  .article-byline__when { margin-left: 0; flex-basis: 100%; }
+}
 
 .legal-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: var(--sp-8); align-items: start; }
 .legal-layout .toc { position: sticky; top: calc(var(--header-h) + var(--sp-5)); }
@@ -1607,6 +2154,45 @@
 .filter-row .btn { min-height: var(--control-h); }
 @media (max-width: 640px) {
   .filter-row { grid-template-columns: 1fr; }
+}
+
+/*
+  The broker directory's search: a place, how far from it, the languages the
+  broker deals in, and free text.
+
+  Explicit columns rather than auto-fit, because these four are not
+  interchangeable — the location box holds the longest values and the radius
+  the shortest, and auto-fit gave them the same width. The radius now holds a
+  typed number and its arrow column rather than a select, so it is sized to
+  four digits plus the 26px column and no wider.
+*/
+.broker-search__row {
+  grid-template-columns: minmax(220px, 1.5fr) 118px minmax(200px, 1.2fr) minmax(180px, 1fr) auto;
+}
+/*
+  .filter-row bottom-aligns its children, which is what keeps the controls on
+  one line while the language picker grows upward as tags are added to it.
+*/
+@media (max-width: 1080px) {
+  .broker-search__row { grid-template-columns: minmax(200px, 1.4fr) 124px minmax(200px, 1fr); }
+  .broker-search__row .btn { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .broker-search__row { grid-template-columns: 1fr; }
+}
+
+/* What the count counted, when a place and radius narrowed it. */
+.results-count__where { color: var(--text-subtle); }
+
+/*
+  The seller profile's map location. Shorter than the add-listing map — this is
+  a confirmation that the pin is in the right town, not a working surface — and
+  the field stacks its parts with the form's own rhythm.
+*/
+.profile-location { gap: var(--sp-3); }
+.profile-location__map { height: 300px; }
+@media (max-width: 640px) {
+  .profile-location__map { height: 220px; }
 }
 
 .help-tile {
@@ -1629,6 +2215,16 @@
 .error-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
 
 /* FAQ accordion */
+
+/*
+  The list keeps a reading measure but takes it from the page's left edge
+  rather than from its centre, so the questions line up under the title and the
+  breadcrumb — the client's "align to left like everywhere", which is about the
+  page rather than the heading alone. Narrower than the container it sits in
+  because a question and its answer are prose.
+*/
+.faq-list { max-width: var(--container-narrow); }
+
 .faq { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
 .faq__q {
   display: flex;
@@ -1935,6 +2531,26 @@
 
 .danger-zone { border-color: var(--error-border); }
 .danger-zone .card__header { border-bottom-color: var(--error-border); }
+/*
+  Deleting an account is the one red button on the screen, and the client named
+  its colour: "under user's account this 'delete account' make with small letter
+  and the background of this red button #FF0000."
+
+  The literal value in both themes, like the favourite heart and the clear-all
+  cross before it — --error is a brick in light and a salmon in dark, and this
+  is the button that should look the same wherever it is met. Scoped to this
+  block, so the administration panel's own destructive buttons keep the muted
+  red they were reviewed with.
+
+  The confirmation dialog's button is inside .danger-zone too, so the two reds
+  cannot drift apart.
+*/
+.danger-zone .btn--danger {
+  background: #FF0000;
+  border-color: #FF0000;
+  color: #fff;
+}
+.danger-zone .btn--danger:hover:not(:disabled) { background: #D90000; border-color: #D90000; }
 
 /* ==========================================================================
    Market picker
@@ -1978,6 +2594,15 @@
   background: rgba(12, 45, 72, 0.72);
   border-color: rgba(255, 255, 255, 0.5);
 }
+
+/*
+  The search banner uses the --light treatment above, unchanged.
+
+  It had a variant of its own that drew the chip out of the banner's own ink at
+  low alpha. The client compared the two side by side and preferred the hero's,
+  so the banner now asks for "light" and there is one treatment to maintain
+  instead of two.
+*/
 
 /* --------------------------------------------------------------------------
    Market menu
@@ -2092,36 +2717,106 @@
 /*
   Listing-page advertising strip.
 
-  Lives inside the results column, so it starts where the results start and the
-  filter sidebar keeps the full height of the page beside it. `align-items:
-  flex-start` puts the market picker at the banner's top-right rather than
-  centred against it, which is what the reference shows.
+  It occupies the whole of the search layout's header row: the full width of the
+  results column, and the height of that row, which reaches up to the top of the
+  breadcrumb beside it. The client asked for both — the strip used to be one
+  line tall, inset from the right by the width of the market picker, and started
+  well down the page.
+
+  "Choose your market" now rides on the banner, top-right, the way it rides on
+  the homepage hero, rather than sitting outside it. That is what frees the
+  width; the padding-right below is what keeps the headline clear of it.
 */
 .search-banner {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: var(--sp-4);
+  /* Taller at the client's request — the strip reached only just past the
+     height of its own button, which made a sponsored placement read as a
+     notification bar. It now has room to sit as a banner. */
+  min-height: 140px;
+  /* Up past the breadcrumb row, so the banner's top edge and the breadcrumb's
+     start on the same line. The filter sidebar beside it is unaffected: it
+     still begins under the breadcrumb, which is where it moved up to when the
+     "Property for sale" heading was removed. */
+  margin-top: calc((var(--crumb-h) + var(--sp-3)) * -1);
   margin-bottom: var(--sp-5);
 }
 .search-banner .cbanner {
   flex: 1;
   min-width: 0;
-  padding: var(--sp-4) var(--sp-5);
+  align-items: center;
+  /* Right padding clears the market picker floating over this corner. */
+  padding: var(--sp-6) clamp(160px, 18%, 210px) var(--sp-6) var(--sp-5);
 }
 .search-banner .cbanner__body { display: none; }   /* shorter: headline carries it */
-.search-banner__aside { flex: none; }
 
-/* With no active banner the row still has to hold the market picker over on
-   the right, so the spacer takes the space the banner would have. */
+/*
+  On the banner rather than beside it, in the same corner the homepage uses.
+
+  z-index is well clear of the results below because this is a stacking
+  context: everything inside it, the open country menu included, is clamped to
+  whatever number is written here no matter how high the menu's own z-index is.
+  At 2 the menu opened *behind* the cards — a card's badges and heart sit at 2
+  and 4 of their own, and a card is not a stacking context unless it is being
+  hovered, so those numbers were competing with this one directly. The cards now
+  isolate themselves (see .pcard), and this sits an order of magnitude above
+  them so nothing on the results column can reach over an open menu.
+*/
+.search-banner__aside {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  z-index: 40;
+}
+
+/* With no active banner the row still has to hold the market picker, so the
+   spacer keeps the row's height and gives the picker something to sit on. */
 .search-banner__spacer { flex: 1; min-width: 0; }
 
+/* Below 1024px the layout is a single column and the banner spans the whole of
+   it, so reaching up alongside the breadcrumb would run over its text. */
+@media (max-width: 1024px) {
+  .search-banner { margin-top: 0; }
+}
+
 @media (max-width: 720px) {
-  /* Stacked, picker first: on a phone the market matters more than the ad, and
-     a full-width picker is easier to hit than one pinned to a corner. */
-  .search-banner { flex-direction: column-reverse; align-items: stretch; }
-  .search-banner__aside { display: flex; justify-content: flex-end; }
+  /* On a phone the picker cannot float in a corner — the banner is too short
+     and the headline wraps under it. Both go back to stacking, picker first:
+     the market matters more than the ad, and a full-width control is easier to
+     hit than one pinned to an edge. */
+  .search-banner {
+    position: static;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    min-height: 0;
+    /* One column here, so there is no breadcrumb row to reach up alongside. */
+    margin-top: 0;
+    gap: var(--sp-3);
+  }
+  .search-banner .cbanner { padding: var(--sp-4); }
+  .search-banner__aside { position: static; display: flex; justify-content: flex-end; }
   .search-banner__spacer { display: none; }
   .hero__market { padding-top: var(--sp-3); }
+
+  /*
+    Off the banner, back to a plain button.
+
+    The hero treatment above is for a control sitting on photography or on a
+    banner. Here the picker has stacked out onto the page background, where a
+    half-transparent dark chip would be a dark pill on a cream page for no
+    reason — the same argument that gives a bannerless search page the ordinary
+    surface treatment.
+  */
+  .search-banner__aside .market-picker--light .market-picker__btn {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .search-banner__aside .market-picker--light .market-picker__btn:hover {
+    background: var(--surface-3);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -2172,64 +2867,157 @@
 
    List  — the default. One card per row, image beside the text, with the
            location and the facts line visible.
-   Grid  — two to a row, image on top, price and title only. Denser, so more
-           of the result set is in view at once.
+   Grid  — three or four to a row, image on top, price and title only. Denser,
+           so more of the result set is in view at once.
 
    Both keep the country flag, the country code and the locate control, which
    is what ties a card to its pin.
    -------------------------------------------------------------------------- */
 
 /*
-  Two to a row. The container is already a column flex box that scrolls, so
-  this switches it to a wrapping row rather than to grid: a wrapped flex line
-  sizes to its tallest item, whereas the grid track kept resolving against the
-  card's clipped overflow and collapsed every card to a sliver.
+  A real grid, sized by container queries.
+
+  The client's two notes here were "grid view is broken, there should be 3 or 4
+  ads in one row" and "make that it would always work and with every screen size
+  the layout would be fine", so the column count is a function of how wide the
+  results column actually is, not of how wide the window is — the two differ by
+  the map on a desktop, by nothing on a phone, and by the collapsed state in
+  between.
+
+  Grid rather than the wrapped flex row this used to be. The flex version had to
+  hard-code a percentage per line, which meant one number could only ever
+  describe one column count; `minmax(0, 1fr)` tracks let every card in a row
+  take the same width and, crucially, gives each one a definite width for the
+  photograph's aspect ratio to resolve against. That was the reason the media
+  box collapsed here before and had to be pinned to a fixed 132px.
+
+  The breakpoints are in card terms: a card stops being useful below about
+  170px, which is where a six-figure price starts to wrap.
 */
-.map-results__list.is-grid {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-content: flex-start;
+.map-shell.is-grid-mode .map-results__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
   gap: var(--sp-3);
 }
-.map-results__list.is-grid > * {
-  /* Two per line, allowing for the gap between them. */
-  flex: 0 0 calc(50% - (var(--sp-3) / 2));
-  max-width: calc(50% - (var(--sp-3) / 2));
+@container map-results (min-width: 560px) {
+  .map-shell.is-grid-mode .map-results__list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+@container map-results (min-width: 800px) {
+  .map-shell.is-grid-mode .map-results__list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@container map-results (max-width: 330px) {
+  /* One per line below this. Two cards fit comfortably at 390px — the narrowest
+     phone worth designing for — at about 173px each; it is only below roughly
+     330px of column that a price and a two-line title run out of room. */
+  .map-shell.is-grid-mode .map-results__list { grid-template-columns: minmax(0, 1fr); }
+}
+/* A grid item's default min-width is its content, which is what let a long
+   title push a card wider than its track and out of the panel. */
+.map-shell.is-grid-mode .map-results__list > * { min-width: 0; }
 
-.map-results__list.is-grid .pcard--map {
-  flex-direction: column;
-}
 /*
-  A fixed height rather than an aspect-ratio: the ratio resolves against a
-  width that is itself being resolved, and the media box ended up at zero.
-  132px is close to 4:3 at this column width and is never ambiguous.
+  The card clips at the photograph, not at the card.
+
+  `.pcard` sets `overflow: hidden` so the image cannot square off the rounded
+  top corners. That makes every card a scroll container, and Chromium sizes an
+  auto grid row against a scroll-container item as though its contents were not
+  there: every row came out 73px tall and every card was sliced off just below
+  its photograph. Moving the clip down onto `.pcard__media` — which needs it
+  anyway and is the only child that can overflow — leaves the card an ordinary
+  box that a row can measure. The corners are unchanged.
 */
-.map-results__list.is-grid .pcard--map .pcard__media {
-  width: 100%;
-  height: 132px;
-  aspect-ratio: auto;
+.map-shell.is-grid-mode .map-results__list .pcard--map {
+  flex-direction: column;
+  overflow: visible;
 }
-.map-results__list.is-grid .pcard--map .pcard__body {
+.map-shell.is-grid-mode .map-results__list .pcard--map .pcard__media {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0 0;
+}
+.map-shell.is-grid-mode .map-results__list .pcard--map .pcard__body {
   padding: var(--sp-3);
   gap: 2px;
+  min-width: 0;
 }
 /* Fewer details, as asked: location and facts drop out of the compact card. */
-.map-results__list.is-grid .pcard--map .pcard__location,
-.map-results__list.is-grid .pcard--map .pcard__facts {
+.map-shell.is-grid-mode .map-results__list .pcard--map .pcard__location,
+.map-shell.is-grid-mode .map-results__list .pcard--map .pcard__facts {
   display: none;
+}
+/* Titles are clamped so a row of cards stays level whatever the wording, and
+   both lines are allowed to break mid-word rather than push the card open. */
+.map-shell.is-grid-mode .map-results__list .pcard--map .pcard__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.map-shell.is-grid-mode .map-results__list .pcard--map .pcard__price,
+.map-shell.is-grid-mode .map-results__list .pcard--map .pcard__title {
+  overflow-wrap: anywhere;
 }
 /* The locate control and market badge stay in both layouts — they are how a
    card is matched to its pin. */
-.map-results__list.is-grid .pcard--map .pcard__locate {
+.map-shell.is-grid-mode .map-results__list .pcard--map .pcard__locate {
   top: 6px;
   right: 6px;
 }
 
-@media (max-width: 520px) {
-  /* One per line below this: two cards in a phone-width panel leaves the price
-     and title with nowhere to go. */
-  .map-results__list.is-grid > * { flex-basis: 100%; max-width: 100%; }
+/*
+  Broker cards in the same grid.
+
+  In list mode a broker card is a row — photograph left, details right — which
+  is what fits a 420px column. A grid cell here is around 185px wide, and a
+  96px photograph beside anything leaves 70px for a name, an agency and a
+  distance: the client's screenshots of that state show "Kadaka Kinnisvara"
+  broken over three lines and "0.51 KM" split across two.
+
+  So in grid mode the broker card stacks, exactly as the listing card beside it
+  does, and drops the same kind of detail the listing card drops.
+*/
+.map-shell.is-grid-mode .map-results__list .bcard--map {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'media'
+    'identity'
+    'meta'
+    'foot';
+  gap: 0;
+  padding: 0 var(--sp-3) var(--sp-3);
+}
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__media {
+  /* Full-bleed to the card's edges, the way the listing card's photograph is,
+     so a row of the two reads as one grid rather than as two components. */
+  margin: 0 calc(var(--sp-3) * -1) var(--sp-2);
+  aspect-ratio: 4 / 3;
+  border-radius: calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0 0;
+}
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__photo {
+  aspect-ratio: 4 / 3;
+  border-radius: calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0 0;
+  object-position: center 20%;
+}
+/* Fewer details, as on the listing card: the role and the office go, leaving
+   the name, the agency and — when there is one — the distance. */
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__role,
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__location,
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__contact {
+  display: none;
+}
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__name,
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__agency {
+  overflow-wrap: anywhere;
+}
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__foot {
+  margin-top: var(--sp-2);
+}
+.map-shell.is-grid-mode .map-results__list .bcard--map .bcard__locate {
+  top: 6px;
+  right: 6px;
 }
 
 /* --- The switch itself ---------------------------------------------------- */
@@ -2288,8 +3076,38 @@
 .listing-section h2:focus { outline: none; }
 .listing-section h2:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 4px; }
 
-/* The waypoint rail follows the page rather than scrolling away with it. */
-.stepper { position: sticky; top: var(--sp-6); align-self: start; }
+/*
+  Amenity groups.
+
+  Thirty-four ticks after the client's 19 August list, which is too many to
+  read as one undivided pair of columns: a seller looking for "Dishwasher"
+  should be able to find the kitchen first and then read seven items, not scan
+  thirty-four. A <fieldset> rather than a heading and a div, because that is
+  what a named group of checkboxes is — the legend names the group for a screen
+  reader as well as for a reader.
+
+  The legend carries .overline's face rather than a border or a panel: these are
+  divisions inside one section, and anything heavier would compete with the
+  section headings above them.
+*/
+.amenity-group { border: 0; padding: 0; margin: 0; min-width: 0; }
+.amenity-group__title {
+  padding: 0;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--slate);
+}
+[data-theme='dark'] .amenity-group__title { color: var(--text-muted); }
+
+/*
+  The waypoint rail follows the page rather than scrolling away with it, and
+  starts below the floating menu control: this panel reaches the page's right
+  edge, which is where that control now sits.
+*/
+.stepper { position: sticky; top: var(--floating-menu-band); align-self: start; }
 
 /* Waypoints are buttons now, so they need the anchor styling back. */
 .stepper__marker,
@@ -2301,11 +3119,9 @@
   cursor: pointer;
 }
 
-/* Mobile: the rail is hidden, so a compact picker takes over. */
-.listing-nav-compact { display: none; margin-bottom: var(--sp-5); }
-@media (max-width: 1023px) {
-  .listing-nav-compact { display: flex; flex-direction: column; gap: var(--sp-2); }
-}
+/* The "Jump to section" picker that used to stand in for the rail below 1024px
+   was removed along with its markup: the rail is an overlay drawer at that
+   width now, so there is nothing for a substitute control to substitute for. */
 
 /* --- Location section ----------------------------------------------------- */
 
@@ -2328,11 +3144,20 @@
   The one editable location field. Green, at the client's request, so it stands
   out from the read-only block above it as the line the seller controls.
 */
+/*
+  One weight of border, all the way round.
+
+  It used to carry a 3px accent down the left-hand side — "here in the add
+  listing page where can enter your location the green bow, make the borderline
+  there equal, so on the left remove this bolder part". The accent was doing a
+  job the green label, the green ground and the green field border already do
+  three times over, and on a rounded box a thick edge on one side only reads as
+  a drawing mistake rather than as emphasis.
+*/
 .field--editable-location {
   margin-top: var(--sp-5);
   padding: var(--sp-4);
   border: 1px solid var(--success-border);
-  border-left: 3px solid var(--success);
   border-radius: var(--r-md);
   background: var(--success-bg);
 }
@@ -2397,19 +3222,21 @@
 .photo-thumb:focus-within .photo-thumb__move { opacity: 1; }
 @media (hover: none) { .photo-thumb__move { opacity: 1; } }
 
-.photo-thumb__move button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px; height: 24px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--navy);
-  cursor: pointer;
+/* Shape and colours come from the shared rule beside .photo-thumb__remove. */
+.photo-thumb__move button { color: var(--navy); cursor: pointer; }
+.photo-thumb__move button:hover:not(:disabled) {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #FFFFFF;
+}
+[data-theme='dark'] .photo-thumb__move button { color: var(--text); }
+[data-theme='dark'] .photo-thumb__move button:hover:not(:disabled) {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--text-on-gold);
 }
 .photo-thumb__move button svg { width: 13px; height: 13px; }
-.photo-thumb__move button:disabled { opacity: 0.35; cursor: not-allowed; }
+.photo-thumb__move button:disabled { opacity: 0.4; cursor: not-allowed; }
 .photo-thumb__move button:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 1px; }
 
 /* A button that has to read as a link inside running text. */
@@ -2465,3 +3292,144 @@
 @media (max-width: 560px) {
   .type-picker__panel { width: 100%; }
 }
+
+/*
+  Deal type uses the same dropdown over the sidebar's segmented control. Its
+  field is the narrowest of the three, and the segments inside are one line
+  each, so the panel is sized to the control rather than to the trigger — at the
+  trigger's width "Short rent" wrapped and the row grew a line taller than its
+  neighbours.
+
+  It opens from the left edge at every width: this is the leftmost field, so
+  there is no right edge to run past, and the 1080px rule above would otherwise
+  hang it off the panel's own left side.
+*/
+.deal-picker__panel { width: min(340px, 84vw); padding: var(--sp-2); }
+@media (max-width: 1080px) {
+  .deal-picker__panel { left: 0; right: auto; }
+}
+
+/* ==========================================================================
+   Brokers on the map
+   ==========================================================================
+   "For this in the maps his rounded rectangle profile image will be displayed
+   with his name - small icon, and if user clicks on it, then the bigger user
+   profile will open, just like the real estate preview window, and if click
+   there then will redirect to this broker's single page."
+
+   So the marker is a photograph and a name, and it has to be distinguishable
+   from a price bubble at a glance or a map with both switched on becomes
+   unreadable. Three things separate them: the shape (a rounded rectangle, not a
+   pill), the ground (surface, not navy) and the photograph itself.
+
+   It shares .map-pin's anchoring exactly — translate(-50%, -100%) plus a stem —
+   so a broker's pin points at its own coordinates with the same precision a
+   listing's does, and the two sit at the same height when they overlap. */
+.map-broker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transform: translate(-50%, -100%);
+  max-width: 190px;
+  height: 42px;
+  padding: 0 10px 0 4px;
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--navy);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pin);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
+}
+.map-broker__photo {
+  width: 34px; height: 34px;
+  flex: none;
+  border-radius: 7px;
+  object-fit: cover;
+  background: var(--surface-3);
+}
+.map-broker__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-broker::after {
+  /* The same stem the price pill draws, so both marker kinds point at a
+     coordinate rather than hovering near one. */
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  width: 9px; height: 9px;
+  background: var(--surface);
+  border-right: 2px solid var(--navy);
+  border-bottom: 2px solid var(--navy);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 0 0 2px 0;
+}
+.map-broker:hover,
+.map-broker.is-active {
+  border-color: var(--teal);
+  transform: translate(-50%, -100%) scale(1.06);
+  box-shadow: 0 2px 4px rgba(8, 23, 34, 0.32), 0 8px 16px rgba(8, 23, 34, 0.28);
+}
+.map-broker:hover::after,
+.map-broker.is-active::after {
+  border-right-color: var(--teal);
+  border-bottom-color: var(--teal);
+}
+.leaflet-marker-icon:focus-visible .map-broker { outline: 3px solid var(--gold); outline-offset: 3px; }
+
+/* The preview a broker marker opens — the listing popup's shape with a
+   broker's content in it, which is what "just like the real estate preview
+   window" asks for. */
+.map-popup__broker-media {
+  display: block;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+}
+.map-popup__broker-media img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+}
+.map-popup__agency {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--teal);
+}
+.map-popup__card--broker .distance-line { margin-top: var(--sp-1); }
+
+/* The map header's second line: where, and in what order.
+
+   It was one sentence of text — "All locations · Newest first" — and the second
+   half of it is a control now. The two stay on one line, with the separator the
+   old sentence used kept as a hairline between them, so the line still reads as
+   one statement about the search rather than as a stray menu under the count. */
+.map-results__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+/* No separator between the two.
+
+   The old sentence joined them with a middot — "All locations · Newest first" —
+   and that only reads as one statement while they share a line. The results
+   column is around 580px at an ordinary window width, which is not enough for
+   a place name, a label and a menu, so the menu wraps underneath and a middot
+   would be left hanging at the end of the line above it. Two lines, no
+   punctuation between them. */
+.map-results__head .sort-field__label { font-size: var(--fs-xs); }
+.map-results__head .sort-field__select {
+  min-height: 32px;
+  padding-block: 0;
+  font-size: var(--fs-xs);
+}
+
+

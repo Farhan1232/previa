@@ -1,8 +1,37 @@
-{{/* Shared side navigation for the signed-in account area. */}}
+{{/*
+  Shared side navigation for the signed-in account area.
+
+  It behaves exactly like the search page's filter panel, which is what the
+  client asked for: a sticky sidebar that can be pushed off to the left and
+  reopened from a rail on wide screens, and an off-canvas drawer that overlays
+  the page below 1080px. Same component in previa.js, same rail and edge-tab
+  classes, so the two panels cannot drift apart.
+
+  The host page owns the state, because the rail and the drawer's backdrop are
+  siblings of the panel: every account page opens its shell with
+
+      <div class="shell shell--nav" x-data="previaPanel('previa-account-nav')" ...>
+*/}}
 {{ define "account-nav" }}
 {{ $s := .Data.Section }}
 {{ $c := .Data.Counts }}
-<nav class="side-nav" aria-label="Account">
+
+<div class="filter-backdrop" x-show="drawer" x-cloak x-transition.opacity.duration.200ms
+     @click="closeDrawer()" aria-hidden="true"></div>
+
+<nav class="side-nav" id="account-nav-drawer" aria-label="Account"
+     :class="{ 'is-open': drawer }"
+     x-trap.noscroll="drawer"
+     @keydown.escape.window="closeDrawer()">
+
+  <div class="side-nav__header">
+    <p class="side-nav__title">Account</p>
+    <button type="button" class="icon-btn filter-panel__collapse" @click="collapse()"
+            aria-label="Hide account menu">{{ template "icon" "chevron-left" }}</button>
+    <button type="button" class="icon-btn filter-panel__close" @click="closeDrawer()"
+            aria-label="Close account menu">{{ template "icon" "close" }}</button>
+  </div>
+
   <div class="side-nav__group">
     <p class="side-nav__label">Overview</p>
     <a class="side-nav__link" href="/dashboard" {{ if eq $s "dashboard" }}aria-current="page"{{ end }}>
@@ -46,8 +75,11 @@
 
   <div class="side-nav__group">
     <p class="side-nav__label">Account</p>
+    {{/* "Profile and settings" shortened to "Settings" at the client's
+         request — it matches the header menu and the drawer, which both
+         already said Settings. */}}
     <a class="side-nav__link" href="/settings" {{ if eq $s "settings" }}aria-current="page"{{ end }}>
-      {{ template "icon" "settings" }} Profile and settings
+      {{ template "icon" "settings" }} Settings
     </a>
     <a class="side-nav__link" href="/billing" {{ if eq $s "billing" }}aria-current="page"{{ end }}>
       {{ template "icon" "card" }} Billing
@@ -57,12 +89,34 @@
     </a>
   </div>
 </nav>
+
+{{/* Wide screens: the thin rail left behind when the panel is pushed away. */}}
+<div class="filter-rail">
+  <button type="button" class="filter-reopen" @click="expand()" aria-label="Show account menu">
+    {{ template "icon" "sidebar-menu" }}
+    <span>Menu</span>
+  </button>
+</div>
+
+{{/* Small screens: fixed edge tab, reachable at any scroll position. */}}
+<button type="button" class="filter-fab" @click="openDrawer()" aria-controls="account-nav-drawer"
+        :aria-expanded="drawer">
+  {{ template "icon" "sidebar-menu" }}
+  <span>Menu</span>
+</button>
 {{ end }}
 
 
-{{/* Page header used across the account screens. */}}
+{{/*
+  Page header used across the account screens.
+
+  Compact: the client asked for the breadcrumb to sit straight under the site
+  header, the title to be smaller and closer to it, and the panels below to
+  come up into the empty band that followed. The --compact modifier does all
+  three, and the pages pair it with .section--after-head on their container.
+*/}}
 {{ define "account-head" }}
-<div class="page-head">
+<div class="page-head page-head--compact">
   <div class="container">
     <div class="page-head__inner">
       <nav aria-label="Breadcrumb">

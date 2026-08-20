@@ -183,6 +183,134 @@ Basic performance statistics</textarea>
           </form>
         </div>
       </section>
+
+      {{/*
+        Broker advertising, priced per market per day.
+
+        "In the backend there is option to set the price per day for each
+        country. For example in Germany 3 € per day, in Poland 1 € per day."
+
+        So this is the price list the profile's advertise dialog bills from:
+        one row per market, a rate in each, and a default underneath for the
+        markets nobody has priced — Previa sells in every country in the world
+        list and an administrator has not set two hundred rates by hand, so a
+        market without one still has to be sellable.
+
+        Filterable, for the same reason the market picker is: two hundred rows
+        is a scroll, and an administrator changing Germany's rate should be able
+        to type "ger" and be looking at it.
+      */}}
+      <section class="card" x-data="previaAdRates()">
+        <div class="card__header">
+          <div>
+            <h2 class="card__title">Homepage broker advertising</h2>
+            <p class="text-xs muted">{{ $d.BrokerAdPlan.Name }} — charged per market, per day.</p>
+          </div>
+        </div>
+        <div class="card__body stack">
+          <form class="stack" hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+            <div class="grid grid--2" style="gap:var(--sp-4)">
+              <div class="field">
+                <label class="field__label" for="ad-default">Default price per day (EUR)</label>
+                <input class="input numeric" id="ad-default" name="broker_ad_default_per_day"
+                       type="number" min="0" step="0.5"
+                       value="{{ $d.BrokerAdPlan.DefaultPerDay.Amount }}">
+                <span class="field__hint">
+                  Charged in any market with no rate of its own below.
+                </span>
+              </div>
+              <div class="field">
+                <label class="field__label" for="ad-rate-search">Find a market</label>
+                <input class="input" id="ad-rate-search" type="search"
+                       x-model="q" @input="filter()" placeholder="Country or code"
+                       autocomplete="off">
+                <span class="field__hint">
+                  <span x-text="shown"></span> of {{ len $d.AllCountries }} markets shown.
+                </span>
+              </div>
+            </div>
+
+            <div class="rate-table" x-ref="list">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Market</th>
+                    <th scope="col">Code</th>
+                    <th scope="col" class="numeric">Price per day (EUR)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ range $d.AllCountries }}
+                  <tr data-rate-row data-search="{{ .Name }} {{ .Code }}">
+                    <td>
+                      <span class="row row--tight">
+                        {{ template "flag" .Code }}
+                        <span>{{ .Name }}</span>
+                      </span>
+                    </td>
+                    <td class="numeric">{{ .Code }}</td>
+                    <td class="numeric">
+                      <input class="input input--rate numeric" type="number" min="0" step="0.5"
+                             name="broker_ad_rate_{{ .Code }}"
+                             value="{{ ($d.BrokerAdPlan.PerDay .Code).Amount }}"
+                             aria-label="Price per day in {{ .Name }}">
+                    </td>
+                  </tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
+
+            <button class="btn btn--primary" type="submit" style="align-self:flex-start">
+              Save advertising prices
+            </button>
+          </form>
+        </div>
+      </section>
+
+      {{/*
+        The map placement, which is priced the other way round — a ladder of
+        fixed runs rather than a daily rate, because that is how the client
+        priced it: "can choose 5 days - 1 €, 10 days - 2 €, 20 days - 3 € etc."
+        There is no market column: what is bought is one pin on one map.
+      */}}
+      <section class="card">
+        <div class="card__header">
+          <div>
+            <h2 class="card__title">Search map broker placement</h2>
+            <p class="text-xs muted">{{ $d.BrokerMapAdPlan.Name }} — one price per run length.</p>
+          </div>
+        </div>
+        <div class="card__body">
+          <form class="stack" hx-post="/admin/mock-action" hx-target="#admin-result" hx-swap="innerHTML">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col">Run length</th>
+                  <th scope="col" class="numeric">Price (EUR)</th>
+                  <th scope="col" class="numeric">Per day</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ range $d.BrokerMapAdPlan.Tiers }}
+                <tr>
+                  <td>{{ .Days }} days</td>
+                  <td class="numeric">
+                    <input class="input input--rate numeric" type="number" min="0" step="0.5"
+                           name="broker_map_ad_price_{{ .Days }}" value="{{ .Price.Amount }}"
+                           aria-label="Price for {{ .Days }} days">
+                  </td>
+                  <td class="numeric muted">{{ money .PerDay }}</td>
+                </tr>
+                {{ end }}
+              </tbody>
+            </table>
+            <button class="btn btn--primary" type="submit" style="align-self:flex-start">
+              Save map placement prices
+            </button>
+          </form>
+        </div>
+      </section>
     </div>
   </div>
 </div>

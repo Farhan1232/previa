@@ -20,7 +20,11 @@
   Autosave is unchanged: every field still calls touch(), which debounces a
   POST to /add-listing/save. Nothing is persisted server-side this milestone.
 */}}
-<div class="container" style="padding:var(--sp-7) 0 var(--sp-11)"
+{{/* padding-block, not the shorthand: the shorthand's horizontal 0 would
+     cancel .container's gutters and leave this page a gutter wider on each
+     side than its own footer — the misalignment the client picked up on
+     three other pages. */}}
+<div class="container" style="padding-block:var(--sp-7) var(--sp-11)"
      x-data="previaListingForm({{ $d.TotalSteps }}, '{{ $d.Anchor }}')">
 
   <div class="row row--between" style="margin-bottom:var(--sp-6)">
@@ -49,26 +53,22 @@
   </div>
 
   {{/*
-    Mobile waypoint control.
+    The waypoint rail is a collapsible panel, exactly like the search page's
+    filter menu but hinged on the right instead of the left. That is the
+    client's note: on a narrower screen the rail used to squash itself against
+    the right edge, so it now slides off that edge instead and leaves a pull-out
+    tab behind, and the whole list stays usable at any width.
 
-    The right-hand rail is hidden below 1024px, so this takes over: a native
-    <select> is the most accessible compact navigation on a phone — it gets the
-    platform's own picker, screen-reader support and keyboard handling free.
+    previaPanel is nested inside previaListingForm rather than replacing it —
+    Alpine child scopes inherit the parent's, so the waypoints still call
+    goTo() and stateOf() on the form component while the panel owns collapsed
+    and drawer. The "Jump to section" <select> that used to stand in for the
+    rail below 1024px is gone with it: the rail itself is reachable there now.
   */}}
-  <div class="listing-nav-compact">
-    <label class="field__label" for="ls-jump">Jump to section</label>
-    <select class="select" id="ls-jump" @change="goTo($event.target.value)">
-      {{ range $d.Steps }}
-      <option value="{{ .Key }}" :selected="activeKey === '{{ .Key }}'">
-        {{ .Number }}. {{ .Label }}
-      </option>
-      {{ end }}
-    </select>
-  </div>
-
-  <div class="wizard">
+  <div class="wizard" x-data="previaPanel('previa-listing-rail')"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
     {{/* ---------------- the form ---------------- */}}
-    <form class="wizard-card" x-ref="form" @input="touch()" @change="touch()"
+    <form class="wizard-card" x-ref="form" @input="touch(); recheck()" @change="touch(); recheck()"
           @submit.prevent>
       <div class="wizard-card__body listing-sections">
 
@@ -82,7 +82,11 @@
           <div class="option-grid" role="radiogroup" aria-labelledby="ls-deal-h">
             {{ range $i, $dt := dealTypes }}
             <label class="option-tile">
-              <input type="radio" name="deal" value="{{ $dt.Value }}"
+              {{/* x-model, so the price section nine sections down can quote a
+                   month for a rent and a day for a short rent. The checked
+                   attribute stays: it is what the page renders with before
+                   Alpine starts, and `deal` opens on the same value. */}}
+              <input type="radio" name="deal" value="{{ $dt.Value }}" x-model="deal"
                      {{ if eq $i 0 }}checked{{ end }}>
               {{ if eq $dt.Value "sale" }}{{ template "icon" "home" }}
               {{ else if eq $dt.Value "rent" }}{{ template "icon" "key" }}
@@ -144,6 +148,29 @@
           </p>
 
           {{/*
+            The one editable location field, marked green so it is obviously
+            the exception among the read-only ones below.
+
+            It sits directly under the map at the client's request. That is
+            also the more honest order: this is the line buyers actually see,
+            so it belongs above the raw geocoder output rather than buried
+            under it — and the hint now says exactly that.
+          */}}
+          <div class="field field--editable-location">
+            <label class="field__label" for="w-public-address">
+              {{ template "icon" "edit" }}
+              Edit your location as you want other users to see it
+            </label>
+            <input class="input" id="w-public-address" name="public_address" type="text"
+                   x-model="publicAddress"
+                   placeholder="For example: Old Town, Tallinn — exact address on request">
+            <span class="field__hint">
+              This is the location shown on the public listing. The Google maps
+              data below is not displayed publicly.
+            </span>
+          </div>
+
+          {{/*
             System-generated, and not editable: these come from the map, so
             letting them be typed over would let them disagree with the pin.
             readonly rather than disabled, so they are still announced and can
@@ -184,24 +211,6 @@
               <input class="input numeric" id="w-lng" type="text" readonly x-model="place.lng">
             </div>
           </div>
-
-          {{/*
-            The one editable location field, marked green so it is obviously
-            the exception among the read-only ones above.
-          */}}
-          <div class="field field--editable-location">
-            <label class="field__label" for="w-public-address">
-              {{ template "icon" "edit" }}
-              Edit your location as you want other users to see it
-            </label>
-            <input class="input" id="w-public-address" name="public_address" type="text"
-                   x-model="publicAddress"
-                   placeholder="For example: Old Town, Tallinn — exact address on request">
-            <span class="field__hint">
-              This is the address shown on the public listing. The coordinates above
-              stay as they are.
-            </span>
-          </div>
         </section>
 
         {{/* --- 4. Property information ------------------------------------- */}}
@@ -237,22 +246,46 @@
         {{/* --- 5. Rooms and dimensions ------------------------------------- */}}
         <section class="listing-section" id="ls-rooms" aria-labelledby="ls-rooms-h">
           <h2 class="display display--h3" id="ls-rooms-h">Rooms and dimensions</h2>
-          {{/* One field is shown in its error state so the design covers validation */}}
+          {{/*
+            The two areas are optional, and neither turns red.
+
+            "Under rooms and dimensions, additionally to living area, make there
+            'Total area (m2)' but these fields are not obligatory, so remove the
+            red error and restriction from there." Living area used to carry
+            data-required, an asterisk and a message under it, which also put
+            the "!" marker on this section's waypoint before anything had been
+            typed. All three are gone, and Total area is added beside it under
+            the same rule: a seller who knows one figure and not the other can
+            now publish.
+
+            Total rooms keeps its asterisk. It was not named in the note, and it
+            is the one field here the search results cannot do without.
+
+            data-required is still what recheck() looks for, so requiring a
+            field again is a one-attribute change — and clearing Total rooms
+            still turns this section's waypoint red, which is what keeps that
+            state real rather than staged.
+          */}}
           <div class="grid grid--2" style="gap:var(--sp-4)">
             <div class="field">
               <label class="field__label" for="w-rooms">Total rooms <span class="req">*</span></label>
-              <input class="input" id="w-rooms" type="number" min="1" value="4">
+              <input class="input" id="w-rooms" type="number" min="1" value="4" data-required>
             </div>
-            <div class="field is-invalid">
-              <label class="field__label" for="w-area">Living area <span class="req">*</span></label>
-              <span class="input-unit">
-                <input class="input" id="w-area" type="number" value="" placeholder="e.g. 118"
-                       aria-invalid="true" aria-describedby="w-area-err">
-                <span class="input-unit__suffix">m²</span>
-              </span>
-              <p class="field__error" id="w-area-err">
-                {{ template "icon" "alert" }} Living area is required before you can publish.
-              </p>
+            <div class="field">
+              {{/* The unit rides in the label, so the browser's own up/down
+                   arrows sit at the field's right-hand edge rather than being
+                   pushed inward by padding reserved for a suffix. Same change
+                   as the search panel's, and for the same reason. */}}
+              <label class="field__label" for="w-area">Living area (m²)</label>
+              <input class="input" id="w-area" type="number" value="" placeholder="e.g. 118">
+            </div>
+            <div class="field">
+              {{/* Total area, beside living area: the floor area of everything
+                   the property includes — balconies, cellar, a garage under the
+                   same roof — which is the larger of the two figures and the one
+                   a buyer compares between listings of different layouts. */}}
+              <label class="field__label" for="w-total-area">Total area (m²)</label>
+              <input class="input" id="w-total-area" type="number" value="" placeholder="e.g. 134">
             </div>
             <div class="field">
               <label class="field__label" for="w-beds">Bedrooms</label>
@@ -277,15 +310,56 @@
         <section class="listing-section" id="ls-features" aria-labelledby="ls-features-h">
           <h2 class="display display--h3" id="ls-features-h">Features and amenities</h2>
           <p class="muted">Tick everything that applies — these become search filters.</p>
-          <div class="grid grid--2" style="gap:0 var(--sp-6)">
-            {{ $feats := list "Parking" "Balcony" "Terrace" "Garden" "Elevator" "Sauna"
-                              "Sea or water view" "Furnished" "Storage room" "Air conditioning"
-                              "Fireplace" "Alarm system" }}
-            {{ range $feats }}
-            <label class="check">
-              <input type="checkbox">
-              <span class="check__text">{{ . }}</span>
-            </label>
+          {{/*
+            The client's list of 19 August, added to the twelve that were here:
+            "to features and amenities add: Free Parking, Paid Parking, Personal
+            Parking Place, Garage, WIFI, TV, Kitchen, Washing Maschine, Dryer,
+            Bed Linens, Room-darkening shades, Baby bath, Regulated Heating,
+            Smoke Alarm, Refrigerator, Cooking Basics, Freezer, Dishwasher,
+            Heater, Microwave, Coffee Maker, Carbon Monoxide Alarm."
+
+            Every one of them is here. Two things about how they are written:
+            they take the sentence case the twelve already used, so one list
+            does not read in two voices, and the two typed spellings are
+            corrected — "Washing machine", "Wi-Fi".
+
+            They are grouped rather than run together as thirty-four ticks in
+            one column pair. The client's own list is four kinds of thing in a
+            row — parking, then the connected things, then the kitchen, then the
+            safety alarms — and a seller ticking a kitchen out is helped by the
+            kitchen items sitting together. The order inside each group is the
+            client's; the twelve that were already here keep the first group, so
+            nothing anyone had already read has moved.
+
+            Nothing is removed. "Parking" stays alongside the three kinds of
+            parking beneath it because it is one of the five ticks the search
+            filter runs on with a query parameter of its own, and dropping it
+            would quietly narrow a filter the client did not ask to change.
+
+            The list itself moved to models.AmenityGroups on 19 August, when the
+            client asked for it in the search sidebar too: "the 'Features and
+            amenities' we just added into 'add listing' page add to the search
+            menu as well, with the same subtitles." It used to be a template
+            literal in this file, and a second copy in components/filters.html
+            would have been one more thing that can drift.
+
+            Each tick carries the query parameter and value the search filters
+            on, so what a seller publishes here and what a buyer searches for
+            there are the same key rather than two strings that happen to match.
+          */}}
+          <div class="stack stack--lg">
+            {{ range amenityGroups }}
+            <fieldset class="amenity-group">
+              <legend class="amenity-group__title">{{ .Name }}</legend>
+              <div class="grid grid--2" style="gap:0 var(--sp-6)">
+                {{ range .Items }}
+                <label class="check">
+                  <input type="checkbox" name="{{ .Param }}" value="{{ .Value }}">
+                  <span class="check__text">{{ .Label }}</span>
+                </label>
+                {{ end }}
+              </div>
+            </fieldset>
             {{ end }}
           </div>
         </section>
@@ -391,12 +465,32 @@
         {{/* --- 9. Price ------------------------------------------------------ */}}
         <section class="listing-section" id="ls-price" aria-labelledby="ls-price-h">
           <h2 class="display display--h3" id="ls-price-h">Set your price</h2>
+          {{/*
+            The price, in the unit the deal type asks for.
+
+            "In the add listing price section, if the user has chosen deal type
+            rent or short, then the price must be in case of rent 1000 € / month
+            and in case of short rent 100 € / day."
+
+            So the label names the unit and the field itself carries it after
+            the figure — a seller typing 1000 into a rent listing is looking at
+            "1000 € / month" while they type. A sale keeps the bare "€": there
+            is no period to quote. Both read `deal` from the form component,
+            which the radios at the top of the page write.
+          */}}
           <div class="grid grid--2" style="gap:var(--sp-4)">
             <div class="field">
-              <label class="field__label" for="w-price">Asking price <span class="req">*</span></label>
-              <span class="input-unit">
+              <label class="field__label" for="w-price">
+                <span x-text="priceLabel()">Asking price (EUR)</span> <span class="req">*</span>
+              </label>
+              <div class="price-field">
                 <input class="input" id="w-price" type="number" value="429000">
-                <span class="input-unit__suffix">EUR</span>
+                <span class="price-field__unit" aria-hidden="true">
+                  €<template x-if="pricePeriod()"><span> / <span x-text="pricePeriod()"></span></span></template>
+                </span>
+              </div>
+              <span class="field__hint" x-show="pricePeriod()" x-cloak>
+                Rentals are advertised per <span x-text="pricePeriod()"></span>.
               </span>
             </div>
             <div class="field">
@@ -415,15 +509,13 @@
             <input type="checkbox">
             <span class="check__text">Hide the price and show “Price on application”</span>
           </label>
-          <div class="alert alert--info">
-            {{ template "icon" "info" }}
-            <p>Comparable renovated apartments in Vanalinn are listed between
-               €3 200 and €4 100 per m². At €429 000 this works out at €3 636/m².</p>
-          </div>
+          {{/* The comparable-prices note that sat here was removed at the
+               client's request. */}}
         </section>
 
         {{/* --- 10. Contact --------------------------------------------------- */}}
-        <section class="listing-section" id="ls-contact" aria-labelledby="ls-contact-h">
+        <section class="listing-section" id="ls-contact" aria-labelledby="ls-contact-h"
+                 x-data="{ apps: ['whatsapp', 'telegram'], phone: '{{ .User.Phone }}' }">
           <h2 class="display display--h3" id="ls-contact-h">How should buyers reach you?</h2>
           <div class="grid grid--2" style="gap:var(--sp-4)">
             <div class="field">
@@ -432,9 +524,74 @@
             </div>
             <div class="field">
               <label class="field__label" for="w-cphone">Phone</label>
-              <input class="input" id="w-cphone" type="tel" value="{{ .User.Phone }}">
+              <input class="input" id="w-cphone" type="tel" value="{{ .User.Phone }}"
+                     x-ref="cphone" @input="phone = $event.target.value">
+
+              {{/*
+                Messenger apps, directly under the phone number they are
+                reached on — the arrangement the client pointed at in their
+                reference screenshot.
+
+                Each app is a tickbox paired with its brand tile, in that
+                order, and the pair is one label so either half toggles it.
+                Ticking an app puts its icon on the published listing as a
+                link that opens a chat with this number.
+
+                Proportions are the reference's: a 20px box, a 40px tile, 10px
+                between them and 16px between pairs.
+              */}}
+              <div class="msg-picker" role="group" aria-label="Messenger apps buyers can reach you on">
+                {{ range messengerKinds }}
+                {{ $k := printf "%s" . }}
+                <label class="msg-toggle" title="{{ messengerLabel . }}">
+                  <input type="checkbox" name="messengers" value="{{ $k }}" x-model="apps">
+                  <span class="msg-toggle__box" aria-hidden="true">{{ template "icon" "check" }}</span>
+                  <span class="msg-toggle__mark">{{ template "messenger-mark" $k }}</span>
+                  <span class="visually-hidden">{{ messengerLabel . }}</span>
+                </label>
+                {{ end }}
+              </div>
             </div>
           </div>
+
+          {{/*
+            The apps that carry an address of their own, laid out as the
+            reference has them: plain fields, always visible, under the icon
+            row. A Telegram account is not always findable by number and
+            Signal's is a share link rather than a number, so both get a field;
+            Teams is addressed by email, and has nothing to fall back on.
+
+            All three are optional — WhatsApp, Viber and, given a number,
+            Telegram and Signal all work from the phone field alone.
+          */}}
+          <div class="grid grid--2" style="gap:var(--sp-4)">
+            <div class="field">
+              <label class="field__label" for="w-telegram">Telegram link</label>
+              <input class="input" id="w-telegram" name="telegram_link" type="text"
+                     placeholder="t.me/yourname">
+              <span class="field__hint">
+                Either form works — a username link like t.me/yourname, or a
+                phone link. Left empty, your phone number is used.
+              </span>
+            </div>
+            <div class="field">
+              <label class="field__label" for="w-signal">Signal link</label>
+              <input class="input" id="w-signal" name="signal_link" type="text"
+                     placeholder="signal.me/#p/+372…">
+              <span class="field__hint">
+                Copy this from Signal under Settings → your name → Share.
+              </span>
+            </div>
+            <div class="field" x-show="apps.includes('teams')" x-cloak>
+              <label class="field__label" for="w-teams">Teams address</label>
+              <input class="input" id="w-teams" name="teams_address" type="email"
+                     placeholder="you@company.com">
+              <span class="field__hint">
+                Teams opens a chat by email address, so this one is required.
+              </span>
+            </div>
+          </div>
+
           <div class="field">
             <label class="field__label" for="w-cemail">Email</label>
             <input class="input" id="w-cemail" type="email" value="{{ .User.Email }}">
@@ -514,19 +671,21 @@
             {{ end }}
           </div>
 
+          {{/*
+            Promotion — paid add-ons, priced by the day.
+
+            These are extra services on top of the package, so each one shows
+            what it costs and how long it runs for. Both can also be bought
+            later from My listings, which is why the picker is a shared
+            component rather than markup that lives only here.
+          */}}
           <h3 class="card__title" style="margin-top:var(--sp-6)">Promotion</h3>
-          <label class="check">
-            <input type="checkbox">
-            <span class="check__text">Feature this listing on the homepage</span>
-          </label>
-          <label class="check">
-            <input type="checkbox">
-            <span class="check__text">Bump to the top of search results weekly</span>
-          </label>
-          <label class="check">
-            <input type="checkbox">
-            <span class="check__text">Highlight in the weekly market newsletter</span>
-          </label>
+          <p class="text-sm muted">
+            Optional extras, charged on top of the package. Buy them now or add
+            them later from My listings — at any point while the listing is
+            still online.
+          </p>
+          {{ template "promotion-picker" dict "Promotions" $d.Promotions "IDPrefix" "wiz" }}
 
           <div class="publish-done" style="margin-top:var(--sp-6)">
             <span class="empty__icon" style="background:var(--success-bg);color:var(--success)">
@@ -550,8 +709,20 @@
     </form>
 
     {{/* ---------------- waypoint navigation (right) ---------------- */}}
-    <nav class="stepper" aria-label="Listing sections">
-      <p class="overline" style="margin-bottom:var(--sp-4)">Your progress</p>
+    <div class="filter-backdrop" x-show="drawer" x-cloak x-transition.opacity.duration.200ms
+         @click="closeDrawer()" aria-hidden="true"></div>
+
+    <nav class="stepper" id="listing-rail" aria-label="Listing sections"
+         :class="{ 'is-open': drawer }"
+         x-trap.noscroll="drawer"
+         @keydown.escape.window="closeDrawer()">
+      <div class="stepper__header">
+        <p class="overline">Your progress</p>
+        <button type="button" class="icon-btn filter-panel__collapse" @click="collapse()"
+                aria-label="Hide progress panel">{{ template "icon" "chevron-right" }}</button>
+        <button type="button" class="icon-btn filter-panel__close" @click="closeDrawer()"
+                aria-label="Close progress panel">{{ template "icon" "close" }}</button>
+      </div>
       <ol class="stepper__list">
         {{ range $d.Steps }}
         <li class="stepper__item" :class="'is-' + stateOf('{{ .Key }}', '{{ .State }}')">
@@ -582,6 +753,21 @@
         </p>
       </div>
     </nav>
+
+    {{/* Wide screens: the rail left behind when the panel is pushed away. */}}
+    <div class="filter-rail filter-rail--right">
+      <button type="button" class="filter-reopen" @click="expand()" aria-label="Show progress panel">
+        {{ template "icon" "list" }}
+        <span>Progress</span>
+      </button>
+    </div>
+
+    {{/* Small screens: fixed edge tab on the right, reachable while scrolling. */}}
+    <button type="button" class="filter-fab filter-fab--right" @click="openDrawer()"
+            aria-controls="listing-rail" :aria-expanded="drawer">
+      {{ template "icon" "list" }}
+      <span>Progress</span>
+    </button>
   </div>
 </div>
 {{ end }}

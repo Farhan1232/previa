@@ -1,0 +1,199 @@
+{{/*
+  Tag picker — choose several from a long, flagged list.
+
+  Built for the client's two 17 August additions to the profile, which are the
+  same control asked for twice:
+
+    · "add more field 'Languages of communication'. There the user can choose in
+      dropdown menu in all the languages with flags (the same menu as choose
+      your market in the frontpage). Then he can add these languages there as
+      tag's and remove them if needed."
+    · "in the account settings country menu make all countries there with flags
+      (the same menu as choose your market) and the user can multi-select them,
+      as nowadays some brokers (living near the border) can be active in more
+      countries at once."
+
+  So it is deliberately the market picker's menu: the same search box, the same
+  scrolling flagged list, the same empty state. What differs is that a choice
+  adds a removable tag instead of navigating, and several can be held at once.
+
+  The checkboxes are the form state, not a mirror of it. Every option is a real
+  <input type="checkbox"> carrying the field's name, server-rendered and checked
+  server-side, so what the form submits is the menu itself: no hidden inputs to
+  keep in step with a parallel array, and nothing to go wrong between the two.
+  Alpine only reads them back — for the tags, the text filter and the empty
+  state. It opens the menu as well, so this is not a no-JavaScript control; what
+  the arrangement buys is that the selection can never disagree with itself.
+
+  Args (dict):
+    Kind       "language" | "country"   which catalogue to offer
+    Name       form field name, repeated once per choice
+    ID         prefix for the ids this control needs
+    Label      the field label
+    AddLabel   the wording on the button that opens the menu
+    Hint       optional line under the control
+    Selected   []string of chosen values — language codes or country codes
+    Countries  []models.Country, required when Kind is "country"
+    EmptyLabel optional. Shown in place of the tags while nothing is chosen,
+               for the two search filters where choosing nothing is itself a
+               meaningful answer: "the first selection is 'any'. So the user
+               can choose out the language he want, or not to choose the
+               languages." Any is the absence of a choice rather than a value
+               of its own — nothing is submitted and the filter excludes
+               nobody — so it is shown, not offered as an option that would
+               have to be un-ticked.
+    Action     optional. A control rendered on the right of the label row, as
+               dict "Template" <name> "Args" <dict>. The profile's Country
+               field uses it for the advertise button the client asked for
+               "after the title 'Contry'" — a button that belongs to the field's
+               heading rather than to the list of tags under it.
+*/}}
+{{ define "tag-picker" }}
+{{ $id := .ID }}
+{{ $name := .Name }}
+{{ $sel := .Selected }}
+{{ $action := false }}{{ if hasField . "Action" }}{{ $action = .Action }}{{ end }}
+{{/* Whether this instance has an "Any" resting state — the two search filters
+     do, the two profile fields do not. */}}
+{{ $any := hasField . "EmptyLabel" }}
+<div class="field tagpick" x-data="previaTagPicker()" @keydown.escape.stop="close()">
+  {{ if $action }}
+  <div class="field__label-row">
+    <span class="field__label" id="{{ $id }}-label">{{ .Label }}</span>
+    {{ template "field-action" $action }}
+  </div>
+  {{ else }}
+  <span class="field__label" id="{{ $id }}-label">{{ .Label }}</span>
+  {{ end }}
+
+  {{/*
+    Box and menu share one positioned wrapper, so the menu is anchored to the
+    bottom of the box and to nothing else.
+
+    Without it the menu opened level with the foot of the whole field — under
+    the hint, and on the settings screen that put it outside the card
+    altogether: "these dropdown menus open in wrong place, make them to be
+    opened in the same place where you click them". The cause was that a
+    percentage `top` resolves against the containing block's height, so
+    `top: calc(100% + 4px)` measured the field, hint and all, rather than the
+    box the button sits in. Anchoring here makes 100% mean the box.
+  */}}
+  <div class="tagpick__anchor">
+
+  {{/*
+    The chosen values, then the button that opens the menu. One box, so the
+    control reads as a single field however many tags are in it.
+  */}}
+  <div class="tagpick__box">
+    {{ if $any }}
+    {{/*
+      The resting state of a filter: one control reading "Any language", which
+      opens the same menu. It is the whole box while nothing is chosen — not a
+      caption beside the add button — so the field reads exactly like the
+      select it replaced, and the first tag replaces it rather than joining it.
+    */}}
+    <button type="button" class="tagpick__any" x-ref="anyTrigger" x-show="!picked.length" x-cloak
+            @click="toggle()" :aria-expanded="open" aria-haspopup="true"
+            aria-labelledby="{{ $id }}-label">
+      <span>{{ .EmptyLabel }}</span> {{ template "icon" "chevron-down" }}
+    </button>
+    {{ end }}
+
+    <template x-for="item in chosen()" :key="item.value">
+      <span class="tagpick__tag">
+        <template x-if="item.flag">
+          <img class="flag" :src="item.flag" alt="" aria-hidden="true" width="22" height="16">
+        </template>
+        <span x-text="item.label"></span>
+        <button type="button" class="tagpick__remove" @click="unpick(item.value)"
+                :aria-label="'Remove ' + item.label">
+          {{ template "icon" "close" }}
+        </button>
+      </span>
+    </template>
+
+    {{/* Without JavaScript there are no tags, so the button has to say what the
+         control is for rather than "add another one to what you see". */}}
+    <button type="button" class="tagpick__add" x-ref="trigger" @click="toggle()"
+            {{ if $any }}x-show="picked.length" x-cloak{{ end }}
+            :aria-expanded="open" aria-haspopup="true"
+            aria-labelledby="{{ $id }}-label">
+      {{ template "icon" "plus" }} <span>{{ .AddLabel }}</span>
+    </button>
+  </div>
+
+  <div class="dropdown tagpick__dropdown" x-ref="menu" x-show="open" x-cloak
+       x-transition.opacity.duration.150ms @click.outside="close()">
+    <div class="menu market-menu">
+      <div class="market-menu__search">
+        {{ template "icon" "search" }}
+        <input class="input market-menu__input" type="search" x-ref="q"
+               x-model="q" @input="filter()"
+               placeholder="{{ if eq .Kind "language" }}Search language{{ else }}Search country or code{{ end }}"
+               autocomplete="off"
+               aria-label="{{ if eq .Kind "language" }}Search languages{{ else }}Search countries{{ end }}">
+        <button type="button" class="market-menu__clear" x-show="q" x-cloak
+                @click="clear()" aria-label="Clear search">
+          {{ template "icon" "close" }}
+        </button>
+      </div>
+
+      <div class="market-menu__list tagpick__list" x-ref="list">
+        {{ if eq .Kind "language" }}
+        {{ range spokenLanguages }}
+        {{/* data-* carries what the tag needs, so the label and the flag are
+             written once here rather than a second time in JavaScript. */}}
+        <label class="menu__item market-menu__item tagpick__option"
+               data-tp-value="{{ .Code }}" data-tp-label="{{ .Name }}"
+               data-tp-flag="{{ flagPath .Flag }}"
+               data-tp-search="{{ .Name }} {{ .Native }} {{ .Code }}">
+          <input type="checkbox" class="tagpick__input" name="{{ $name }}" value="{{ .Code }}"
+                 {{ if hasString $sel .Code }}checked{{ end }} @change="sync()">
+          {{ template "flag" .Flag }}
+          <span class="tagpick__name">{{ .Name }}</span>
+          <span class="tagpick__native">{{ .Native }}</span>
+          <span class="tagpick__tick">{{ template "icon" "check" }}</span>
+        </label>
+        {{ end }}
+        {{ else }}
+        {{ range .Countries }}
+        <label class="menu__item market-menu__item tagpick__option"
+               data-tp-value="{{ .Code }}" data-tp-label="{{ .Name }}"
+               data-tp-flag="{{ flagPath .Code }}"
+               data-tp-search="{{ .Name }} {{ .Code }}">
+          <input type="checkbox" class="tagpick__input" name="{{ $name }}" value="{{ .Code }}"
+                 {{ if hasString $sel .Code }}checked{{ end }} @change="sync()">
+          {{ template "flag" .Code }}
+          <span class="tagpick__name">{{ .Name }}</span>
+          <span class="tagpick__native">{{ .Code }}</span>
+          <span class="tagpick__tick">{{ template "icon" "check" }}</span>
+        </label>
+        {{ end }}
+        {{ end }}
+      </div>
+
+      {{/* Only ever shown once a query has excluded everything. */}}
+      <p class="market-menu__empty" x-show="empty" x-cloak>
+        Nothing matches “<span x-text="q"></span>”.
+      </p>
+    </div>
+  </div>
+
+  </div>{{/* /.tagpick__anchor */}}
+
+  {{ if .Hint }}<span class="field__hint">{{ .Hint }}</span>{{ end }}
+</div>
+{{ end }}
+
+
+{{/*
+  Dispatches a field's optional label-row control.
+
+  html/template has no dynamic {{ template }}, so the one place that needs it
+  picks from a named list. Two entries today; a third is one case arm.
+*/}}
+{{ define "field-action" }}
+{{ if eq .Template "broker-ad" }}{{ template "broker-ad" .Args }}
+{{ else if eq .Template "broker-map-ad" }}{{ template "broker-map-ad" .Args }}
+{{ end }}
+{{ end }}

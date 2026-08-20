@@ -530,6 +530,45 @@
     };
   };
 
+  // -- Homepage deal-type picker ---------------------------------------------
+  //
+  // The same dropdown one field to the left, over the three deal types. It was
+  // a native <select> until the client asked for Rent and Short rent to be
+  // selectable together, which is what the results page and the filter sidebar
+  // have accepted all along — the `deal` parameter simply repeats.
+  //
+  // Nothing here owns the selection: the checkboxes inside are the real inputs
+  // and submit with the form. This only reads them back to caption the trigger.
+  window.previaDealPicker = function () {
+    return {
+      open: false,
+      summary: 'Sell',
+
+      init: function () {
+        var self = this;
+        this.refresh();
+        this.$el.addEventListener('change', function () { self.refresh(); });
+      },
+
+      refresh: function () {
+        var on = Array.prototype.slice
+          .call(this.$el.querySelectorAll('input[name="deal"]'))
+          .filter(function (b) { return b.checked; });
+
+        if (on.length === 0) {
+          // Nothing ticked searches Sell — see the parser — so say so rather
+          // than implying no deal-type filter is being applied.
+          this.summary = 'Sell';
+        } else if (on.length === 1) {
+          var label = on[0].closest('.segmented__item').querySelector('span');
+          this.summary = label ? label.textContent.trim() : '1 deal type';
+        } else {
+          this.summary = on.length + ' deal types';
+        }
+      },
+    };
+  };
+
   // -- Market picker ---------------------------------------------------------
   // A dropdown over the full country list, so it needs a filter.
   //
@@ -708,30 +747,186 @@
     };
   };
 
-  // -- Search layout ---------------------------------------------------------
-  // Controls the filter panel in both of its forms: a collapsible sidebar on
-  // large screens and an off-canvas drawer below 1024px. The collapsed
-  // preference persists; the drawer never does.
-  window.previaSearch = function () {
+  // -- Tag picker ------------------------------------------------------------
+  //
+  // Backs components/tag-picker.html: the market picker's menu, but choosing
+  // adds a removable tag instead of navigating, and several can be held at once.
+  // Used twice on the profile screen, for the languages of communication and
+  // for the countries a seller is active in.
+  //
+  // The checkboxes inside the menu are the state. Nothing is mirrored into a
+  // parallel array that could fall out of step with them, and nothing is
+  // written into hidden inputs: the control is a plain set of checkboxes
+  // sharing a name, and that set is what the form submits. Everything here
+  // reads them rather than tracking them — the tags, the text filter and the
+  // empty state — so a selection cannot disagree with what will be sent.
+  window.previaTagPicker = function () {
+    return {
+      open: false,
+      q: '',
+      empty: false,
+      items: [],     // { el, input, value, label, flag, hay, order }
+      picked: [],    // the chosen values, recomputed from the checkboxes
+
+      init: function () {
+        var list = this.$refs.list;
+        if (!list) return;
+        this.items = Array.prototype.map.call(
+          list.querySelectorAll('[data-tp-value]'),
+          function (el, i) {
+            return {
+              el: el,
+              input: el.querySelector('input'),
+              order: i,
+              value: el.getAttribute('data-tp-value') || '',
+              label: el.getAttribute('data-tp-label') || '',
+              // May be empty: flagPath returns nothing for a code with no file
+              // behind it, and the tag then draws the label alone rather than a
+              // broken image.
+              flag: el.getAttribute('data-tp-flag') || '',
+              hay: (el.getAttribute('data-tp-search') || '').toLowerCase(),
+            };
+          }
+        );
+        this.sync();
+      },
+
+      // Read the checkboxes back. Called on every change and once at startup,
+      // so the tags describe the form rather than a copy of it.
+      sync: function () {
+        this.picked = this.items
+          .filter(function (it) { return it.input && it.input.checked; })
+          .map(function (it) { return it.value; });
+      },
+
+      // The chosen items, in the catalogue's own order rather than the order
+      // they happened to be ticked in — so the same selection always reads the
+      // same way, and reopening the page does not shuffle the tags.
+      chosen: function () {
+        var picked = this.picked;
+        return this.items.filter(function (it) {
+          return picked.indexOf(it.value) !== -1;
+        });
+      },
+
+      unpick: function (value) {
+        for (var i = 0; i < this.items.length; i++) {
+          if (this.items[i].value === value && this.items[i].input) {
+            this.items[i].input.checked = false;
+            break;
+          }
+        }
+        this.sync();
+      },
+
+      toggle: function () {
+        this.open = !this.open;
+        if (this.open) {
+          // Focus the field so typing filters immediately. $nextTick because
+          // x-show has not revealed the dropdown yet at this point.
+          var self = this;
+          this.$nextTick(function () {
+            self.place();
+            if (self.$refs.q) self.$refs.q.focus();
+          });
+        }
+      },
+
+      // Open upward when there is no room below.
+      //
+      // The search sidebar scrolls, and the language picker is the last field
+      // in it — so a menu opening downward was cut off by the panel's own edge.
+      // Measuring against the nearest scrolling ancestor rather than the window
+      // is what makes that case work: the window has room to spare, the panel
+      // does not.
+      //
+      // Only flips when the menu genuinely fits above. Trading a menu clipped
+      // at the bottom for one clipped at the top would be no improvement.
+      place: function () {
+        // $root, not $el: inside a method reached from an @click expression
+        // Alpine resolves $el to the element that fired the event — the add
+        // button — and a search for the anchor from there finds nothing, so
+        // this silently did no positioning at all.
+        var anchor = this.$root.querySelector('.tagpick__anchor');
+        var menu = this.$refs.menu;
+        if (!anchor || !menu) return;
+
+        var box = anchor.getBoundingClientRect();
+        var limit = window.innerHeight;
+        for (var n = anchor.parentElement; n && n !== document.body; n = n.parentElement) {
+          var oy = window.getComputedStyle(n).overflowY;
+          if (oy === 'auto' || oy === 'scroll' || oy === 'hidden') {
+            limit = Math.min(limit, n.getBoundingClientRect().bottom);
+            break;
+          }
+        }
+
+        var need = menu.offsetHeight || 320;
+        anchor.classList.toggle('is-up', box.bottom + need > limit && box.top - need > 0);
+      },
+
+      close: function () {
+        if (!this.open) return;
+        this.open = false;
+        this.q = '';
+        this.filter();
+        // Return focus to the trigger rather than leaving it on a hidden field.
+        //
+        // A filter picker has two of them — the "Any language" button while
+        // nothing is chosen, the add button once something is — and only one is
+        // ever on screen. Focusing the hidden one would drop focus to the top of
+        // the document, so take whichever is currently laid out.
+        var visible = [this.$refs.anyTrigger, this.$refs.trigger].filter(function (el) {
+          return el && el.offsetParent !== null;
+        });
+        if (visible.length) visible[0].focus();
+      },
+
+      clear: function () {
+        this.q = '';
+        this.filter();
+        if (this.open && this.$refs.q) this.$refs.q.focus();
+      },
+
+      // A plain substring match over name, endonym and code. The market picker
+      // ranks its results because "ES" has to find Spain ahead of Estonia; here
+      // the lists are shorter and the codes are not something anyone types, so
+      // reordering rows under the cursor would cost more than it gains.
+      filter: function () {
+        var needle = this.q.trim().toLowerCase();
+        var hits = 0;
+        for (var i = 0; i < this.items.length; i++) {
+          var show = !needle || this.items[i].hay.indexOf(needle) !== -1;
+          this.items[i].el.hidden = !show;
+          if (show) hits++;
+        }
+        this.empty = hits === 0;
+        if (this.$refs.list) this.$refs.list.scrollTop = 0;
+      },
+    };
+  };
+
+  // -- Collapsible side panel ------------------------------------------------
+  // One behaviour, three panels: the search filters, the account menu and the
+  // add-listing progress rail. Each is a sticky sidebar that can be pushed off
+  // to its edge and reopened from a rail on wide screens, and an off-canvas
+  // drawer that overlays the page on narrow ones. The collapsed preference
+  // persists under the caller's key; the drawer state never does, because a
+  // drawer left open across page loads would hide the page behind it.
+  //
+  // The narrow-screen breakpoint lives in CSS. This component only needs to
+  // know it when something asks to "open" the panel without knowing which form
+  // it currently has, hence the matchMedia below.
+  window.previaPanel = function (key) {
     return {
       collapsed: false,
       drawer: false,
+      lastFocus: null,
 
       init: function () {
         try {
-          this.collapsed = localStorage.getItem('previa-filters-collapsed') === '1';
+          this.collapsed = localStorage.getItem(key) === '1';
         } catch (e) {}
-
-        // Arriving from the homepage's "Advanced filters" button. The whole
-        // point of that button is to land with the panel open, so it overrides
-        // the remembered collapsed preference for this visit — without writing
-        // it back, so the preference survives for the next ordinary search.
-        if (new URLSearchParams(location.search).get('filters') === 'open') {
-          this.collapsed = false;
-          // Below 1024px the panel is an off-canvas drawer rather than a
-          // sidebar, so "open" has to mean the drawer there.
-          if (window.matchMedia('(max-width: 1023px)').matches) this.drawer = true;
-        }
       },
 
       collapse: function () {
@@ -746,7 +941,7 @@
 
       persist: function () {
         try {
-          localStorage.setItem('previa-filters-collapsed', this.collapsed ? '1' : '0');
+          localStorage.setItem(key, this.collapsed ? '1' : '0');
         } catch (e) {}
       },
 
@@ -763,6 +958,303 @@
             el.focus();
           }, 0);
         }
+      },
+    };
+  };
+
+  // -- Search layout ---------------------------------------------------------
+  // The filter panel: previaPanel plus the one entry point that has to force it
+  // open regardless of the remembered preference.
+  window.previaSearch = function () {
+    var panel = window.previaPanel('previa-filters-collapsed');
+    var base = panel.init;
+
+    panel.init = function () {
+      base.call(this);
+
+      // Arriving from the homepage's "advanced filters" button. The whole
+      // point of that button is to land with the panel open, so it overrides
+      // the remembered collapsed preference for this visit — without writing
+      // it back, so the preference survives for the next ordinary search.
+      if (new URLSearchParams(location.search).get('filters') === 'open') {
+        this.collapsed = false;
+        // Below 1024px the panel is an off-canvas drawer rather than a
+        // sidebar, so "open" has to mean the drawer there.
+        if (window.matchMedia('(max-width: 1023px)').matches) this.drawer = true;
+      }
+    };
+
+    return panel;
+  };
+
+  // -- Paid promotion picker -------------------------------------------------
+  // Featured placement and search bumps are sold by the day, so ticking one
+  // reveals a set of "N days for X" options and the picker keeps a running
+  // total of the add-ons.
+  //
+  // The total is read back out of the checked radios rather than kept in a
+  // parallel price table: the radio the seller chose carries its own price, so
+  // there is nothing to fall out of step with the rendered options.
+  window.previaPromotions = function () {
+    return {
+      on: { featured: false, bump: false },
+      total: 0,
+
+      recalc: function () {
+        var sum = 0;
+        Array.prototype.forEach.call(this.$el.querySelectorAll('.promo'), function (row) {
+          var box = row.querySelector('input[type="checkbox"]');
+          if (!box || !box.checked) return;
+          var tier = row.querySelector('input[type="radio"]:checked');
+          if (tier) sum += parseFloat(tier.dataset.price || '0') || 0;
+        });
+        // Whole euros: every tier is priced in them, so a decimal point here
+        // would only ever be a rounding artefact.
+        this.total = Math.round(sum);
+      },
+    };
+  };
+
+  // -- Broker homepage ad ----------------------------------------------------
+  //
+  // The placement is sold per market, so the total is the chosen run length
+  // times the number of markets ticked — two countries is two strips seen by
+  // two different audiences, not one ad shown twice.
+  //
+  // The market count is read back from the tag picker's own checkboxes rather
+  // than tracked separately, for the reason the picker itself gives: the
+  // checkboxes are the form state, and a second copy of it is a second thing
+  // that can be wrong.
+  /*
+    The search sidebar's "Features and amenities" list.
+
+    "And there make search field as well to type to look the desired one, as
+    there are quite many of them." Thirty-four ticks in five groups is a long
+    scroll in a 360px column, so this hides everything the query does not name.
+
+    It reads the labels out of the DOM rather than carrying a second copy of the
+    catalogue in JavaScript: the list is server-rendered from
+    models.AmenityGroups, and a copy here would be one more thing that can
+    disagree with it. Hiding is `hidden`, not a filtered re-render, so a tick
+    that scrolls out of view is still ticked and still submitted — a buyer who
+    searches for one thing after ticking another does not silently lose the
+    first.
+
+    A group whose every item is hidden hides itself, so the list never shows a
+    subtitle with nothing under it.
+  */
+  window.previaAmenityFilter = function () {
+    return {
+      open: false,
+      q: '',
+      empty: false,
+
+      filter: function () {
+        var list = this.$refs.list;
+        if (!list) return;
+        var q = this.q.trim().toLowerCase();
+        var shown = 0;
+
+        Array.prototype.forEach.call(
+          list.querySelectorAll('[data-amenity-group]'),
+          function (group) {
+            var visible = 0;
+            Array.prototype.forEach.call(
+              group.querySelectorAll('[data-amenity]'),
+              function (item) {
+                var hit = !q ||
+                  (item.getAttribute('data-amenity') || '').toLowerCase().indexOf(q) !== -1;
+                item.hidden = !hit;
+                if (hit) visible++;
+              }
+            );
+            group.hidden = visible === 0;
+            shown += visible;
+          }
+        );
+
+        this.empty = shown === 0;
+      },
+
+      clear: function () {
+        this.q = '';
+        this.filter();
+      },
+    };
+  };
+
+  /*
+    The admin panel's per-market advertising price list.
+
+    Two hundred rows of rate inputs, filtered by name or ISO code. Hiding, not
+    re-rendering: every row is a real input carrying the market's current price,
+    and a row scrolled out of view by a search still submits with the form.
+  */
+  window.previaAdRates = function () {
+    return {
+      q: '',
+      shown: 0,
+
+      init: function () { this.filter(); },
+
+      filter: function () {
+        var list = this.$refs.list;
+        if (!list) return;
+        var q = this.q.trim().toLowerCase();
+        var shown = 0;
+        Array.prototype.forEach.call(
+          list.querySelectorAll('[data-rate-row]'),
+          function (row) {
+            var hit = !q ||
+              (row.getAttribute('data-search') || '').toLowerCase().indexOf(q) !== -1;
+            row.hidden = !hit;
+            if (hit) shown++;
+          }
+        );
+        this.shown = shown;
+      },
+    };
+  };
+
+  /*
+    The map placement — one point, one price.
+
+    "There is no country menu. There is just option make your broker profile
+     visible on the Google map for set amount of days. Can choose 5 days - 1 €,
+     10 days - 2 €, 20 days - 3 € etc."
+
+    So there is no market count to multiply by, which is exactly the difference
+    from previaBrokerAd below and why this is not the same component with a
+    flag: the price comes off the chosen tier and nothing scales it.
+  */
+  window.previaMapAd = function () {
+    return {
+      dialog: false,
+      on: false,
+      tier: 0,
+      total: 0,
+
+      init: function () {
+        var self = this;
+        this.$root.addEventListener('change', function () { self.recalc(); });
+        this.recalc();
+      },
+
+      openDialog: function () { this.dialog = true; },
+      closeDialog: function () { this.dialog = false; },
+
+      recalc: function () {
+        var tier = this.$root.querySelector('input[name="broker_map_ad_days"]:checked');
+        this.tier = tier ? parseInt(tier.value, 10) || 0 : 0;
+        var price = tier ? parseFloat(tier.dataset.price || '0') || 0 : 0;
+        this.total = Math.round(price);
+      },
+
+      // Nothing is charged this milestone; confirming arms the field the
+      // profile form submits and closes the dialog, which is the flow the
+      // backend takes over.
+      confirm: function () {
+        this.on = true;
+        this.dialog = false;
+        window.previaToast(
+          'Placement added to your profile. Nothing was charged — this is a demonstration.',
+          'success'
+        );
+      },
+    };
+  };
+
+  /*
+    The homepage strip — priced per market, per day.
+
+    The client's worked example is the whole specification:
+
+      "In the backend there is option to set the price per day for each country.
+       For example in Germany 3 € per day, in Poland 1 € per day. So the broker
+       choosess the Germany and Poland for 10 days. So the system will calculate
+       a bill: Germany 3 € per day x 10 = 30 €; for Estonia 1 € per day x 10 =
+       10 €; total: 40 €."
+
+    So the bill is a line per market, and each line is that market's own rate —
+    not one price multiplied by how many markets were ticked. `rates` is the
+    admin table, `fallback` the rate for a market nobody has priced.
+
+    The market names come out of the picker's own DOM rather than from a second
+    copy of the country list here: the picker is server-rendered from the same
+    catalogue the rest of the site uses, and a copy would be one more thing that
+    can disagree with it.
+  */
+  window.previaBrokerAd = function (rates, fallback, defaultDays) {
+    return {
+      dialog: false,
+      on: false,
+      days: defaultDays || 10,
+      lines: [],
+      total: 0,
+
+      init: function () {
+        var self = this;
+        this.rateFor = function (code) {
+          var list = rates || [];
+          for (var i = 0; i < list.length; i++) {
+            if ((list[i].Country || '').toUpperCase() === code.toUpperCase()) {
+              return list[i].PerDay ? list[i].PerDay.Amount : fallback;
+            }
+          }
+          return fallback;
+        };
+        // Ticking a market fires a change that bubbles, so one listener covers
+        // every market in the picker and the run-length field alike.
+        this.$root.addEventListener('change', function () { self.recalc(); });
+        this.recalc();
+      },
+
+      openDialog: function () { this.dialog = true; },
+      closeDialog: function () { this.dialog = false; },
+
+      recalc: function () {
+        var days = parseInt(this.days, 10);
+        if (!(days > 0)) days = 0;
+
+        var self = this;
+        var lines = [];
+        var total = 0;
+
+        Array.prototype.forEach.call(
+          this.$root.querySelectorAll('.tagpick__input:checked'),
+          function (input) {
+            var option = input.closest('[data-tp-value]');
+            var code = input.value;
+            var rate = self.rateFor(code);
+            var sum = rate * days;
+            total += sum;
+            lines.push({
+              code: code,
+              name: option ? option.getAttribute('data-tp-label') || code : code,
+              rate: self.money(rate),
+              total: self.money(sum),
+            });
+          }
+        );
+
+        this.lines = lines;
+        this.total = this.money(total);
+      },
+
+      // Two decimals only where there are any: a €3 rate reads "3", a €0.50 one
+      // reads "0.50", and neither is written as the other.
+      money: function (n) {
+        return Math.round(n * 100) % 100 === 0 ? String(Math.round(n)) : n.toFixed(2);
+      },
+
+      confirm: function () {
+        if (!this.lines.length) return;
+        this.on = true;
+        this.dialog = false;
+        window.previaToast(
+          'Placement added to your profile. Nothing was charged — this is a demonstration.',
+          'success'
+        );
       },
     };
   };
@@ -823,7 +1315,14 @@
     return {
       state: 'idle', // idle | saving | saved
       total: total,
+      // Which deal is being listed. Bound to the deal-type radios at the top of
+      // the form and read again nine sections down by the price field, which
+      // has to quote a month for a rent and a day for a short rent:
+      // "if the user has chosen deal type rent or short, then the price must be
+      // in case of rent 1000 € / month and in case of short rent 100 € / day."
+      deal: 'sale',
       timer: null,
+      blank: {},     // section key -> how many required fields are still empty
       sections: [],
       activeKey: '',
       activeLabel: '',
@@ -833,8 +1332,42 @@
       muted: false,     // true while a click-driven scroll is running
       muteTimer: null,
 
+      // What the price field is prefilled with per deal type — the client's own
+      // three examples, so choosing Rent shows "1000 € / month" and Short rent
+      // "100 € / day" rather than a sale price with a period stuck on it.
+      //
+      // Only ever swapped for another value in this table (see init), so a
+      // number the seller typed is never overwritten.
+      demoPrices: { sale: '429000', rent: '1000', short_rent: '100' },
+
+      // The unit the price is quoted in, from the deal type above. Empty for a
+      // sale, which is what leaves the field reading "Asking price (EUR)".
+      pricePeriod: function () {
+        if (this.deal === 'rent') return 'month';
+        if (this.deal === 'short_rent') return 'day';
+        return '';
+      },
+
+      // "Asking price (EUR)" for a sale, "Rent (EUR / month)" for a let and
+      // "Rent (EUR / day)" for a short let, so the label states the unit as
+      // well as the suffix inside the field does.
+      priceLabel: function () {
+        var period = this.pricePeriod();
+        if (!period) return 'Asking price (EUR)';
+        return 'Rent (EUR / ' + period + ')';
+      },
+
       init: function () {
         var self = this;
+
+        // Keep the prefilled price in step with the deal type.
+        this.$watch('deal', function (next) {
+          var el = document.getElementById('w-price');
+          if (!el) return;
+          var demo = Object.keys(self.demoPrices).map(function (k) { return self.demoPrices[k]; });
+          if (demo.indexOf(String(el.value).trim()) === -1) return; // typed in: leave it
+          el.value = self.demoPrices[next] || '';
+        });
 
         this.sections = Array.prototype.map.call(
           document.querySelectorAll('.listing-section'),
@@ -849,6 +1382,7 @@
         );
         if (!this.sections.length) return;
         this.setActive(0);
+        this.recheck();
 
         // Scroll-spy. rootMargin biases the "current" section towards the top
         // third of the viewport, which is where a reader's attention sits —
@@ -897,13 +1431,51 @@
         this.progressPct = Math.round(((i + 1) / this.total) * 100);
       },
 
-      // Marker state for a waypoint: the section's own state wins (an error
-      // stays an error), otherwise everything above the active one is done.
+      // Marker state for a waypoint: a section still missing a required answer
+      // is an error, otherwise everything above the active one is done.
+      //
+      // `base` used to be the whole story, and it came from the server as a
+      // fixed value — which is why filling in the living area left both the
+      // field and its waypoint stuck in the error state. It is only the
+      // starting point now: recheck() owns the state from the first keystroke
+      // onwards.
       stateOf: function (key, base) {
-        if (base === 'error') return 'error';
+        if (this.blank[key] === undefined ? base === 'error' : this.blank[key] > 0) return 'error';
         if (key === this.activeKey) return 'current';
         var i = this.sections.findIndex(function (s) { return s.key === key; });
         return i >= 0 && i < this.activeIndex ? 'done' : 'todo';
+      },
+
+      // Re-count the empty required fields in each section.
+      //
+      // Cheap enough to run on every input event: this form has a couple of
+      // dozen fields, and only the ones marked [data-required] are read.
+      recheck: function () {
+        var next = {};
+        var form = this.$refs.form;
+        if (!form) return;
+
+        Array.prototype.forEach.call(form.querySelectorAll('[data-required]'), function (el) {
+          var section = el.closest('.listing-section');
+          var key = section ? section.id.replace(/^ls-/, '') : '';
+          if (!key) return;
+          if (next[key] === undefined) next[key] = 0;
+          if (String(el.value).trim() === '') next[key] += 1;
+        });
+
+        this.blank = next;
+      },
+
+      // Whether one field is currently failing its required check. Drives the
+      // red outline and the message under it.
+      isBlank: function (el) {
+        // Read `blank` so Alpine re-evaluates this binding whenever the counts
+        // change; the answer itself comes from the element, which is what the
+        // caller actually asked about. A binding can run before its own x-ref
+        // is registered, so a missing element is "not yet failing" rather than
+        // a crash.
+        void this.blank;
+        return !!el && String(el.value).trim() === '';
       },
 
       goTo: function (key, instant) {
@@ -1053,6 +1625,105 @@
     };
   };
 
+  // -- Seller profile location -----------------------------------------------
+  //
+  // "Under seller's profile add more the googlemaps location place, where user
+  // can specify his location on the googlemaps — so in the brokers section the
+  // users can search the brokers on the googlemaps."
+  //
+  // and, on 18 August:
+  //
+  // "Under the seller's profile the googlemaps location add the same googlemaps
+  // fields as in the 'add listing' page. So the seller sees the data what the
+  // googlemaps has, and can edit the location name what will be displayed for
+  // the user."
+  //
+  // So this is previaListingLocation's shape now — the geocoder's eight fields
+  // plus one editable public line — with the difference that a profile also
+  // submits the coordinates, because the pin is what the broker directory's
+  // radius search measures against.
+  window.previaProfileLocation = function (office) {
+    var start = office || {};
+    return {
+      lat: start.Lat ? Number(start.Lat).toFixed(6) : '',
+      lng: start.Lng ? Number(start.Lng).toFixed(6) : '',
+
+      // The line other people see. Seeded from what is already saved, and from
+      // then on the seller's to write.
+      publicLabel: start.Public || '',
+
+      place: {
+        country: '', countryCode: '', state: '', city: '',
+        district: '', address: '', lat: '', lng: '',
+      },
+
+      init: function () {
+        var self = this;
+
+        // Whatever is already saved, described in the same fields a new pick
+        // would fill, so the grid is not empty on a profile that has a pin.
+        if (this.lat || this.lng) this.lookup(this.lat, this.lng);
+
+        window.addEventListener('previa-location-picked', function (e) {
+          var d = e.detail || {};
+          self.set(d.lat, d.lng);
+          self.apply({
+            Country: '', CountryCode: d.countryCode, City: d.city,
+            District: d.district, Address: d.address,
+          });
+          // Resolve the rest — country name, region — from the endpoint the
+          // map uses, so both routes in leave the same fields filled.
+          if (d.lat || d.lng) self.lookup(d.lat, d.lng);
+        });
+
+        // The pin itself has already moved by the time this fires; all that is
+        // left is to record where it went and describe it.
+        window.addEventListener('previa-map-click', function (e) {
+          var d = e.detail || {};
+          self.set(d.lat, d.lng);
+          self.lookup(d.lat, d.lng, true);
+        });
+      },
+
+      set: function (lat, lng) {
+        if (!lat && !lng) return;
+        this.lat = Number(lat).toFixed(6);
+        this.lng = Number(lng).toFixed(6);
+      },
+
+      // nameBox: also write the address into the search box, so a dragged pin
+      // renames the field it disagreed with. Not done when the pick came from
+      // that box in the first place — it already holds what was chosen.
+      lookup: function (lat, lng, nameBox) {
+        var self = this;
+        fetch('/mock/reverse-geocode?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng))
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (p) {
+            if (!p) return;
+            self.apply(p);
+            if (!nameBox) return;
+            var input = self.$root.querySelector('input[name="office_location"]');
+            var label = [p.Address, p.City, p.Country].filter(Boolean).join(', ');
+            if (input && label) input.value = label;
+          })
+          .catch(function () { /* offline: the typed label and fields stand */ });
+      },
+
+      apply: function (p) {
+        this.place = {
+          country: p.Country || this.place.country || '',
+          countryCode: p.CountryCode || this.place.countryCode || '',
+          state: p.State || this.place.state || '',
+          city: p.City || this.place.city || '',
+          district: p.District || this.place.district || '',
+          address: p.Address || this.place.address || '',
+          lat: this.lat,
+          lng: this.lng,
+        };
+      },
+    };
+  };
+
   // -- Add-listing media -----------------------------------------------------
   //
   // Photos and videos for a listing: local previews, ordering, and the cover.
@@ -1180,6 +1851,11 @@
   window.previaMap = function (config) {
     return {
       points: config.points || [],
+      // The paid broker placements. A second, separate marker set rather than
+      // more entries in points: they are drawn differently (a photograph and a
+      // name, not a price), they open a different preview, and they are not
+      // part of the result count. See brokerPoint in pkg/handlers/search.go.
+      brokers: config.brokers || [],
       ready: false,
       failed: false,
       active: null, // id under the cursor
@@ -1259,18 +1935,20 @@
       render: function () {
         if (!this.provider) return;
         this.provider.setPoints(this.points);
+        this.provider.setBrokers(this.brokers);
         this.provider.fitAll();
       },
 
       // After an HTMX swap the result cards carry the new ids; read them back
       // so the map matches the list without another round trip.
       refreshFromDom: function () {
+        if (!this.provider) return;
         var ids = [].slice
           .call(document.querySelectorAll('[data-property-id]'))
           .map(function (n) {
             return n.getAttribute('data-property-id');
           });
-        if (!ids.length || !this.provider) return;
+        if (!ids.length) return;
         var keep = this.points.filter(function (p) {
           return ids.indexOf(p.id) !== -1;
         });
@@ -1278,6 +1956,14 @@
           this.provider.setPoints(keep);
           this.provider.fitAll();
         }
+      },
+
+      // Centre the map on one broker's pin and open their preview. The card's
+      // own locate button, matching the one every listing card carries — the
+      // client's "the system with the brokers is the same as with the real
+      // estate", down to the control.
+      locateBroker: function (id) {
+        if (this.provider && this.provider.locateBroker) this.provider.locateBroker(id);
       },
 
       highlight: function (id) {
@@ -1374,7 +2060,24 @@
     var markers = {};
     var group = L.layerGroup().addTo(map);
 
+    // Brokers ride in their own layer above the listings, so a photograph is
+    // never buried under a price bubble it happens to share a street with.
+    var brokerMarkers = {};
+    var brokerGroup = L.layerGroup().addTo(map);
+
     function priceMarker(p, isActive) {
+      // A pin map — the seller profile's location, the add-listing draft — is
+      // marking a place, not advertising a price. It gets a plain pin: the
+      // price bubble would read "0" on a point that has no price, which is
+      // exactly what the profile map showed before this.
+      if (config.pin) {
+        return L.divIcon({
+          className: 'map-pin-wrap',
+          html: '<span class="map-pin map-pin--drop" aria-hidden="true"></span>',
+          iconSize: null,
+          iconAnchor: [0, 0],
+        });
+      }
       return L.divIcon({
         className: 'map-pin-wrap',
         html:
@@ -1395,10 +2098,25 @@
     // client's request — price, title and location now read as one block and
     // the facts sit on a single line, so the popup covers much less map.
     //
-    // The image carries the same pager as a property card: green dots with a
-    // small green arrow either side. Leaflet builds popups from an HTML string
-    // rather than from the Alpine-managed DOM, so the paging is wired up by
-    // hand in bindPopupCarousel() once the popup opens.
+    // The image carries the property card's carousel in full, which is what the
+    // client asked for: "make the same system as in the frontpage previews,
+    // that if move the mouse to the right side of the image then these
+    // left-right arrows will come and can change the images. At the moment
+    // there is only finger and no matter where click this ad will open in
+    // single page." So, exactly as on a card:
+    //
+    //   · the outer thirds are paging zones with directional cursors. They sit
+    //     over the link, so a click there changes picture instead of opening
+    //     the listing; the middle third is still the link
+    //   · the pager capsule — green arrows either side of green dots — fades in
+    //     on hover rather than sitting on the photograph permanently
+    //   · the dots scrub under a held pointer, the second half of the note:
+    //     "and the image scrolling by holding down the green dot as well, like
+    //     in the frontpage"
+    //
+    // Leaflet builds popups from an HTML string rather than from the Alpine-
+    // managed DOM, so the behaviour previaCardGallery() gives a card is wired
+    // up by hand here: popupPaging() for the clicks, popupScrub() for the drag.
     function popupHtml(p) {
       var shots = p.images || [];
       var slides = shots
@@ -1411,6 +2129,7 @@
         .join('');
 
       var pager = '';
+      var zones = '';
       if (shots.length > 1) {
         var dots = shots
           .map(function (_, i) {
@@ -1428,12 +2147,20 @@
           '<button type="button" class="map-popup__arrow" data-step="1" aria-label="Next photo">' +
           CHEVRON_RIGHT + '</button>' +
           '</div>';
+        // Hidden from assistive technology and out of the tab order: the arrows
+        // in the capsule are the accessible way to do the same thing.
+        zones =
+          '<button type="button" class="map-popup__zone map-popup__zone--prev" ' +
+          'data-step="-1" tabindex="-1" aria-hidden="true"></button>' +
+          '<button type="button" class="map-popup__zone map-popup__zone--next" ' +
+          'data-step="1" tabindex="-1" aria-hidden="true"></button>';
       }
 
       var media = shots.length
         ? '<div class="map-popup__media">' +
           '<div class="map-popup__track">' + slides + '</div>' +
           '<a class="map-popup__media-link" href="' + p.url + '" aria-hidden="true" tabindex="-1"></a>' +
+          zones +
           pager +
           '</div>'
         : '';
@@ -1461,6 +2188,33 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
       'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
 
+    // The index a popup's carousel is currently showing, read back off the
+    // track's own transform. Nothing else stores it, so there is no state to
+    // keep in step with DOM Leaflet may have thrown away and rebuilt.
+    function popupIndex(track) {
+      var match = /translate3d\(-([\d.]+)%/.exec(track.style.transform || '');
+      return match ? Math.round(parseFloat(match[1]) / 100) : 0;
+    }
+
+    // Move a popup's carousel to picture i. `wrap` is what separates a press of
+    // an arrow, which should cycle so the control never dead-ends, from a drag,
+    // which should stop at the ends rather than snap round to the other side
+    // under a finger still travelling in one direction.
+    function popupShow(media, track, i, wrap) {
+      var total = track.children.length;
+      if (wrap) {
+        i = ((i % total) + total) % total;
+      } else {
+        i = Math.max(0, Math.min(total - 1, i));
+      }
+      track.style.transform = 'translate3d(-' + i * 100 + '%,0,0)';
+      var dots = media.querySelectorAll('.map-popup__dot');
+      for (var d = 0; d < dots.length; d++) {
+        dots[d].classList.toggle('is-on', d === i);
+      }
+      return i;
+    }
+
     // Paging inside an open popup.
     //
     // Delegated from the map container rather than bound per popup: Leaflet
@@ -1468,13 +2222,10 @@
     // attached to the popup itself has to be re-attached on every open and
     // leaks if that is ever missed. One listener here handles every popup for
     // the life of the map.
-    //
-    // The current index is read back off the track's own transform, so no
-    // state has to be kept in step with DOM Leaflet may have thrown away.
     function popupPaging(container) {
       container.addEventListener('click', function (e) {
         var control = e.target.closest
-          ? e.target.closest('.map-popup__arrow, .map-popup__dot')
+          ? e.target.closest('.map-popup__arrow, .map-popup__dot, .map-popup__zone')
           : null;
         if (!control) return;
 
@@ -1482,25 +2233,227 @@
         var track = media && media.querySelector('.map-popup__track');
         if (!track) return;
 
+        // Both halves of this matter. preventDefault keeps a click on a paging
+        // zone from following the listing link underneath it — the client's
+        // "no matter where click this ad will open in single page" — and
+        // stopPropagation keeps it off the map, which would otherwise read it
+        // as a click on the surface.
         e.preventDefault();
         e.stopPropagation();
 
-        var total = track.children.length;
-        var match = /translate3d\(-([\d.]+)%/.exec(track.style.transform || '');
-        var i = match ? Math.round(parseFloat(match[1]) / 100) : 0;
+        // The click that ends a scrub is the tail of that gesture, not a choice
+        // of picture. Swallowing it is also what stops a drag that finished
+        // over a dot from jumping to that dot.
+        if (media._previaDragged) {
+          media._previaDragged = false;
+          return;
+        }
 
         var step = control.getAttribute('data-step');
-        i = step !== null
-          ? i + Number(step)
+        var i = step !== null
+          ? popupIndex(track) + Number(step)
           : Number(control.getAttribute('data-go'));
-        i = ((i % total) + total) % total;
-
-        track.style.transform = 'translate3d(-' + i * 100 + '%,0,0)';
-        var dots = media.querySelectorAll('.map-popup__dot');
-        for (var d = 0; d < dots.length; d++) {
-          dots[d].classList.toggle('is-on', d === i);
-        }
+        popupShow(media, track, i, true);
       });
+    }
+
+    // Scrubbing the dots, the popup's half of previaCardGallery's dotDown /
+    // dotMove / dotUp.
+    //
+    // Delegated from the map container, like the clicks above, and for a
+    // stronger reason than avoiding a leak: Leaflet rebuilds a popup's inner
+    // DOM more than once per opening. Marker.openPopup() goes through
+    // Map.openPopup(popup, latlng), latlng calls Popup.setLatLng, and that
+    // calls update(), which reassigns the content node's innerHTML. Since this
+    // map opens a popup both from Leaflet's own marker click and again from
+    // previaMap.select(), anything bound to elements that existed at
+    // `popupopen` is thrown away a moment later. Delegation has nothing to lose.
+    //
+    // Leaflet drags the map from mousedown and touchstart, never pointerdown,
+    // and Popup._initLayout already stops those two from leaving the popup, so
+    // scrubbing cannot pan the map underneath. stopPropagation is kept anyway:
+    // it costs nothing and does not depend on that staying true.
+    function popupScrubbing(container) {
+      var strip = null;
+      var media = null;
+      var track = null;
+      var pointerId = null;
+      var startX = 0;
+      var startY = 0;
+      var startIndex = 0;
+      var dragging = false;
+
+      container.addEventListener('pointerdown', function (e) {
+        if (e.button > 0) return;   // leave the right button its context menu
+        var el = e.target.closest ? e.target.closest('.map-popup__dots') : null;
+        if (!el) return;
+        media = el.closest('.map-popup__media');
+        track = media && media.querySelector('.map-popup__track');
+        if (!track) return;
+
+        e.stopPropagation();
+        strip = el;
+        pointerId = e.pointerId;
+        startX = e.clientX;
+        startY = e.clientY;
+        startIndex = popupIndex(track);
+        dragging = false;
+        strip.classList.add('is-holding');
+      });
+
+      container.addEventListener('pointermove', function (e) {
+        if (pointerId === null || e.pointerId !== pointerId) return;
+        var dx = e.clientX - startX;
+        var dy = e.clientY - startY;
+
+        if (!dragging) {
+          // Not a drag until it has travelled far enough *and* travelled
+          // further across than down, so a vertical swipe is still the page's.
+          if (Math.abs(dx) < DOT_DRAG_SLOP || Math.abs(dx) <= Math.abs(dy)) return;
+          dragging = true;
+          media._previaDragged = true;
+          try {
+            strip.setPointerCapture(pointerId);
+          } catch (err) {
+            /* capture is an optimisation — the gesture works without it */
+          }
+        }
+
+        e.stopPropagation();
+        if (e.cancelable) e.preventDefault();
+        popupShow(media, track, startIndex + Math.round(dx / DOT_DRAG_STEP), false);
+      });
+
+      // pointerup, pointercancel and a lost capture all land here, so the strip
+      // cannot be left in its held state by a gesture that ended somewhere odd
+      // — released off the popup, interrupted by a system menu, or stolen. The
+      // window copies are what catch a release outside the map entirely.
+      function end(e) {
+        if (pointerId === null) return;
+        if (e && e.type === 'lostpointercapture' && e.target !== strip) return;
+        try {
+          if (strip.hasPointerCapture && strip.hasPointerCapture(pointerId)) {
+            strip.releasePointerCapture(pointerId);
+          }
+        } catch (err) {}
+        strip.classList.remove('is-holding');
+        strip = null;
+        pointerId = null;
+        dragging = false;
+      }
+      container.addEventListener('pointerup', end);
+      container.addEventListener('pointercancel', end);
+      container.addEventListener('lostpointercapture', end);
+      window.addEventListener('pointerup', end);
+      window.addEventListener('pointercancel', end);
+    }
+
+    // A broker's marker: the rounded-rectangle photograph and the name, which
+    // is what the client asked for by name — "his rounded rectangle profile
+    // image will be displayed with his name - small icon".
+    //
+    // Deliberately not a price bubble with a face in it: a broker has no price,
+    // and the two marker shapes have to be distinguishable at a glance for the
+    // map to be readable with both switched on.
+    function brokerMarker(b, isActive) {
+      return L.divIcon({
+        className: 'map-broker-wrap',
+        html:
+          '<span class="map-broker' + (isActive ? ' is-active' : '') + '">' +
+          '<img class="map-broker__photo" src="' + escapeHtml(b.photo) + '" alt="" ' +
+          'width="34" height="34" loading="lazy" decoding="async">' +
+          '<span class="map-broker__name">' + escapeHtml(b.name) + '</span>' +
+          '</span>',
+        iconSize: null,
+        iconAnchor: [0, 0],
+      });
+    }
+
+    // The preview that opens from it: "if user clicks on it, then the bigger
+    // user profile will open, just like the real estate preview window, and if
+    // click there then will redirect to this broker's single page."
+    //
+    // So it is the listing popup's shape — a picture, a heading, a couple of
+    // facts and one primary action — with a broker's content in it, and every
+    // part of it that a pointer lands on leads to the profile page.
+    function brokerPopupHtml(b) {
+      var distance = b.distance
+        ? '<p class="distance-line">' +
+          '<span class="distance-line__label">distance</span>' +
+          '<strong class="distance-line__value numeric">' + escapeHtml(b.distance) + '</strong>' +
+          '</p>'
+        : '';
+      var agency = b.agency
+        ? '<p class="map-popup__agency">' + escapeHtml(b.agency) + '</p>'
+        : '';
+      var rating = b.rating
+        ? '<span class="numeric">★ ' + escapeHtml(String(b.rating)) + '</span>'
+        : '';
+      var listings = b.listings
+        ? '<span class="numeric">' + b.listings + ' listings</span>'
+        : '';
+
+      return (
+        '<div class="map-popup__card map-popup__card--broker">' +
+        '<a class="map-popup__broker-media" href="' + b.url + '">' +
+        '<img src="' + escapeHtml(b.photo) + '" alt="" width="300" height="220" ' +
+        'loading="lazy" decoding="async">' +
+        '</a>' +
+        '<div class="map-popup__body">' +
+        '<a class="map-popup__title" href="' + b.url + '">' + escapeHtml(b.name) + '</a>' +
+        '<p class="map-popup__meta">' + escapeHtml(b.title) + '</p>' +
+        agency +
+        '<p class="map-popup__facts">' +
+        '<span>' + escapeHtml(b.city) + '</span>' + listings + rating +
+        '</p>' +
+        distance +
+        '<a class="btn btn--primary btn--sm btn--block" href="' + b.url + '">View profile</a>' +
+        '</div></div>'
+      );
+    }
+
+    function setBrokers(list) {
+      brokerGroup.clearLayers();
+      brokerMarkers = {};
+      (list || []).forEach(function (b) {
+        if (!b.lat && !b.lng) return;
+        var m = L.marker([b.lat, b.lng], {
+          icon: brokerMarker(b, false),
+          riseOnHover: true,
+          keyboard: true,
+          alt: b.name + ' — ' + b.title,
+        });
+        m.bindPopup(brokerPopupHtml(b), {
+          className: 'map-popup-shell map-popup-shell--broker',
+          maxWidth: 300,
+          minWidth: 260,
+          closeButton: true,
+          autoPanPadding: [24, 24],
+        });
+        m.on('mouseover', function () {
+          m.setIcon(brokerMarker(b, true));
+          m.setZIndexOffset(1200);
+        });
+        m.on('mouseout', function () {
+          m.setIcon(brokerMarker(b, false));
+          m.setZIndexOffset(0);
+        });
+        m.addTo(brokerGroup);
+        brokerMarkers[b.id] = { marker: m, point: b };
+      });
+      host.brokers = list || [];
+    }
+
+    // The broker equivalent of locate(): centre on the pin and open the
+    // preview, driven by the locate button on the broker card beside the map.
+    function locateBroker(id) {
+      var entry = brokerMarkers[id];
+      if (!entry) return;
+      var target = entry.marker.getLatLng();
+      var zoom = Math.max(map.getZoom(), 14);
+      if (map.flyTo) map.flyTo(target, zoom, { duration: 0.6 });
+      else map.setView(target, zoom);
+      entry.marker.openPopup();
     }
 
     function setPoints(points) {
@@ -1513,13 +2466,17 @@
           keyboard: true,
           alt: p.title + ' — ' + p.full,
         });
-        m.bindPopup(popupHtml(p), {
-          className: 'map-popup-shell',
-          maxWidth: 300,
-          minWidth: 260,
-          closeButton: true,
-          autoPanPadding: [24, 24],
-        });
+        // A pin has nothing to say in a popup, and one opening over the map
+        // would only get in the way of the next click that moves it.
+        if (!config.pin) {
+          m.bindPopup(popupHtml(p), {
+            className: 'map-popup-shell',
+            maxWidth: 300,
+            minWidth: 260,
+            closeButton: true,
+            autoPanPadding: [24, 24],
+          });
+        }
         m.on('click', function () {
           host.select(p.id);
         });
@@ -1556,9 +2513,17 @@
     }
 
     function fitAll() {
-      var latlngs = Object.keys(markers).map(function (k) {
-        return markers[k].marker.getLatLng();
-      });
+      // Both marker sets, or "fit all results" would push every broker pin off
+      // the screen the moment a search returned listings as well.
+      var latlngs = Object.keys(markers)
+        .map(function (k) {
+          return markers[k].marker.getLatLng();
+        })
+        .concat(
+          Object.keys(brokerMarkers).map(function (k) {
+            return brokerMarkers[k].marker.getLatLng();
+          })
+        );
       if (!latlngs.length) return;
       if (latlngs.length === 1) {
         map.setView(latlngs[0], Math.max(config.zoom || 13, 13));
@@ -1567,13 +2532,29 @@
       map.fitBounds(L.latLngBounds(latlngs), { padding: [48, 48], maxZoom: 15 });
     }
 
-    // One delegated listener covers every popup this map will ever open.
+    // Two delegated listener sets cover every popup this map will ever open:
+    // one for the arrows, dots and paging zones, one for the drag.
     popupPaging(map.getContainer());
+    popupScrubbing(map.getContainer());
 
     // A click on the map surface itself (not on a marker or a popup) is a
     // location choice. The add-listing form listens for this and resolves the
     // point to an address; the search map has no listener, so it is inert there.
     map.on('click', function (e) {
+      // On a pin map the pin follows the click, which is what the line under
+      // the map already promises: until now only the fields moved and the pin
+      // stayed where it was. The view is deliberately not re-centred — the
+      // reader just clicked where they meant, and moving the ground under them
+      // is the one thing that would lose their place.
+      //
+      // Keyed off config.pin rather than "there is only one marker": a search
+      // narrowed to a single result also has one marker, and dragging that
+      // listing's pin around the map would be nonsense.
+      if (config.pin) {
+        var ids = Object.keys(markers);
+        if (ids.length === 1) markers[ids[0]].marker.setLatLng(e.latlng);
+      }
+
       window.dispatchEvent(new CustomEvent('previa-map-click', {
         detail: { lat: e.latlng.lat, lng: e.latlng.lng },
       }));
@@ -1612,9 +2593,11 @@
 
     return {
       setPoints: setPoints,
+      setBrokers: setBrokers,
       highlight: highlight,
       select: select,
       locate: locate,
+      locateBroker: locateBroker,
       fitAll: fitAll,
       zoomIn: function () {
         map.zoomIn();
@@ -1688,6 +2671,108 @@
       },
       { timeout: 8000, maximumAge: 600000 }
     );
+  });
+
+  // -- Number steppers -------------------------------------------------------
+  //
+  // "the up/down arrows need to make better, make the same style as in
+  // sexydate, that they sit on the right side of the field."
+  //
+  // Chrome's own stepper is a grey block floating inside the field that cannot
+  // be given a colour, a divider or a size, and Firefox's cannot be styled at
+  // all — so the reference's arrangement (two carets in a ruled column pinned
+  // to the field's right edge) is not reachable by styling the native one. It
+  // is replaced instead: the native stepper is hidden in CSS and every number
+  // field is wrapped in a .stepper carrying two real buttons.
+  //
+  // Done here rather than in the templates because the same control is wanted
+  // on all twenty-odd number fields — the filter sidebar, the add-listing form
+  // and the admin package editor — and a field added later should get it
+  // without anyone remembering to wrap it.
+  //
+  // num-stepper, not stepper: the add-listing wizard's progress rail is already
+  // called .stepper, and a second meaning for that class would have given every
+  // waypoint list the padding and positioning meant for a number field.
+  function buildStepper(input) {
+    if (!input || input.dataset.stepper === 'on') return;
+    // A field the browser will not step (readonly, disabled) gets no arrows:
+    // buttons that cannot do anything are worse than none.
+    if (input.readOnly || input.disabled) return;
+    input.dataset.stepper = 'on';
+
+    var wrap = document.createElement('span');
+    wrap.className = 'num-stepper';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+
+    var col = document.createElement('span');
+    col.className = 'num-stepper__arrows';
+    col.setAttribute('aria-hidden', 'true'); // the input itself is the control
+    wrap.appendChild(col);
+
+    ['up', 'down'].forEach(function (dir) {
+      var b = document.createElement('button');
+      b.type = 'button'; // never submits the form it sits in
+      b.className = 'num-stepper__btn num-stepper__btn--' + dir;
+      b.tabIndex = -1; // keyboard users have the arrow keys already
+      b.innerHTML =
+        '<svg viewBox="0 0 10 6" focusable="false"><path d="' +
+        (dir === 'up' ? 'M1 5 5 1l4 4' : 'M1 1l4 4 4-4') +
+        '" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+        'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      b.addEventListener('click', function () {
+        // Two ways to step, because the platform's own is not always the one
+        // that was asked for.
+        //
+        // stepUp/stepDown snap to the step *grid*: with step="10" they take 5
+        // to 10, not to 15, because a valid value has to be min + n × step.
+        // That is right for a year or a floor and wrong for the broker
+        // directory's radius — "if user has set 5 at first and clicks up then
+        // it will be 15, but manually can user set any number" — so a field
+        // marked data-step-loose adds the step to whatever is in it and only
+        // clamps to min and max.
+        if (input.dataset.stepLoose === 'on') {
+          var step = Number(input.step) || 1;
+          var cur = Number(input.value);
+          if (!isFinite(cur)) cur = Number(input.min) || 0;
+          var next = cur + (dir === 'up' ? step : -step);
+          if (input.min !== '' && next < Number(input.min)) next = Number(input.min);
+          if (input.max !== '' && next > Number(input.max)) next = Number(input.max);
+          input.value = String(next);
+        } else {
+          // stepUp/stepDown honour min, max and step, and throw on a field
+          // holding something unparseable — start from empty in that case.
+          try {
+            dir === 'up' ? input.stepUp() : input.stepDown();
+          } catch (err) {
+            input.value = input.min || 0;
+          }
+        }
+        // Both events, because the filter sidebar listens for one and Alpine
+        // x-model for the other.
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      col.appendChild(b);
+    });
+  }
+
+  function buildSteppers(root) {
+    (root || document).querySelectorAll('input[type="number"]').forEach(buildStepper);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    buildSteppers(document);
+    // Number fields also arrive inside HTMX swaps and Alpine templates.
+    new MutationObserver(function (muts) {
+      muts.forEach(function (m) {
+        m.addedNodes.forEach(function (node) {
+          if (node.nodeType !== 1) return;
+          if (node.matches && node.matches('input[type="number"]')) buildStepper(node);
+          else buildSteppers(node);
+        });
+      });
+    }).observe(document.body, { childList: true, subtree: true });
   });
 
   // -- HTMX glue -------------------------------------------------------------

@@ -90,7 +90,16 @@
     {{ block "content" . }}{{ end }}
   </main>
 
-  {{ template "footer" . }}
+  {{/*
+    The footer sits inside a full-bleed ground rather than directly on the page,
+    so a page that closes on a colour band can carry that colour all the way
+    down: "make that this panel with this background color goes till to the end
+    of the page so the footer stays inside there". The colour is chosen in CSS
+    from what the last section painted — see .page__foot in layout.css.
+  */}}
+  <div class="page__foot">
+    {{ template "footer" . }}
+  </div>
 
   {{/* Toast region for mock action feedback */}}
   <div class="toast-stack" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>

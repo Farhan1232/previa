@@ -10,42 +10,80 @@
           <li aria-current="page">Brokers</li>
         </ol>
       </nav>
+      {{/*
+        No lede. "Every broker on Previa is verified, with their credentials,
+        languages and completed sales on show" was removed at the client's
+        request — "we do not deal with broker verification", and the sentence
+        also described a search by market and city that this page no longer
+        offers.
+      */}}
       <h1 class="page-head__title">Find a broker</h1>
-      <p class="lede">
-        Every broker on Previa is verified, with their credentials, languages and
-        completed sales on show. Filter by market, city or specialisation.
-      </p>
     </div>
   </div>
 </div>
 
-<div class="container section">
-  <form class="card" style="margin-bottom:var(--sp-8)" action="/brokers" method="get">
+{{/*
+  The search sits directly under the title. It was separated from it by a full
+  section's padding — "this broker menu bar move more up, there is too big gap"
+  — so this container opens on the tighter step the account pages use after a
+  page head, and the card itself carries the space down to the results.
+*/}}
+<div class="container section section--after-head">
+  <form class="card broker-search" style="margin-bottom:var(--sp-7)" action="/brokers" method="get">
     <div class="card__body">
-      <div class="filter-row">
-        <div class="field">
-          <label class="field__label" for="b-country">Country</label>
-          <select class="select" id="b-country" name="country">
-            <option value="">All countries</option>
-            {{ range $d.Countries }}
-            <option value="{{ .Code }}">{{ .Name }}</option>
-            {{ end }}
-          </select>
+      {{/*
+        Location and radius, in place of the country and city selects.
+
+        "The broker search we relate to googlemaps. Each broker can specify
+        under his profile his location on googlemaps and then here in the
+        broker search section the user enters the location and radius, so from
+        this location and with this radius (50 km) the brokers are displayed."
+
+        It is the property search's own Location field, reading the same
+        catalogue, so a place that resolves there resolves here to the same
+        point — and a broker's pin, set on their profile, is what is measured
+        against it.
+      */}}
+      <div class="filter-row broker-search__row">
+        {{ template "location-field" dict
+            "ID" "b-location" "Name" "location" "Value" $d.FilterLocation
+            "Suggestions" $d.LocationSuggestions "Label" "Location"
+            "Placeholder" "Country, city or address" }}
+
+        {{/*
+          Radius: a number the searcher types, not a list they pick from.
+
+          "Make it so that km is next to radius, so remove km behind each
+          number. Then on the right side of the radius number field make the
+          same up-down arrows as in the search-menu. And the up-down step is 10
+          when click the arrow, so if user has set 5 at first and clicks up then
+          it will be 15, but manually can user set any number."
+
+          So the unit moved into the label, the seven fixed distances are gone,
+          and previa.js gives the field the same arrow column every other number
+          field on the site has. data-step-loose is what makes 5 + 10 come out
+          as 15: see the note on it in previa.js.
+        */}}
+        <div class="field broker-search__radius">
+          <label class="field__label" for="b-radius">Radius (km)</label>
+          <input class="input numeric" id="b-radius" name="radius" type="number"
+                 value="{{ $d.FilterRadius }}" min="1" max="5000" step="10"
+                 data-step-loose="on" inputmode="numeric">
         </div>
-        <div class="field">
-          <label class="field__label" for="b-city">City</label>
-          <input class="input" id="b-city" name="city" type="text"
-                 value="{{ $d.FilterCity }}" placeholder="Any city">
-        </div>
-        <div class="field">
-          <label class="field__label" for="b-lang">Language spoken</label>
-          <select class="select" id="b-lang" name="language">
-            <option value="">Any language</option>
-            {{ range $d.Languages }}
-            <option value="{{ . }}" {{ if eq . $d.FilterLang }}selected{{ end }}>{{ . }}</option>
-            {{ end }}
-          </select>
-        </div>
+
+        {{/*
+          Language of communication: every language on the catalogue, searchable,
+          several at once, each chosen one a tag that can be taken off again.
+          Same control as the market picker, which is what the client asked for
+          in both places it appears.
+        */}}
+        {{ template "tag-picker" dict
+            "Kind" "language" "Name" "language" "ID" "b-langs"
+            "Label" "Language of communication"
+            "AddLabel" "Choose languages"
+            "EmptyLabel" "Any language"
+            "Selected" $d.FilterLangs }}
+
         <div class="field">
           <label class="field__label" for="b-q">Name or speciality</label>
           <span class="input-icon">
@@ -54,15 +92,46 @@
                    placeholder="e.g. Old Town, cottages">
           </span>
         </div>
+
         <button class="btn btn--primary" type="submit">Search brokers</button>
       </div>
     </div>
   </form>
 
   <div class="row row--between" style="margin-bottom:var(--sp-5)">
+    {{/*
+      The count says which of the page's two searches produced it.
+
+      The client gave this page two ways to find a broker, 18 August: "on top in
+      the header is the choose your market button, and so whatever market is
+      chosen there, then these brokers what have bought ad in this market are
+      displayed there — so the same as the frontpage broker section. And if the
+      user in this search menu enters the location and radius, then the 'choose
+      your market' system is not active any more and now the system displays
+      there only these brokers what are in this range and in this order, who is
+      closer."
+
+      They answer different questions and they produce different lists, so a
+      count that did not name the one it came from would be read as the size of
+      the directory — which it is not, in either mode.
+    */}}
     <p class="results-count">
       <strong class="numeric">{{ len $d.Brokers }}</strong>
       {{ if eq (len $d.Brokers) 1 }}broker{{ else }}brokers{{ end }}
+      {{ if $d.ByMarket }}
+      <span class="results-count__where">
+        advertising in {{ .Country.Name }} — search a place to find brokers near it instead
+      </span>
+      {{ else if $d.FilterLocation }}
+      <span class="results-count__where">
+        within {{ $d.FilterRadius }} km of {{ $d.FilterLocation }}, nearest first
+      </span>
+      {{ else }}
+      {{/* Searched, but not by place — a language or a name. The market is off
+           either way, so this is the whole directory narrowed by that one
+           thing, and there is no distance to order by. */}}
+      <span class="results-count__where">across every market</span>
+      {{ end }}
     </p>
     <a class="section__link" href="/agencies">
       Browse agencies instead {{ template "icon" "arrow-right" }}
@@ -71,15 +140,28 @@
 
   {{ if $d.Brokers }}
   <div class="grid grid--4">
-    {{ range $d.Brokers }}{{ template "broker-card" . }}{{ end }}
+    {{ range $d.Brokers }}{{ template "broker-card" dict "Broker" . }}{{ end }}
   </div>
   {{ else }}
+    {{ if $d.ByMarket }}
+    {{/* A market nobody has bought is empty and correct, the same rule the
+         homepage strip follows: an ad bought for Estonia must not quietly fill
+         a gap on the German page. The way out of it is the search above, which
+         reaches every broker regardless of who paid for which market. */}}
+    {{ template "empty-state" dict
+       "Icon" "users"
+       "Title" "No broker is advertising in this market yet"
+       "Text" "Search a place and a radius above to find brokers near it, whichever market they advertise in — or change your market in the header."
+       "ActionHref" "/advertising"
+       "ActionLabel" "Advertise here" }}
+    {{ else }}
     {{ template "empty-state" dict
        "Icon" "users"
        "Title" "No brokers match this search"
-       "Text" "Try removing the language or city filter — most brokers cover more than one area."
+       "Text" "Try a wider radius or fewer languages — most brokers cover more than one area."
        "ActionHref" "/brokers"
        "ActionLabel" "Show all brokers" }}
+    {{ end }}
   {{ end }}
 </div>
 {{ end }}

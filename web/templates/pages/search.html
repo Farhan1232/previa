@@ -1,19 +1,36 @@
 {{ define "content" }}
 {{ $d := .Data }}
 
-<div class="container container--wide" style="padding-top:var(--sp-6);padding-bottom:var(--sp-11)">
+{{/*
+  The page opens straight into the breadcrumb and then the layout — no display
+  heading. The client asked for "Property for sale" removed outright and the
+  breadcrumb and the filter sidebar moved up into the space it was using; the
+  banner then stretches up to meet the top of the breadcrumb row.
 
-  <nav aria-label="Breadcrumb">
+  The removed <h1> is replaced by a visually hidden one rather than by nothing:
+  a results page still needs a name for screen readers and for the document
+  outline, and the handler already computes exactly that name for the <title>.
+*/}}
+{{/* No inline bottom padding: the distance to the footer is one rule for the
+     whole site now — .page__main > :last-child in layout.css — and an inline
+     style is the one thing a stylesheet cannot correct. */}}
+<div class="container container--wide" style="padding-top:var(--sp-4)">
+
+  <h1 class="visually-hidden">
+    {{ if eq (len $d.Filter.Deals) 1 }}
+      {{ if eq (index $d.Filter.Deals 0) "rent" }}Property to rent
+      {{ else if eq (index $d.Filter.Deals 0) "sale" }}Property for sale
+      {{ else }}Property for short rent{{ end }}
+    {{ else }}Property search{{ end }}
+    {{ if $d.Filter.City }}in {{ $d.Filter.City }}{{ end }}
+  </h1>
+
+  <nav class="search-crumb" aria-label="Breadcrumb">
     <ol class="breadcrumbs">
       <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
       <li aria-current="page">Search</li>
     </ol>
   </nav>
-
-  <h1 class="display display--h2" style="margin:var(--sp-4) 0 var(--sp-6)">
-    {{ if eq $d.Filter.Deal "rent" }}Property to rent{{ else if eq $d.Filter.Deal "sale" }}Property for sale{{ else }}Search all property{{ end }}
-    {{ if $d.Filter.City }}<span class="muted">in {{ $d.Filter.City }}</span>{{ end }}
-  </h1>
 
   {{/*
     The layout collapses by widening the results column. Below 1024px the panel
@@ -59,16 +76,21 @@
       {{/*
         Advertising strip for the active market.
 
-        It sits inside the results column, to the right of the filter sidebar
-        and above the listings — the placement the client pointed at in the
-        Kinnisvara24 reference. It used to span the full width above both
-        columns, which pushed the sidebar down the page and left the filters
-        starting below the fold.
+        It rides up alongside the breadcrumb: the strip is pulled up by exactly
+        the height of the breadcrumb row, so its top edge lines up with the top
+        of "Home > Search" without touching the header the way the homepage
+        hero does. The filter sidebar keeps its place under the breadcrumb —
+        it moved up when the "Property for sale" heading went — and the result
+        cards stay where they are, with the banner growing into the space.
+
+        "Choose your market" rides on the banner itself now, top-right, the way
+        it does on the homepage. It used to sit outside the strip, which cost
+        the banner a picker's width and left the two reading as unrelated
+        controls.
 
         Its copy is its own admin record ("search" placement, per country), not
         the homepage banner re-used, and it disappears cleanly when a market's
-        slot is switched off. "Choose your market" rides at its top-right,
-        which keeps that control off the header on this page.
+        slot is switched off.
       */}}
       <div class="search-banner">
         {{ if .HasBanner }}
@@ -86,10 +108,25 @@
         <div class="search-banner__spacer"></div>
         {{ end }}
 
+        {{/*
+          The market picker rides on the banner in exactly the homepage's
+          colours — the client compared the two and asked for the hero's
+          treatment here: a dark half-transparent chip with a white hairline
+          and white lettering, fixed in both themes.
+
+          It used to take its ink from whichever banner was running, which came
+          out as a grey veil on the navy strip and a muddy one on the pale
+          themes. One fixed treatment reads the same on every banner, and it is
+          the one the visitor already met on the front page.
+
+          With no banner running there is nothing to sit on, so it keeps the
+          ordinary surface treatment and stays a plain button on the page.
+        */}}
+        {{ $tone := "" }}{{ if .HasBanner }}{{ $tone = "light" }}{{ end }}
         <div class="search-banner__aside">
           {{ template "market-picker" dict
               "Countries" .OtherCountries "Seeded" .Countries "Country" .Country
-              "CurrentPath" .CurrentPath }}
+              "CurrentPath" .CurrentPath "Tone" $tone }}
         </div>
       </div>
 

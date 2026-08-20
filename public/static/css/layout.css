@@ -18,19 +18,141 @@
 /* Map and search screens may use the whole viewport. */
 .container--fluid { max-width: none; }
 
-.section { padding: var(--section-y) 0; }
-.section--lg { padding: var(--section-y-lg) 0; }
-.section--tight { padding: calc(var(--section-y) * 0.6) 0; }
-.section--band { background: var(--surface-2); border-block: 1px solid var(--border); }
-.section--navy { background: var(--navy); color: var(--text-inverse); }
-[data-theme='dark'] .section--navy { background: var(--surface-2); color: var(--text); }
+/*
+  A page laid out on the wide container is wider than --page-width's default.
 
+  --page-width is what the header, the page head and the homepage banner are
+  cut to (see tokens.css). Its default is the ordinary container's content box,
+  which is right for every page that uses one — and wrong for the two families
+  that do not: the listings screen and the administration screens both run on
+  .container--wide, and on those the results grid and the admin shell reach one
+  gutter from the shell edge. Matching "the same width as the page content"
+  there means matching *their* content, so the panels above them read as the
+  top of the same block rather than as a narrower thing sitting on it.
+
+  :has() on <body> because the header is rendered before the page it belongs
+  to: nothing in the markup above the content can know which layout follows it.
+  The same mechanism already decides whether the header draws its separator.
+*/
+body:has(.container--wide) { --page-width: calc(100% - var(--gutter) * 2); }
+
+/*
+  The map screens are the one place the header stays edge to edge.
+
+  There is no content column on them to match: the split view and the full map
+  are a single shell exactly as tall as what is left below the header and
+  exactly as wide as the window, with the results column scrolling inside it. A
+  panel-width bar floating over a full-bleed map would be the mismatch the
+  client asked to remove, drawn the other way round.
+*/
+body:has(.map-shell) { --page-width: 100%; }
+
+/*
+  Vertical rhythm only — padding-block, never the shorthand.
+
+  The shorthand was `padding: var(--section-y) 0`, and an element carrying both
+  classes (`class="container section"`, which is most content pages) had its
+  gutters zeroed by it: .section is declared after .container, so its inline 0
+  won. Agencies, help, the account pages and the broker directory therefore ran
+  32px wider on each side than the footer and than the homepage, which is the
+  same complaint the client made three times over — "make it narrower with the
+  agencies", "make the page content narrower", "make the footer wider". One
+  property, not three page-by-page tweaks.
+*/
+.section { padding-block: var(--section-y); }
+.section--lg { padding-block: var(--section-y-lg); }
+.section--tight { padding-block: calc(var(--section-y) * 0.6); }
+/*
+  Coloured blocks are panels now, not bands.
+
+  "All the areas on the screen (except the header part, this like that) what
+  stretch from one screen side to another, make inside rounded corners
+  rectangle with limited size — so the same width as the footer", and again on
+  the About page: "this area restrict to a rounded corners rectangle with the
+  left-right border limits the same as the 'work with us' below it is."
+
+  The width formula is the footer's, character for character, which is also the
+  width of a .container's content box — so a panel's edges line up with the
+  cards, the footer and the cta-panel on every page and at every breakpoint.
+
+  Drawn as a pseudo-element rather than by moving the colour onto .container:
+  .container's own box is --container wide *including* its gutters, so painting
+  it would run 64px wider than the footer. Behind the content at z-index -1,
+  with `isolation` keeping that negative layer inside the section instead of
+  sliding under the page.
+
+  No hairline between them: the client's rule is that a separator earns its
+  place only where two blocks share a colour, and a panel already differs from
+  what sits above and below it.
+*/
+.section--band,
+.section--navy {
+  position: relative;
+  isolation: isolate;
+}
+.section--band::before,
+.section--navy::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset-block: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - var(--gutter) * 2, calc(var(--container) - var(--gutter) * 2));
+  border-radius: var(--r-xl);
+}
+/*
+  Room inside the panel.
+
+  The panel's edges are the footer's, which is also exactly where a .container's
+  content box ends — so without this the heading, the cards and the panel's own
+  edge all landed on the same line and the text sat flush against it. The
+  content is inset by one more gutter, which is the same step the footer's links
+  and legal row sit at inside their panel, so a panel and the footer are laid
+  out the same way at every breakpoint.
+
+  The consequence is deliberate: a card grid inside a panel is one gutter
+  narrower on each side than the same grid in an uncoloured section above it.
+  Those are the only two widths available once the client has fixed the panel's
+  outer edge to the footer's — "the same width as the footer" — and content
+  touching that edge is the one the client rejected.
+*/
+.section--band > .container,
+.section--navy > .container {
+  padding-inline: calc(var(--gutter) * 2);
+}
+
+/*
+  A panel whose content sits close to its own top edge.
+
+  "In related reading move the content more up inside it's menu block, and
+  reduce the distance between title and content." The first half is this: a
+  band's padding is its inset panel's padding, so the heading was starting a
+  full section step below the panel's rounded corner. The second half is
+  .section__head-text--tight on the heading itself.
+*/
+.section--band-tight { padding-block: calc(var(--section-y) * 0.7); }
+
+.section--band::before { background: var(--surface-2); }
+.section--navy::before { background: var(--navy); }
+.section--navy { color: var(--text-inverse); }
+[data-theme='dark'] .section--navy::before { background: var(--surface-2); }
+[data-theme='dark'] .section--navy { color: var(--text); }
+
+/*
+  Heading block, then the content it introduces.
+
+  20px, not 40. "The content blocks closer the it's title" — the gap was wide
+  enough that a heading read as belonging to the whitespace under it rather
+  than to the cards it names. One figure for every section on the site, so the
+  distance from a title to its content is the same wherever you look.
+*/
 .section__head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--sp-5);
-  margin-bottom: var(--sp-8);
+  margin-bottom: var(--sp-5);
 }
 .section__head-text { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .section__title { font-family: var(--font-display); font-size: var(--fs-h2); font-weight: 400; letter-spacing: var(--ls-tight); }
@@ -50,7 +172,7 @@
 .section__link svg { width: 16px; height: 16px; transition: transform var(--dur) var(--ease); }
 
 @media (max-width: 640px) {
-  .section__head { flex-direction: column; align-items: flex-start; gap: var(--sp-3); margin-bottom: var(--sp-6); }
+  .section__head { flex-direction: column; align-items: flex-start; gap: var(--sp-3); margin-bottom: var(--sp-4); }
 }
 
 /* ==========================================================================
@@ -95,6 +217,18 @@
 @media (max-width: 820px)  { .grid--properties { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px)  { .grid--properties { grid-template-columns: 1fr; } }
 
+/*
+  The article index. Five across on a wide screen, on the client's note that the
+  previews were too big — the card takes its width from the column, so the
+  column count is the size control. Same ladder as the property rows above, so
+  an article row and a property row break at the same widths.
+*/
+.grid--articles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1280px) { .grid--articles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 1024px) { .grid--articles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 820px)  { .grid--articles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px)  { .grid--articles { grid-template-columns: 1fr; } }
+
 .grid--list { grid-template-columns: 1fr; gap: var(--sp-4); }
 
 .stack { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -115,12 +249,52 @@
   taking a permanent bite out of the viewport for no benefit. The floating menu
   button below takes over once it is gone, so the menu is never unreachable.
 */
+/*
+  The header is a panel too, as of 18 August.
+
+  It was the last block on the page still painting from one screen edge to the
+  other, and the client asked for it cut on three screens in three messages —
+  the double-header pages, the listings page and the homepage. "Cut the header
+  the same width as the page content, and make the below corners round."
+
+  Width and centring are the footer's, by way of --page-width, so the header
+  and the footer are the same shape at opposite ends of the page and both line
+  up with what is between them. The rounding is the footer's mirrored: the
+  bottom two corners here, the top two there.
+
+  Which element carries the rounding depends on what follows the header, and
+  the two rules below take it away again when something else continues the
+  block downwards — a page head sharing this surface colour, or the homepage
+  banner running up underneath it.
+*/
 .site-header {
   position: relative;
   z-index: var(--z-header);
+  width: var(--page-width);
+  margin-inline: auto;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  border-radius: 0 0 var(--r-xl) var(--r-xl);
 }
+
+/*
+  Room inside the panel, at the same step as the footer's.
+
+  The inner .container fills the panel rather than keeping its own 1280px
+  ceiling, which on the wide pages would have centred it inside a wider panel
+  and left the logo floating two gutters in. One gutter, everywhere — the
+  distance the footer's links sit from their panel's edge.
+*/
+.site-header > .container,
+.page-head > .container { max-width: none; }
+
+/* A page head continues the header's surface downwards, so the corners belong
+   to whichever of them the block actually ends on. */
+body:has(.page-head) .site-header { border-radius: 0; }
+
+/* The map screens keep the bar edge to edge — see body:has(.map-shell) at the
+   top of this file — so there are no corners on it to round. */
+body:has(.map-shell) .site-header { border-radius: 0; }
 
 /*
   Header above a flush hero — no separator.
@@ -140,10 +314,27 @@
 body:has(.hero--flush) .site-header {
   border-bottom: 0;
   box-shadow: none;
+  /* The banner runs up under this bar and closes the block off itself, so the
+     rounded bottom corners are drawn down there — see .hero__media. */
+  border-radius: 0;
 }
 /* Nothing may reintroduce the line as a pseudo-element or a spacer strip. */
 body:has(.hero--flush) .site-header::after,
 body:has(.hero--flush) .site-header::before { content: none; }
+
+/*
+  The same reasoning, generalised, at the client's request on 17 August: the
+  separator under the header exists to divide the header from a block that
+  shares its colour, and a page whose next block is a different colour does not
+  need it — "in the main listing page where the header and menu block under it
+  are different colors, then remove this separator line under header".
+
+  A page head is the one block that carries the header's --surface, so it is
+  also the one case that keeps the line. Everywhere else — the search results,
+  a listing, the map screens, the sign-in pages — the page opens on --bg and
+  the colour change is the division.
+*/
+body:not(:has(.page-head)) .site-header { border-bottom: 0; }
 body:has(.hero--flush) .hero--flush { margin-block-start: calc(var(--header-h) * -1); }
 
 .header__inner {
@@ -254,39 +445,63 @@ body:has(.hero--flush) .hero--flush { margin-block-start: calc(var(--header-h) *
 
 /*
   Floating menu button — appears only after the header has scrolled out of
-  view. Fixed to the top right, above page content but below the drawer it
-  opens, and clear of the safe area on notched phones.
+  view. Pinned to the top of the viewport, above page content but below the
+  drawer it opens, and clear of the safe area on notched phones.
+
+  The shell below is what keeps it inside the page.
+
+  "The sidebar menu on the right, if start to scroll page down, it moves too
+  far away, make that it stays always inside the page, so it is always under
+  the header right side. So that this menu's right side is aligned to header
+  right side."
+
+  It used to be offset from the *viewport* edge by --shell-gutter, which is 0
+  below 1440px — so on any ordinary monitor it sat against the window rather
+  than against the website, a whole gutter outside the page panel it belongs
+  to. Arithmetic on 100vw could not fix that: 100vw includes the scrollbar and
+  --page-width does not, so the two disagree by however wide the scrollbar is.
+
+  This does it by layout instead. The shell is the header's box — same
+  --page-width, same centring, same --gutter of inside room — pinned to the
+  top of the viewport, and the button is pushed to its inline end. Its right
+  edge is therefore the same pixel as the "add listing" button's in the header
+  above it, at every width and on every page, including the wide-container and
+  full-bleed map layouts that redefine --page-width for themselves.
+
+  It is inert except where the button is, so the page underneath stays
+  clickable across the rest of the strip.
 */
-.floating-menu {
+.floating-menu-shell {
   position: fixed;
   top: max(var(--sp-4), env(safe-area-inset-top));
-  /*
-    Fixed to the viewport, but offset by the shell's outer gutter so it lands
-    on the website's right edge rather than the monitor's. Below 1440px
-    --shell-gutter is 0 and this is exactly what it was.
-  */
-  right: calc(var(--shell-gutter) + max(var(--sp-4), env(safe-area-inset-right)));
+  inset-inline: 0;
   z-index: calc(var(--z-header) - 1);
-  /*
-    Transparent, like the header's control — no disc, no border, no shadow.
-
-    It only appears once the header has scrolled away, by which point what is
-    behind it is the page's own background rather than the hero photograph, so
-    the icon reads without a plate. The one place that is not true is the map
-    screen, where it would sit over tiles; there it takes a plain surface (see
-    the rule below) purely so it stays visible.
-  */
-  background: none;
+  width: var(--page-width);
+  margin-inline: auto;
+  padding-inline: max(var(--gutter), env(safe-area-inset-right));
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
 }
 
-/* The map fills the viewport, so the floating control has imagery behind it
-   rather than page background. A plain surface — no colour, no border — is the
-   least that keeps it legible over tiles. */
-.map-shell ~ template .floating-menu,
-body:has(.map-shell) .floating-menu {
+/*
+  A plain surface behind the icon.
+
+  It used to be transparent — it only appeared once the header had scrolled
+  away, and what was behind it then was the page's own background rather than
+  anything to read against. That stopped being true when the control moved
+  inside the page: it now sits over listing cards, article covers and panels,
+  and a bare stroked icon on a photograph is not legible.
+
+  No colour and no border, which is the least that does the job: this is still
+  the header's control, moved, and it should not read as a new button.
+*/
+.floating-menu {
+  pointer-events: auto;
   background: var(--surface);
   box-shadow: var(--shadow-sm);
 }
+/* The map screen used to need this rule of its own; it is the default now. */
 
 @media (max-width: 1080px) {
   .header__nav,
@@ -462,10 +677,21 @@ body:has(.map-shell) .floating-menu {
   color: var(--text-muted);
 }
 button.drawer__row:hover { background: var(--surface-3); }
-.drawer__row .switch { gap: 0; }
-.drawer__row .switch__track { width: 38px; height: 22px; }
-.drawer__row .switch__thumb { width: 16px; height: 16px; }
-.drawer__row .switch input:checked + .switch__track .switch__thumb { transform: translateX(16px); }
+
+/*
+  The theme button, borrowed from the header so both copies of the control look
+  identical. It is inert markup inside the row button, so it must not eat the
+  pointer or paint its own hover box on top of the row's — only its colour
+  lifts, in step with the row.
+*/
+.drawer__row-toggle {
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  pointer-events: none;
+}
+.drawer__row-toggle:hover { background: none; }
+button.drawer__row:hover .drawer__row-toggle { color: var(--text); }
 
 /* Language options, revealed under their row rather than in a second overlay. */
 .drawer__sublist {
@@ -494,11 +720,28 @@ body.is-locked { overflow: hidden; }
    Footer
    ========================================================================== */
 
+/*
+  The footer is a panel, not a band.
+
+  It used to paint edge to edge across the shell while every other block on the
+  page stopped at the content width, so on a wide screen it read as a strip cut
+  off past where the page ends. The client asked for it "the same wide as the
+  page content", with the top corners rounded: the width below is the container
+  less its two gutters, which is exactly the box the cards and headings above it
+  sit in, so the footer's edges line up with theirs at every breakpoint. The
+  gutter subtraction is inside the min() on both sides, which is what keeps the
+  panel off the viewport edges on a phone as well.
+
+  --gutter changes at the responsive breakpoints, so both halves of the min()
+  read it rather than hard-coding 32px.
+*/
 .site-footer {
-  margin-top: auto;
+  width: min(100% - var(--gutter) * 2, calc(var(--container) - var(--gutter) * 2));
+  margin-inline: auto;
   background: var(--navy);
   color: #C7D3E0;
   font-size: var(--fs-sm);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
 }
 [data-theme='dark'] .site-footer {
   background: var(--surface);
@@ -507,34 +750,92 @@ body.is-locked { overflow: hidden; }
 }
 
 /*
-  Two columns and a legal row — the whole footer. The brand block, the Explore
-  column and the popular-searches matrix that used to sit here were removed at
-  the client's request, and their spacing went with them: the section padding
-  below is roughly half what it was, because there is half as much to space.
+  The same exception the header takes, for the same reason.
+
+  The rule above is "the footer stops where the page content stops", and on the
+  two families laid out on the wide container — the listings screen and the
+  administration screens — the content does not stop there. Left alone, the
+  header cut to the results grid on 18 August would have sat 145px wider than
+  the footer under the same grid, which is the mismatch the client has now
+  asked to close twice, once at each end of the page. The width is
+  --page-width's wide value; the base rule keeps the literal formula because
+  every panel on the site is matched against it.
 */
+body:has(.container--wide) .site-footer { width: var(--page-width); }
+
+/*
+  One link row and a legal row — the whole footer. The brand block, the Explore
+  column, the popular-searches matrix and, later, the two column headings and
+  every link the client did not name were all removed at their request.
+
+  The five survivors sit on a single line spread evenly across the container
+  rather than stacked in a column, which is what keeps the footer short: five
+  links tall became five links wide. Equal columns, not space-between, so the
+  gaps stay even instead of being set by the longest label. Below 720px the row
+  wraps into a centred cluster — at that width five columns would each be too
+  narrow to hold their label on one line.
+*/
+/*
+  The mark on the left, everything else to the right of it.
+
+  "The same logo insert into footer left side as well. So the footer text
+  'Listing packages' and '© 2026 Previa, all rights reserved!' move to the
+  right and place the logo there, in the same place as it is in the header."
+
+  Two columns and two rows: the logo spans both rows in the first column, the
+  link row takes the second column's first row and the legal strip its second,
+  so the horizontal rule between them still runs the width of the text block
+  rather than under the mark. The column is sized from the lockup itself so it
+  tracks the responsive logo sizes without a second set of breakpoints.
+*/
+.footer__grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--sp-8);
+  align-items: start;
+}
+/*
+  The wordmark reads --navy, and in the light theme the footer's ground *is*
+  --navy: the mark would have been a magenta tile with nothing beside it. So the
+  word takes the footer's own text colour, the way every other word down here
+  does, rather than the header's.
+*/
+.footer__logo .logo__word { color: var(--text-inverse); }
+[data-theme='dark'] .footer__logo .logo__word { color: var(--text); }
+
+.footer__logo {
+  grid-row: 1 / span 2;
+  display: inline-flex;
+  align-items: center;
+  /* Level with the first row of links rather than centred against the whole
+     block: the header's mark sits at the top of its bar and this one has to
+     line up with it, not with the middle of the footer. */
+  padding-top: var(--sp-6);
+}
+@media (max-width: 900px) {
+  .footer__grid { grid-template-columns: minmax(0, 1fr); }
+  .footer__logo { grid-row: auto; justify-content: center; padding-top: var(--sp-5); }
+}
+
 .footer__main {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-6) var(--sp-7);
-  padding: var(--sp-8) 0 var(--sp-7);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--sp-3) var(--sp-5);
+  padding: var(--sp-6) 0;
 }
-@media (max-width: 560px) { .footer__main { grid-template-columns: 1fr; gap: var(--sp-6); } }
+.footer__main a { color: #C7D3E0; }
+.footer__main a:hover { color: var(--gold); }
+[data-theme='dark'] .footer__main a { color: var(--text-muted); }
+[data-theme='dark'] .footer__main a:hover { color: var(--gold); }
 
-.footer__col-title {
-  margin-bottom: var(--sp-4);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #FFFFFF;
+@media (max-width: 720px) {
+  .footer__main {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--sp-3) var(--sp-5);
+  }
 }
-[data-theme='dark'] .footer__col-title { color: var(--text); }
-
-.footer__links { display: flex; flex-direction: column; gap: var(--sp-3); list-style: none; }
-.footer__links a { color: #C7D3E0; }
-.footer__links a:hover { color: var(--gold); }
-[data-theme='dark'] .footer__links a { color: var(--text-muted); }
-[data-theme='dark'] .footer__links a:hover { color: var(--gold); }
 
 .footer__bottom {
   display: flex;
@@ -584,13 +885,114 @@ body.is-locked { overflow: hidden; }
 .page { display: flex; flex-direction: column; min-height: 100vh; }
 .page__main { flex: 1; }
 
+/*
+  The ground the footer stands on: the page colour, on every page.
+
+  It used to take the colour of whatever the last section painted, so a page
+  closing on a band carried that band down behind the footer. That was right
+  while bands were full-bleed and wrong the moment they became inset panels —
+  "remove this block around the footer and footer stays into the same
+  background as in other pages. So only the header part stays at the moment to
+  a big area from left to right."
+*/
+/* A gap above the footer panel, because it is a panel among panels now: with
+   the last section's colour no longer running behind it, its rounded top edge
+   would otherwise sit flush against the block above and the two would read as
+   one shape. */
+.page__foot { margin-top: auto; padding-top: var(--sp-6); background: var(--bg); }
+
+/*
+  The same gap above the footer on every page — the homepage's.
+
+  "The footer distance to the upper menu block make in every page like it is in
+  frontpage: so smaller." The homepage closes on a coloured panel whose own
+  padding is *inside* it, so the only space between that panel's bottom edge and
+  the footer is the 24px above. Everywhere else the last section added its full
+  --section-y on top of that, which is where the extra 60-odd pixels the client
+  measured came from: a page ended, and then went on ending.
+
+  So the last block on the page stops padding itself at the bottom and the 24px
+  is all that is left, on every screen. Panels are the exception, and have to
+  be: their padding is the room inside the shape, not space under the page, and
+  taking it away would push their content against their own bottom edge.
+*/
+.page__main > :last-child:not(.section--band):not(.section--navy) { padding-bottom: 0; }
+
+/*
+  The page head: breadcrumb, title, lede, on the header's own surface colour.
+
+  Two things the client asked for on 17 August are in these three declarations.
+
+  The top padding was 48px, which left the breadcrumb floating in the middle of
+  a gap and pushed the title a long way down the screen. It is 16px now — the
+  same figure the search page uses above its breadcrumb — so the breadcrumb
+  starts just under the header and sits in the same place on every page of the
+  site, and the title follows it up. "The navigation bar home - developments move
+  quite up next to the header, it is always there in the same place, like in the
+  main listings page."
+
+  The hairline along the bottom is gone: the block below this one is a different
+  colour, and the client asked for no separator wherever that is already true.
+  The rule under the header itself stays, because there the two blocks share
+  this surface and the line is the only thing dividing them.
+*/
+/*
+  Cut to the page width and rounded off at the bottom, 18 August: "so now the
+  header, in these pages where we have the 'double-header', cut the header the
+  same width as the page content, and make the below corners round."
+
+  The double header is this block and the bar above it: two elements, one
+  colour, read as one header. So they are cut to the same width and only the
+  lower one is rounded — the header's own bottom corners are squared off by the
+  body:has(.page-head) rule above, which is what keeps the two reading as one
+  shape rather than as two stacked cards with a notch between them.
+
+  The 1px rule between them stays. It is the one place on the site where two
+  blocks share a colour, which is the client's own test for when a separator
+  has earned its place.
+*/
 .page-head {
-  padding: var(--sp-9) 0 var(--sp-7);
-  border-bottom: 1px solid var(--border);
+  width: var(--page-width);
+  margin-inline: auto;
+  padding: var(--sp-4) 0 var(--sp-7);
   background: var(--surface);
+  border-radius: 0 0 var(--r-xl) var(--r-xl);
 }
-.page-head__inner { display: flex; flex-direction: column; gap: var(--sp-3); }
-.page-head__title { font-family: var(--font-display); font-size: var(--fs-h1); font-weight: 400; letter-spacing: -0.015em; }
+/*
+  8px between the title and the line under it, not 12.
+
+  "In the single article page the article title is in two rows, reduce the line
+  spacing. And the small text under it move more up as well and reduce line
+  spacing." Both halves are here: the gap below, and --lh-tight on the title
+  itself, which at --fs-h1 is where a two-line headline was losing most of its
+  air — 1.3 leaves a display serif looking like two separate headings.
+*/
+.page-head__inner { display: flex; flex-direction: column; gap: var(--sp-2); }
+.page-head__title {
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: 400;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+}
+/* And the lede under it, at --lh-snug rather than the relaxed 1.7 it takes in
+   running prose: it is a two-line standfirst here, not a paragraph. */
+.page-head__inner .lede { line-height: var(--lh-snug); }
+
+/*
+  Compact variant, used by every signed-in account screen.
+
+  The client's note was that the account pages open with too much air: the
+  breadcrumb sat a long way below the header, the welcome heading was display
+  sized, and a full section gap followed before the first panel. All three are
+  tightened here — the breadcrumb starts just under the header, the heading
+  drops from --fs-h1 to --fs-h3, and .section--after-head below replaces the
+  48–96px section top padding with a fixed 24px.
+*/
+.page-head--compact { padding: var(--sp-4) 0 var(--sp-5); }
+.page-head--compact .page-head__inner { gap: var(--sp-2); }
+.page-head--compact .page-head__title { font-size: var(--fs-h3); }
+.section--after-head { padding-top: var(--sp-6); }
 
 .breadcrumbs {
   display: flex;
@@ -621,6 +1023,18 @@ body.is-locked { overflow: hidden; }
 /* Collapsed: the results area expands, a thin rail stays to reopen. */
 .search-layout.is-collapsed { grid-template-columns: 0 minmax(0, 1fr); gap: 0; }
 
+/*
+  The breadcrumb row.
+
+  Fixed height, because the advertising banner below reaches up past it by
+  exactly this much (see .search-banner in pages.css) so that the two line up
+  at the top. A content-sized row would leave that offset guessing.
+
+  The banner overlapping this row is not a collision: the breadcrumb's text
+  sits in the left column, where the banner does not reach.
+*/
+.search-crumb { height: var(--crumb-h); margin-bottom: var(--sp-3); }
+
 .filter-panel {
   position: sticky;
   top: calc(var(--header-h) + var(--sp-5));
@@ -634,6 +1048,22 @@ body.is-locked { overflow: hidden; }
 }
 .search-layout.is-collapsed .filter-panel { display: none; }
 
+/*
+  Vertical rhythm inside the panel, tightened on the client's 18 August note.
+
+  "The main search menu is very good, just make it more compact, so a bit
+  smaller. The first title 'Filters' occupies in up-down scale too much space,
+  so move it more up and it's below borderline more up as well. In up-down
+  scale move all the titles a bit more up and reduce their line spacing. In
+  left-right scale no changes, the width of the menu stays like is."
+
+  So every figure that changes below is a *block* one — padding-block, row gaps,
+  the space between a label and its control. Nothing horizontal moves: the side
+  paddings stay at --sp-5 and the panel keeps its column width, which is what
+  the last sentence asks for. The header loses half its height (16px of padding
+  above and below became 8), which carries both "Filters" and the hairline
+  under it up by the same 8px.
+*/
 .filter-panel__header {
   position: sticky;
   top: 0;
@@ -642,43 +1072,126 @@ body.is-locked { overflow: hidden; }
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5);
+  padding: var(--sp-2) var(--sp-5);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
-.filter-panel__body { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-5); }
+.filter-panel__body {
+  padding: var(--sp-4) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+/* Label to control, inside this panel only: 8px on every field down a column
+   this long adds up to a screenful. Other forms on the site keep --sp-2. */
+.filter-panel .field { gap: 6px; }
+/*
+  The footer holds three controls now — the clear cross, apply, and save search
+  — and, under them, whatever the save answered. A column, so the confirmation
+  appears where the click was rather than at the top of a panel the reader has
+  scrolled away from.
+*/
 .filter-panel__footer {
   position: sticky;
   bottom: 0;
   display: flex;
-  gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5);
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
   background: var(--surface);
   border-top: 1px solid var(--border);
   border-radius: 0 0 var(--r-lg) var(--r-lg);
 }
+/* The row itself. Save search takes the space apply gave up when it stopped
+   stretching, so the two together still fill the panel's width. */
+.filter-panel__actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+/* Sized to fit all three across a 320px panel; wrapping is the safety net for
+   a narrower one or a longer translation. */
+.filter-panel__actions .btn--quiet {
+  flex: 1;
+  min-height: 34px;
+  padding: 0 6px;
+  font-size: var(--fs-xs);
+}
+.filter-panel__actions .btn--quiet svg { width: 15px; height: 15px; }
+/* Empty until something has been saved, and then a line rather than a panel:
+   this sits in a footer that is 40px tall the rest of the time. */
+#filter-save-slot:empty { display: none; }
 
-/* Collapsible group inside the filter panel. */
-.filter-group { border-bottom: 1px solid var(--border); padding-bottom: var(--sp-4); }
+/* Collapsible group inside the filter panel. Same compaction as above: the
+   group titles move up against what they open, and the rule under each group
+   follows its content up. */
+.filter-group { border-bottom: 1px solid var(--border); padding-bottom: var(--sp-3); }
 .filter-group:last-of-type { border-bottom: 0; padding-bottom: 0; }
 .filter-group__toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--sp-1) 0 var(--sp-3);
+  padding: 0 0 var(--sp-2);
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--text);
 }
 .filter-group__toggle svg { width: 16px; height: 16px; color: var(--text-muted); transition: transform var(--dur) var(--ease); }
 .filter-group__toggle[aria-expanded='false'] svg { transform: rotate(-90deg); }
-.filter-group__content { display: flex; flex-direction: column; gap: var(--sp-4); }
+.filter-group__content { display: flex; flex-direction: column; gap: var(--sp-3); }
 /* A group with no fold — one field, its own label, no header above it. */
-.filter-group--flat { padding-top: var(--sp-1); }
+.filter-group--flat { padding-top: 0; }
 
 /* Rail button that reopens a collapsed panel. */
+/* --------------------------------------------------------------------------
+   Features and amenities, in the filter sidebar
+
+   Thirty-four ticks in five titled groups, and a search field above them,
+   because "there are quite many of them". The list is capped and scrolls
+   inside itself rather than pushing the rest of the sidebar's groups a screen
+   and a half down; the search box stays put above it so typing never scrolls
+   away from what it is filtering.
+   -------------------------------------------------------------------------- */
+.amenity-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--sp-3);
+}
+.amenity-search > svg {
+  position: absolute;
+  left: var(--sp-3);
+  width: 16px; height: 16px;
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+.amenity-search__input { padding-left: calc(var(--sp-3) * 2 + 16px); }
+/* The platform's own clear button would sit on top of this one. */
+.amenity-search__input::-webkit-search-cancel-button { display: none; }
+.amenity-search__clear {
+  position: absolute;
+  right: var(--sp-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--text-muted);
+}
+.amenity-search__clear:hover { background: var(--surface-3); color: var(--text); }
+.amenity-search__clear svg { width: 14px; height: 14px; }
+
+.amenity-filter {
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: var(--sp-2);
+}
+.amenity-filter__group { border: 0; padding: 0; margin: 0; }
+.amenity-filter__group + .amenity-filter__group { margin-top: var(--sp-4); }
+.amenity-filter__group[hidden] { display: none; }
+.amenity-filter .check[hidden] { display: none; }
+
 .filter-rail {
   display: none;
   position: sticky;
@@ -686,6 +1199,18 @@ body.is-locked { overflow: hidden; }
   z-index: 5;
 }
 .search-layout.is-collapsed .filter-rail { display: block; }
+
+/*
+  Right-hinged rail, used by the add-listing progress panel. Its grid column
+  collapses to zero width, so the button is pinned to that column's right edge
+  and allowed to extend leftwards — the mirror of the filter rail, which simply
+  overflows rightwards out of its own zero-width column.
+
+  Deliberately no `display` here: the base .filter-rail is display:none and the
+  is-collapsed rule turns it on, so setting one on the modifier would leave the
+  rail permanently visible.
+*/
+.filter-rail--right .filter-reopen { position: absolute; right: 0; white-space: nowrap; }
 
 .filter-reopen {
   display: inline-flex;
@@ -737,6 +1262,14 @@ body.is-locked { overflow: hidden; }
 }
 .filter-fab svg { width: 18px; height: 18px; }
 
+/* Mirrored edge tab for panels that slide off the right-hand side. */
+.filter-fab--right {
+  left: auto;
+  right: 0;
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+  border-radius: var(--r-md) 0 0 var(--r-md);
+}
+
 .filter-panel__close { display: none; }
 .filter-backdrop { display: none; }
 
@@ -755,7 +1288,11 @@ body.is-locked { overflow: hidden; }
     z-index: calc(var(--z-drawer) + 1);
     width: min(360px, 88vw);
     max-height: none;
-    border-radius: 0;
+    /* Rounded on the right, top and bottom, at the client's request: the two
+       corners that meet the page. The left pair stay square — they are flush
+       against the edge of the screen, where a radius would only show a sliver
+       of the page behind them. */
+    border-radius: 0 var(--r-lg) var(--r-lg) 0;
     border-left: 0;
     box-shadow: var(--shadow-panel);
     transform: translateX(-100%);
@@ -764,7 +1301,10 @@ body.is-locked { overflow: hidden; }
   }
   .filter-panel.is-open { transform: translateX(0); visibility: visible; }
 
-  .filter-panel__header { border-radius: 0; }
+  /* The sticky header and footer are clipped by the panel's own corners, so
+     they follow its radius on the side that has one. */
+  .filter-panel__header { border-radius: 0 var(--r-lg) 0 0; }
+  .filter-panel__footer { border-radius: 0 0 var(--r-lg) 0; }
   .filter-panel__collapse { display: none; }
   .filter-panel__close { display: inline-flex; }
 
@@ -903,10 +1443,98 @@ body.is-locked { overflow: hidden; }
   .side-nav__link { white-space: nowrap; }
 }
 
-.side-nav__group { display: flex; flex-direction: column; gap: 2px; }
-.side-nav__group + .side-nav__group { margin-top: var(--sp-5); }
+/* --------------------------------------------------------------------------
+   Collapsible account menu — .shell--nav
+
+   The same two-state behaviour as the search page's filter panel, which is
+   what the client asked for: pushed off to the left with a rail left behind on
+   wide screens, an overlay drawer on narrow ones. It is opt-in through the
+   modifier so the admin shell, which shares .shell and .side-nav, is untouched.
+
+   The rules below win over the generic .side-nav block above by specificity,
+   including inside its 1080px media query — .shell--nav .side-nav is two
+   classes to one, and both media queries end at the same breakpoint.
+   -------------------------------------------------------------------------- */
+.shell--nav { transition: grid-template-columns var(--dur-slow) var(--ease); }
+.shell--nav.is-collapsed { grid-template-columns: 0 minmax(0, 1fr); gap: 0; }
+.shell--nav.is-collapsed .side-nav { display: none; }
+
+/* The panel's own header, carrying the collapse and close buttons. Sticky, so
+   the way out stays on screen however far the menu is scrolled. */
+.side-nav__header {
+  /* top: 0 is the top of the panel's padding box, which the negative margin
+     below has already pulled this row up to — so it is pinned from the start
+     and never slides under the panel's own padding. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  /* Negative side margins let the header span the panel's full width while the
+     nav keeps its padding for the links. */
+  margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.side-nav__title { font-size: var(--fs-sm); font-weight: 600; color: var(--text); }
+
+.shell--nav .filter-rail { display: none; }
+.shell--nav.is-collapsed .filter-rail { display: block; }
+
+@media (max-width: 1080px) {
+  .shell--nav { grid-template-columns: minmax(0, 1fr); }
+  .shell--nav .filter-rail { display: none; }
+  .shell--nav .filter-fab { display: inline-flex; }
+
+  /* Back to a vertical list: below this width the menu is an overlay panel,
+     not a strip above the content, so the horizontal-scroll treatment that the
+     generic .side-nav takes here does not apply. */
+  .shell--nav .side-nav {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: calc(var(--z-drawer) + 1);
+    display: block;
+    width: min(320px, 86vw);
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 0 var(--r-lg) var(--r-lg) 0;
+    border-left: 0;
+    box-shadow: var(--shadow-panel);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform var(--dur-slow) var(--ease), visibility var(--dur-slow);
+  }
+  .shell--nav .side-nav.is-open { transform: translateX(0); visibility: visible; }
+
+  /* The shared backdrop only switches on below 1024px for the filter panel;
+     this menu overlays from 1080px down, so it needs the extra 56px band. */
+  .shell--nav .filter-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-drawer);
+    background: var(--overlay);
+  }
+  .shell--nav .side-nav__group { display: flex; flex-direction: column; gap: 2px; }
+  .shell--nav .side-nav__label { display: block; }
+  .shell--nav .side-nav__header { border-radius: 0 var(--r-lg) 0 0; }
+  .shell--nav .filter-panel__collapse { display: none; }
+  .shell--nav .filter-panel__close { display: inline-flex; }
+}
+
+/*
+  Group rhythm. The client asked for the sections to sit closer together — the
+  32px that used to separate them made a nine-item menu scroll on a laptop.
+*/
+.side-nav__group { display: flex; flex-direction: column; gap: 1px; }
+.side-nav__group + .side-nav__group { margin-top: var(--sp-3); }
 .side-nav__label {
-  padding: 0 var(--sp-3) var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) 2px;
   font-size: var(--fs-2xs);
   font-weight: 600;
   text-transform: uppercase;
@@ -917,7 +1545,7 @@ body.is-locked { overflow: hidden; }
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-md);
   font-size: var(--fs-sm);
   font-weight: 500;
@@ -949,10 +1577,11 @@ body.is-locked { overflow: hidden; }
    left an empty band before the first listing. Roughly half brings the
    featured block up without letting it crowd the search panel.
    -------------------------------------------------------------------------- */
-.section--after-hero { padding-top: calc(var(--section-y) * 0.35); }
-/* The heading sits closer to its cards too — the default 40px suits a section
-   that opens after a rule, not one tucked straight under the search panel. */
-.section--after-hero .section__head { margin-bottom: var(--sp-6); }
+.section--after-hero { padding-top: calc(var(--section-y) * 0.5); }
+/* No heading override any more. The default is 20px for every section on the
+   page, which is what "the distance gaps between the blocks would be the same"
+   asks for — a first block tucked closer to its cards than the eight below it
+   is the mismatch, not the fix. */
 
 /*
   Compact heading block. The default gap suits headings that stand alone; an

@@ -1,34 +1,58 @@
 {{ define "content" }}
 {{ $d := .Data }}
 
-{{ template "account-head" dict "Title" "My listings"
-   "Lede" "Everything you've published, and everything still waiting to go live." }}
+{{/*
+  No lede.
 
-<div class="container section">
-  <div class="shell">
+  It read "Everything you've published, and everything still waiting to go
+  live", which the client asked to remove — and the second half of it had
+  stopped being true anyway, now that nothing waits for anyone to look at it
+  before going live.
+*/}}
+{{ template "account-head" dict "Title" "My listings" }}
+
+<div class="container section section--after-head">
+  <div class="shell shell--nav" x-data="previaPanel('previa-account-nav')"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
     {{ template "account-nav" . }}
 
-    <div class="stack stack--lg">
+    {{/*
+      Two dialogs, one of each, shared by every row.
+
+      `promoting` holds the title of the listing whose promotion dialog is open;
+      `stats` holds the whole statistics object for the listing whose panel is
+      open, handed over as JSON at the moment the button is pressed. Rendering a
+      copy of either per listing would put the same radio groups and the same
+      fourteen-bar chart on the page a dozen times over.
+    */}}
+    <div class="stack stack--lg" x-data="{ promoting: null, stats: null }">
       <div class="row row--between">
+        {{/*
+          Three states, and they describe payment rather than moderation:
+          a listing is entered (draft), paid for (active), or its paid period
+          has run out (expired). "Pending review" and "Rejected" are gone — as
+          the client put it, "there is no pending review as noone will not look
+          the ads before publishing, and so nothing is rejected".
+        */}}
         <div class="tabs" role="tablist" aria-label="Listing status">
           <a class="tab {{ if not $d.Status }}is-active{{ end }}" href="/my-listings">
             All <span class="tab__count numeric">{{ index $d.Counts "all" }}</span>
           </a>
+          <a class="tab {{ if eq $d.Status "draft" }}is-active{{ end }}" href="/my-listings?status=draft">
+            Draft <span class="tab__count numeric">{{ index $d.Counts "draft" }}</span>
+          </a>
           <a class="tab {{ if eq $d.Status "active" }}is-active{{ end }}" href="/my-listings?status=active">
             Active <span class="tab__count numeric">{{ index $d.Counts "active" }}</span>
-          </a>
-          <a class="tab {{ if eq $d.Status "pending" }}is-active{{ end }}" href="/my-listings?status=pending">
-            Pending <span class="tab__count numeric">{{ index $d.Counts "pending" }}</span>
           </a>
           <a class="tab {{ if eq $d.Status "expired" }}is-active{{ end }}" href="/my-listings?status=expired">
             Expired <span class="tab__count numeric">{{ index $d.Counts "expired" }}</span>
           </a>
-          <a class="tab {{ if eq $d.Status "rejected" }}is-active{{ end }}" href="/my-listings?status=rejected">
-            Rejected <span class="tab__count numeric">{{ index $d.Counts "rejected" }}</span>
-          </a>
         </div>
         <a class="btn btn--primary btn--sm" href="/add-listing">add listing</a>
       </div>
+
+      {{/* Where a clone lands, so the confirmation appears above the table. */}}
+      <div id="clone-slot"></div>
 
       {{ if $d.Listings }}
       {{/*
@@ -71,17 +95,86 @@
                   </div>
                 </div>
               </td>
-              <td data-label="Status"><span class="badge badge--{{ statusTone .Status }}">{{ statusLabel .Status }}</span></td>
+              {{/* The explanation is a tooltip, not a column of prose. Draft
+                   and expired leave the seller in the same position and it is
+                   worth being able to check that — but repeated down every row
+                   it crushed the two columns either side of it, and the client
+                   had just asked for less standing text on this page, not
+                   more. */}}
+              <td data-label="Status">
+                <span class="badge badge--{{ statusTone .Status }}"
+                      title="{{ statusHint .Status }}">{{ statusLabel .Status }}</span>
+              </td>
               <td class="numeric nowrap" data-label="Price">{{ money .Price }}</td>
               <td class="numeric" data-label="Views">{{ .Views }}</td>
               <td class="numeric" data-label="Saves">{{ .Saves }}</td>
-              <td class="text-sm muted nowrap" data-label="Expires">{{ date .ExpiresAt }}</td>
+              {{/* A listing that has never been paid for has nothing to
+                   expire, so the column reads as empty rather than as a date
+                   in 1970. */}}
+              <td class="text-sm muted nowrap" data-label="Expires">
+                {{ if .ExpiresAt.IsZero }}—{{ else }}{{ date .ExpiresAt }}{{ end }}
+              </td>
               <td data-label="Actions">
                 <div class="table__actions">
+                  {{/*
+                    Statistics — the client's "there somewhere has to be the
+                    statistics, what shows how many visitors have seen this ad
+                    per day, so statistic window". Offered on every listing: a
+                    draft has none yet and says so, and an expired one's history
+                    is exactly what decides whether it is worth re-activating.
+                  */}}
+                  {{ $s := index $d.Stats .ID }}
+                  <button type="button" class="btn btn--quiet btn--sm"
+                          @click="stats = {{ jsonValue $s }}"
+                          aria-label="Statistics for {{ .Title }}"
+                          title="Statistics">{{ template "icon" "chart" }}</button>
+
+                  {{/*
+                    Promotion is buyable at any point while a listing is
+                    online, not only when it is published — the client's
+                    example being 30 days online, two featured days now and
+                    three more a fortnight later. Only on an active listing:
+                    promoting something nobody can see does nothing.
+                  */}}
+                  {{ if eq .Status "active" }}
+                  <button type="button" class="btn btn--quiet btn--sm"
+                          @click="promoting = {{ .Title | json }}"
+                          aria-label="Promote {{ .Title }}"
+                          title="Feature this listing">{{ template "icon" "sparkle" }}</button>
+                  {{ end }}
+
                   <a class="btn btn--quiet btn--sm" href="/add-listing?step=1"
-                     aria-label="Edit {{ .Title }}">{{ template "icon" "edit" }}</a>
+                     aria-label="Edit {{ .Title }}" title="Edit">{{ template "icon" "edit" }}</a>
+
+                  {{/* Clone. The copy is always a draft, whatever this one is:
+                       a duplicate has not been paid for. */}}
+                  <button type="button" class="btn btn--quiet btn--sm"
+                          hx-post="/listing/clone/{{ .ID }}"
+                          hx-target="#clone-slot" hx-swap="innerHTML"
+                          aria-label="Clone {{ .Title }}"
+                          title="Duplicate this listing">{{ template "icon" "copy" }}</button>
+
+                  {{/*
+                    Activate, on the two states that are off the market. The
+                    client listed re-activation among what an expired listing
+                    must offer, and a draft needs the same door — activating is
+                    how either one goes online, and both go through payment.
+                  */}}
+                  {{ if .Status.IsEditable }}
+                  <a class="btn btn--quiet btn--sm" href="/checkout?listing={{ .ID }}"
+                     aria-label="{{ if eq .Status "expired" }}Re-activate{{ else }}Activate{{ end }} {{ .Title }}"
+                     title="{{ if eq .Status "expired" }}Re-activate this listing{{ else }}Activate this listing{{ end }}">
+                    {{ template "icon" "power" }}
+                  </a>
+                  {{ end }}
+
                   <a class="btn btn--quiet btn--sm" href="{{ propertyURL . }}"
-                     aria-label="View {{ .Title }}">{{ template "icon" "eye" }}</a>
+                     aria-label="View {{ .Title }}" title="View">{{ template "icon" "eye" }}</a>
+
+                  <button type="button" class="btn btn--quiet btn--sm btn--danger-quiet" x-data
+                          @click="previaToast('Deleting is mocked in this build — nothing was removed.', 'warning')"
+                          aria-label="Delete {{ .Title }}"
+                          title="Delete">{{ template "icon" "trash" }}</button>
                 </div>
               </td>
             </tr>
@@ -95,7 +188,148 @@
            "Text" "No listings match this status. Publish a property to get started."
            "ActionHref" "/add-listing" "ActionLabel" "add listing" }}
       {{ end }}
+
+      {{/*
+        The statistics window.
+
+        A daily series rather than a running total: a total says a listing has
+        been seen, a series says whether it still is — which is what a seller
+        deciding between re-activating and promoting actually needs. Bars are
+        drawn with the same .bars component the admin dashboard uses, so there
+        is one chart treatment on the site and no charting library.
+      */}}
+      <template x-if="stats">
+        <div class="modal-backdrop" @click.self="stats = null"
+             @keydown.escape.window="stats = null">
+          <div class="modal modal--lg" role="dialog" aria-modal="true"
+               x-trap.noscroll="stats" aria-labelledby="stats-title">
+            <div class="modal__header">
+              <h2 class="modal__title" id="stats-title">Statistics</h2>
+              <button type="button" class="icon-btn" @click="stats = null"
+                      aria-label="Close">{{ template "icon" "close" }}</button>
+            </div>
+            <div class="modal__body stack">
+              <p class="text-sm"><strong x-text="stats.title"></strong></p>
+
+              <div class="stat-strip">
+                <div class="stat-strip__item">
+                  <span class="stat-strip__value numeric"
+                        x-text="stats.days.reduce((n, d) => n + d.views, 0)"></span>
+                  <span class="stat-strip__label">Views in 14 days</span>
+                </div>
+                <div class="stat-strip__item">
+                  <span class="stat-strip__value numeric"
+                        x-text="(stats.days.reduce((n, d) => n + d.views, 0) / stats.days.length).toFixed(1)"></span>
+                  <span class="stat-strip__label">Average per day</span>
+                </div>
+                <div class="stat-strip__item">
+                  <span class="stat-strip__value numeric" x-text="stats.views"></span>
+                  <span class="stat-strip__label">Views in total</span>
+                </div>
+                <div class="stat-strip__item">
+                  <span class="stat-strip__value numeric" x-text="stats.saves"></span>
+                  <span class="stat-strip__label">Saved by</span>
+                </div>
+              </div>
+
+              {{/*
+                Bars scaled to the busiest day, so the shape of the fortnight is
+                readable whether a listing gets five views a day or five hundred.
+                Each bar carries its own count as a title and in a visually
+                hidden caption, so the chart is not the only way to read it.
+              */}}
+              <figure class="stats-chart">
+                <figcaption class="text-xs muted">Visitors per day, last 14 days</figcaption>
+                <div class="bars bars--dense" role="img"
+                     :aria-label="'Daily views: ' + stats.days.map(d => d.label + ', ' + d.views).join('; ')">
+                  <template x-for="d in stats.days" :key="d.label">
+                    <div class="bars__col">
+                      <span class="bars__value numeric" x-text="d.views"></span>
+                      <div class="bars__bar"
+                           :style="'height:' + Math.max(4, Math.round(d.views * 100 /
+                                     Math.max(1, ...stats.days.map(x => x.views)))) + '%'"
+                           :title="d.label + ': ' + d.views + ' views'"></div>
+                      <span class="bars__label" x-text="d.label"></span>
+                    </div>
+                  </template>
+                </div>
+              </figure>
+
+              <p class="text-xs muted">
+                Counted once per visitor per day. A listing's traffic is highest in
+                its first days online and after each promotion.
+              </p>
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--secondary" @click="stats = null">Close</button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      {{/* Buy promotion for a listing that is already online. */}}
+      <template x-if="promoting">
+        <div class="modal-backdrop" @click.self="promoting = null"
+             @keydown.escape.window="promoting = null">
+          <div class="modal modal--lg" role="dialog" aria-modal="true"
+               x-trap.noscroll="promoting" aria-labelledby="promo-title">
+            <div class="modal__header">
+              <h2 class="modal__title" id="promo-title">Promote this listing</h2>
+              <button type="button" class="icon-btn" @click="promoting = null"
+                      aria-label="Close">{{ template "icon" "close" }}</button>
+            </div>
+            <div class="modal__body">
+              <p class="text-sm">
+                <strong x-text="promoting"></strong>
+              </p>
+              <p class="text-sm muted" style="margin-top:var(--sp-2)">
+                Promotion runs for the number of days you buy, independently of
+                how long the listing itself stays online. You can come back and
+                add more days at any time.
+              </p>
+              {{ template "promotion-picker" dict "Promotions" $d.Promotions "IDPrefix" "acct" }}
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--secondary" @click="promoting = null">Cancel</button>
+              <a class="btn btn--primary" href="/checkout?promotion=1">Continue to payment</a>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
+  </div>
+</div>
+{{ end }}
+
+
+{{/*
+  HTMX fragments for the clone action.
+
+  Nothing is written in this build, so the confirmation says what would have
+  been created rather than claiming a row exists — and names it, so the seller
+  can see the copy took its title. A backend swaps the mock's CloneListing for
+  an INSERT and only this wording changes.
+*/}}
+{{ define "clone-created" }}
+<div class="alert alert--success" role="status">
+  {{ template "icon" "check-circle" }}
+  <div>
+    <p class="alert__title">Copied to a new draft</p>
+    <p>
+      <strong>{{ .Title }}</strong> was duplicated. The copy is a draft — nothing is
+      online until you activate it. Editing and publishing are mocked in this build,
+      so the row below is unchanged.
+    </p>
+  </div>
+</div>
+{{ end }}
+
+{{ define "clone-failed" }}
+<div class="alert alert--error" role="status">
+  {{ template "icon" "alert" }}
+  <div>
+    <p class="alert__title">That listing could not be copied</p>
+    <p>It may have been removed. Refresh the page and try again.</p>
   </div>
 </div>
 {{ end }}

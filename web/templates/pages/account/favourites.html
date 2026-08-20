@@ -4,8 +4,9 @@
 {{ template "account-head" dict "Title" "Favourites"
    "Lede" "Properties you've saved. We'll tell you if any of them change price." }}
 
-<div class="container section">
-  <div class="shell">
+<div class="container section section--after-head">
+  <div class="shell shell--nav" x-data="previaPanel('previa-account-nav')"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
     {{ template "account-nav" . }}
 
     <div class="stack stack--lg">

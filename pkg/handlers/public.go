@@ -16,7 +16,6 @@ type HomeData struct {
 	Brokers      []models.Broker
 	Articles     []models.Article
 	Locations    []data.LocationCount
-	Types        []TypeTile
 	Testimonials []models.Testimonial
 	TotalCount   int
 	// LocationSuggestions backs the hero's single Location field, the same
@@ -29,15 +28,15 @@ type HomeData struct {
 	// Without it every card on the homepage drew an empty heart even for a
 	// listing already saved, and the first press appeared to do nothing.
 	Favourites map[string]bool
+	// BrokerAdPlan prices the strip above, so the section can say what a
+	// placement in it costs to the brokers reading it.
+	BrokerAdPlan models.BrokerAdPlan
 }
 
-// TypeTile backs the "browse by property type" section.
-type TypeTile struct {
-	Type  models.PropertyType
-	Label string
-	Icon  string
-	Count int
-}
+// TypeTile and the per-type counts it carried went with the homepage's
+// browse-by-type section, which the client asked to have removed. The catalogue
+// itself is untouched: the hero picker and the search sidebar still render every
+// category from models.PropertyTypes.
 
 // Home renders the homepage.
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
@@ -56,18 +55,12 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	// The hero carries the market picker on this page, so the header drops it.
 	pd.MarketInBanner = true
 
-	// Browse-by-type tiles, straight from the shared catalogue so a category
-	// added there appears here without a second edit.
-	counts := h.Store.Properties.CountByType(ctx, "")
-	tiles := make([]TypeTile, 0, len(models.PropertyTypes))
-	for _, t := range models.PropertyTypes {
-		tiles = append(tiles, TypeTile{t.Value, t.Label, t.Icon, counts[t.Value]})
-	}
-
 	all, _ := h.Store.Properties.Search(ctx, data.PropertyFilter{PerPage: 1})
 
 	featured := h.Store.Properties.Featured(ctx, pd.Country.Code, 10)
-	recent := h.Store.Properties.Recent(ctx, pd.Country.Code, 8)
+	// Ten, like Featured above: the two share a grid now, so eight would have
+	// left the second row three cards short of the row above it.
+	recent := h.Store.Properties.Recent(ctx, pd.Country.Code, 10)
 
 	favs := map[string]bool{}
 	for _, p := range append(append([]models.Property{}, featured...), recent...) {
@@ -76,13 +69,19 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 
 	pd.Data = HomeData{
 		// Ten fills two complete rows at the five-across desktop density.
-		Featured:            featured,
-		Recent:              recent,
-		Developments:        take(h.Store.Content.Developments(ctx, pd.Country.Code), 3),
-		Brokers:             h.Store.Brokers.Promoted(ctx, pd.Country.Code, 4),
-		Articles:            take(h.Store.Content.Articles(ctx), 3),
+		Featured:     featured,
+		Recent:       recent,
+		Developments: take(h.Store.Content.Developments(ctx, pd.Country.Code), 3),
+		// Two rows of four, and no more: "in the frontpage there are only 2
+		// rows broker ads." The strip is ordered newest purchase first, so a
+		// ninth ad pushes the oldest one off the homepage — it keeps running
+		// on /brokers until its paid period ends.
+		Brokers:      h.Store.Brokers.Promoted(ctx, pd.Country.Code, homeBrokerAds),
+		BrokerAdPlan: h.Store.Catalog.BrokerAdPlan(ctx),
+		// Ten fills the two rows of five the client asked the homepage article
+		// block to show, at the same density as the article index.
+		Articles:            take(h.Store.Content.Articles(ctx), 10),
 		Locations:           h.Store.Properties.PopularLocations(ctx, pd.Country.Code, 8),
-		Types:               tiles,
 		Testimonials:        h.Store.Catalog.Testimonials(ctx),
 		TotalCount:          all.Total,
 		Favourites:          favs,
@@ -93,6 +92,10 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 
 	h.View.Render(w, http.StatusOK, "home", pd)
 }
+
+// homeBrokerAds is how many paid broker placements the homepage strip shows:
+// two rows of the four-column .broker-strip grid.
+const homeBrokerAds = 8
 
 func take[T any](items []T, n int) []T {
 	if len(items) <= n {

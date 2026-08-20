@@ -1,0 +1,76 @@
+{{/*
+  Paid promotion picker.
+
+  The client's rule for these: they are additional services, so a checkbox on
+  its own is not enough — ticking one has to show what it costs and let the
+  seller choose how many days it runs for. Longer runs are cheaper per day, so
+  each option carries its own price rather than a daily rate multiplied out.
+
+  The same component serves both places a promotion can be bought:
+
+    - the Publish section of the add-listing form, when the listing goes live
+    - My listings, at any point afterwards, so a seller who took two featured
+      days at publish can buy three more a fortnight later
+
+  Args (dict):
+    Promotions  []models.Promotion
+    IDPrefix    string   unique per page, since both uses can appear at once
+
+  State lives in one Alpine component per picker so the running total can be
+  summed across both promotions. Nothing is submitted this milestone; the
+  chosen days travel as ordinary form fields for whichever backend takes over.
+*/}}
+{{ define "promotion-picker" }}
+{{ $p := .IDPrefix }}
+<div class="promo-picker" x-data="previaPromotions()" @change="recalc()">
+  {{ range $.Promotions }}
+  {{ $kind := printf "%s" .Kind }}
+  <div class="promo" :class="{ 'is-on': on.{{ $kind }} }">
+    <label class="check promo__check">
+      <input type="checkbox" name="promo_{{ $kind }}" value="1" x-model="on.{{ $kind }}">
+      <span class="check__text">{{ .Name }}</span>
+    </label>
+
+    {{/*
+      Everything below appears only once the box is ticked, so an untouched
+      Publish section stays as short as it was.
+    */}}
+    <div class="promo__body" x-show="on.{{ $kind }}" x-cloak x-collapse>
+      <p class="promo__info">{{ template "icon" "info" }} <span>{{ .Info }}</span></p>
+
+      <fieldset class="promo__tiers">
+        <legend class="field__label">
+          {{ if eq $kind "featured" }}Feature for{{ else }}Bump for{{ end }}
+        </legend>
+        <div class="promo__grid">
+          {{ range $i, $t := .Tiers }}
+          {{/* data-price is what recalc() sums; keeping it on the input means
+               the running total has one source of truth, the same radio the
+               seller actually chose. */}}
+          <label class="promo__tier">
+            <input type="radio" id="{{ $p }}-{{ $kind }}-{{ $t.Days }}"
+                   name="promo_{{ $kind }}_days" value="{{ $t.Days }}"
+                   data-price="{{ $t.Price.Amount }}"
+                   {{ if eq $i 0 }}checked{{ end }}>
+            <span class="promo__tier-face">
+              <span class="promo__tier-days">{{ $t.Days }} {{ if eq $t.Days 1 }}day{{ else }}days{{ end }}</span>
+              <span class="promo__tier-price numeric">{{ money $t.Price }}</span>
+            </span>
+          </label>
+          {{ end }}
+        </div>
+      </fieldset>
+    </div>
+  </div>
+  {{ end }}
+
+  {{/*
+    Running total for the add-ons alone, kept separate from the package price
+    so it is obvious that these are extras. Hidden until something is ticked.
+  */}}
+  <p class="promo__total" x-show="total > 0" x-cloak>
+    <span>Promotion total</span>
+    <strong class="numeric">€<span x-text="total"></span></strong>
+  </p>
+</div>
+{{ end }}

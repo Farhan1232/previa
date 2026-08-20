@@ -4,6 +4,14 @@
 <div class="page-head">
   <div class="container">
     <div class="page-head__inner">
+      {{/* Breadcrumb, in the same place as on every other page: the client
+           asked for it "always there in the same place". */}}
+      <nav aria-label="Breadcrumb">
+        <ol class="breadcrumbs">
+          <li><a href="/">Home</a> {{ template "icon" "chevron-right" }}</li>
+          <li aria-current="page">Advertise on Previa</li>
+        </ol>
+      </nav>
       <h1 class="page-head__title">Advertise on Previa</h1>
       <p class="lede">
         Reach buyers, renters and sellers at the moment they are searching.

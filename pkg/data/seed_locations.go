@@ -189,4 +189,7 @@ func ApplyLocation(f *PropertyFilter, resolve func(string) (models.LocationSugge
 	f.City = s.City
 	f.District = s.District
 	f.Address = s.Address
+	// And where it is, which is what every card's distance line is measured
+	// from. Nothing is matched on the point — see PropertyFilter.Lat.
+	f.Lat, f.Lng = s.Lat, s.Lng
 }

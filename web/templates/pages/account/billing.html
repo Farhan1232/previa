@@ -4,8 +4,9 @@
 {{ template "account-head" dict "Title" "Billing and payments"
    "Lede" "Your invoices, payment methods and billing details." }}
 
-<div class="container section">
-  <div class="shell">
+<div class="container section section--after-head">
+  <div class="shell shell--nav" x-data="previaPanel('previa-account-nav')"
+       :class="{ 'is-collapsed': collapsed, 'is-drawer-open': drawer }">
     {{ template "account-nav" . }}
 
     <div class="stack stack--lg">

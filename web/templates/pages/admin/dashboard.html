@@ -109,17 +109,27 @@
         </section>
       </div>
 
+      {{/*
+        Recently published, not "waiting for moderation".
+
+        Nothing queues in front of publication — the client's rule — so there is
+        no backlog to count and no approval to chase. What an administrator
+        actually needs from this panel is the opposite: sight of what went live
+        without anyone looking at it, so anything that should not have can be
+        taken down.
+      */}}
       <section class="card">
         <div class="card__header">
-          <h2 class="card__title">Waiting for moderation</h2>
-          <a class="btn btn--primary btn--sm" href="/admin/listings?status=pending">
-            Review {{ $s.PendingCount }} listings
+          <h2 class="card__title">Recently published</h2>
+          <a class="btn btn--primary btn--sm" href="/admin/listings?status=active">
+            Review live listings
           </a>
         </div>
         <div class="card__body">
           <p class="text-sm muted">
-            {{ $s.PendingCount }} listings are awaiting approval. The oldest has
-            been waiting 6 hours.
+            Listings go live as soon as they are paid for — nothing is held for
+            approval. Spot-check what has been published, or take a listing down
+            from its row.
           </p>
         </div>
       </section>

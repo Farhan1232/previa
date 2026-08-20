@@ -1,4 +1,45 @@
 {{/* ------------------------------------------------------------------
+     Sort by — one menu, rendered in both places that offer it.
+
+     The client's 18 August note: "in the maps page there is 'All locations ·
+     Newest first' there make the same 'sort by' menu as in listing page. And
+     sort by in both places write with small letter."
+
+     "The same menu" is taken literally: the map page used to print the current
+     order as a dead piece of text beside the location, so a reader who wanted a
+     different order had to leave the map for the grid. Defining the control
+     once means the six options, their labels and their order cannot drift apart
+     between the two screens — which is the failure the note is really about.
+
+     Lower-case "sort by" is the client's second sentence, and applies to both.
+
+     Args (dict):
+       Sort  data.SortOrder   what is selected now
+       ID    string           the select's id, unique per screen
+
+     The response is a whole #results (the map view sends its header alongside,
+     out of band), so the swap is outerHTML for the same reason the filter form
+     uses it. hx-include picks up the filter panel, so changing the order keeps
+     every filter that was already applied.
+     ------------------------------------------------------------------ */}}
+{{ define "sort-select" }}
+<div class="sort-field">
+  <label class="field__label sort-field__label" for="{{ .ID }}">sort by</label>
+  <select class="select sort-field__select" id="{{ .ID }}" name="sort"
+          hx-get="/search/results" hx-target="#results" hx-swap="outerHTML"
+          hx-include="#filter-form" hx-push-url="true">
+    <option value="newest"     {{ if eq .Sort "newest" }}selected{{ end }}>Newest first</option>
+    <option value="price_asc"  {{ if eq .Sort "price_asc" }}selected{{ end }}>Price: low to high</option>
+    <option value="price_desc" {{ if eq .Sort "price_desc" }}selected{{ end }}>Price: high to low</option>
+    <option value="area_desc"  {{ if eq .Sort "area_desc" }}selected{{ end }}>Largest first</option>
+    <option value="price_m2"   {{ if eq .Sort "price_m2" }}selected{{ end }}>Price per m²</option>
+    <option value="popular"    {{ if eq .Sort "popular" }}selected{{ end }}>Most viewed</option>
+  </select>
+</div>
+{{ end }}
+
+
+{{/* ------------------------------------------------------------------
      Results region — the only part HTMX replaces on a filter change.
      ------------------------------------------------------------------ */}}
 {{ define "results-region" }}
@@ -15,19 +56,7 @@
     </p>
 
     <div class="row row--tight">
-      <div class="field" style="flex-direction:row;align-items:center;gap:var(--sp-2)">
-        <label class="field__label" for="sort" style="white-space:nowrap">Sort by</label>
-        <select class="select" id="sort" name="sort" style="min-height:40px;width:auto"
-                hx-get="/search/results" hx-target="#results" hx-swap="innerHTML"
-                hx-include="#filter-form" hx-push-url="true">
-          <option value="newest"     {{ if eq $d.Filter.Sort "newest" }}selected{{ end }}>Newest first</option>
-          <option value="price_asc"  {{ if eq $d.Filter.Sort "price_asc" }}selected{{ end }}>Price: low to high</option>
-          <option value="price_desc" {{ if eq $d.Filter.Sort "price_desc" }}selected{{ end }}>Price: high to low</option>
-          <option value="area_desc"  {{ if eq $d.Filter.Sort "area_desc" }}selected{{ end }}>Largest first</option>
-          <option value="price_m2"   {{ if eq $d.Filter.Sort "price_m2" }}selected{{ end }}>Price per m²</option>
-          <option value="popular"    {{ if eq $d.Filter.Sort "popular" }}selected{{ end }}>Most viewed</option>
-        </select>
-      </div>
+      {{ template "sort-select" dict "Sort" $d.Filter.Sort "ID" "sort" }}
 
       <div class="view-switch" role="group" aria-label="Result view">
         <a class="view-switch__btn" href="{{ queryAdd .Query "view" "grid" }}"
@@ -53,21 +82,59 @@
   {{ if $d.Chips }}
   <div class="active-filters">
     <span class="text-xs muted">Active filters:</span>
-    {{ range $d.Chips }}
-    <span class="chip">
-      {{ .Label }}
-      <a class="chip__remove" href="/search{{ queryDrop $.Query .Key .Value }}"
-         aria-label="Remove filter {{ .Label }}">{{ template "icon" "close" }}</a>
-    </span>
-    {{ end }}
-    <a class="btn btn--ghost btn--sm" href="/search?view={{ $d.View }}">Clear all</a>
+    {{ template "filter-chips" dict "Chips" $d.Chips "Query" .Query }}
+    {{/*
+      Clear all: a red cross, not a word.
+
+      "The label-filters in the main listing page are very good. Just the
+      'Clear all' button replace with red cross (#FF0000) inside rounded
+      rectangle." It keeps its accessible name and its title, because a cross
+      on its own says nothing to a screen reader and little to a first-time
+      visitor with a pointer.
+    */}}
+    <a class="clear-filters" href="/search?view={{ $d.View }}"
+       title="Clear all filters" aria-label="Clear all filters">
+      {{ template "icon" "close" }}
+    </a>
     <span class="spacer"></span>
+    {{/* hx-include: the filter form is what holds the filters, and this button
+         sits outside it — without this the saved row would be everything
+         rather than what is on screen. */}}
     <button class="btn btn--quiet btn--sm" type="button"
-            hx-post="/save-search" hx-target="#save-search-slot" hx-swap="innerHTML">
+            hx-post="/save-search" hx-include="#filter-form"
+            hx-target="#save-search-slot" hx-swap="innerHTML">
       {{ template "icon" "bell" }} Save this search
     </button>
   </div>
   <div id="save-search-slot"></div>
+  {{ end }}
+
+  {{/*
+    Broker ads, above the listings.
+
+    "In the listings page the broker profile-ads are displayed like the
+    real-estate ads." They are the same card the homepage strip and the broker
+    directory use, in the same grid the results use, so a paid placement looks
+    like what a reader already recognises as a broker rather than like a
+    listing that lost its price.
+
+    Above rather than mixed in: they are advertising, and a paid card shuffled
+    between two listings would be read as a listing until it was too late.
+    Nothing is here unless the reader ticked Brokers in the filter panel.
+  */}}
+  {{ if $d.Brokers }}
+  <section class="results-brokers" aria-label="Brokers">
+    <p class="results-brokers__head">
+      {{ template "icon" "users" }}
+      <span>
+        <strong class="numeric">{{ len $d.Brokers }}</strong>
+        {{ if eq (len $d.Brokers) 1 }}broker{{ else }}brokers{{ end }} here
+      </span>
+    </p>
+    <div class="grid grid--results">
+      {{ range $d.Brokers }}{{ template "broker-card" dict "Broker" . }}{{ end }}
+    </div>
+  </section>
   {{ end }}
 
   {{ if eq $d.Result.Total 0 }}
@@ -119,23 +186,187 @@
 {{ end }}
 
 
+{{/* ------------------------------------------------------------------
+     Split-map header: the count, the Filters button and the tag bar.
+
+     This sits above the scrolling results column rather than inside it, so it
+     is outside #results and an ordinary HTMX swap leaves it untouched. That is
+     what the client saw: ticking Modular house and Trailer house in the drawer
+     updated the listings behind it but left the tag bar reading "Sell", and the
+     Filters badge and the property count stale with it.
+
+     So it is its own element with its own id, and the fragment response
+     re-sends it as an out-of-band swap. Rendering it as one region rather than
+     three keeps the three numbers that describe the same search — the count,
+     the badge and the tags — incapable of disagreeing with each other.
+
+     The Alpine bindings inside (the view switch, the collapse and Filters
+     buttons) survive the swap: they live in the previaMap() scope on an
+     ancestor that is never replaced, and Alpine initialises the incoming
+     subtree the moment HTMX inserts it.
+     ------------------------------------------------------------------ */}}
+
+{{/* Page render — the same markup without the out-of-band attribute. */}}
+{{ define "map-results-top" }}
+<div id="map-results-top">{{ template "map-results-top-inner" . }}</div>
+{{ end }}
+
+{{/* Fragment render — swapped by id wherever it currently sits. */}}
+{{ define "map-results-top-oob" }}
+<div id="map-results-top" hx-swap-oob="true">{{ template "map-results-top-inner" . }}</div>
+{{ end }}
+
+{{ define "map-results-top-inner" }}
+{{ $d := .Data }}
+<div class="map-results__head">
+  <div>
+    <p class="results-count" role="status" aria-live="polite">
+      <strong class="numeric">{{ $d.Result.Total }}</strong>
+      {{ if eq $d.Result.Total 1 }}property{{ else }}properties{{ end }}
+    </p>
+    {{/*
+      Where, and in what order.
+
+      The order used to be printed here as text — "All locations · Newest first"
+      — which told a reader what they had and gave them no way to change it
+      without leaving the map. It is the listings page's own control now, the
+      same six options rendered from the same definition: see "sort-select"
+      above.
+    */}}
+    <div class="map-results__meta">
+      <span class="text-xs muted map-results__where">
+        {{ if $d.Filter.City }}{{ $d.Filter.City }}{{ else }}All locations{{ end }}
+      </span>
+      {{ template "sort-select" dict "Sort" $d.Filter.Sort "ID" "map-sort" }}
+    </div>
+  </div>
+
+  <div class="row row--tight">
+    <button type="button" class="btn btn--quiet btn--sm"
+            @click="$dispatch('open-filters')">
+      {{ template "icon" "filter" }}
+      Filters
+      {{ if $d.Filter.ActiveCount }}
+      <span class="filter-reopen__count">{{ $d.Filter.ActiveCount }}</span>
+      {{ end }}
+    </button>
+    {{/*
+      List / Grid for the results beside the map.
+
+      Both are real, and both switch in place: the handler only changes a
+      class on the results container, so no request is made and the
+      filters, the market, the map viewport and any open marker popup all
+      survive the switch. The grid button used to be a link to the separate
+      grid page, which threw the map away entirely.
+
+      The active option is marked by background, weight and aria-pressed,
+      not by colour alone.
+    */}}
+    <div class="segmented segmented--sm view-switch" role="group" aria-label="Results layout">
+      {{/* aria-label as well as the visible word: the labels are hidden
+           on a narrow toolbar, leaving icon-only buttons. */}}
+      <button type="button" class="segmented__item" @click="setListMode('list')"
+              :class="{ 'is-on': listMode === 'list' }"
+              :aria-pressed="listMode === 'list'" aria-label="Show results as a list">
+        {{ template "icon" "list" }} <span>List</span>
+      </button>
+      <button type="button" class="segmented__item" @click="setListMode('grid')"
+              :class="{ 'is-on': listMode === 'grid' }"
+              :aria-pressed="listMode === 'grid'" aria-label="Show results as a grid">
+        {{ template "icon" "grid" }} <span>Grid</span>
+      </button>
+    </div>
+    <button type="button" class="icon-btn map-results__collapse" @click="togglePanel()"
+            aria-label="Hide results panel">{{ template "icon" "chevron-left" }}</button>
+  </div>
+</div>
+
+{{/*
+  The tag bar.
+
+  It holds every chosen deal type and every chosen property type, each
+  removable on its own, so a search across "rent + short rent + apartments +
+  cottages" states itself in full and can be narrowed a tag at a time. Adding
+  tags is the Filters drawer; removing them is here.
+
+  The element is always rendered, even with nothing to show, because it is an
+  out-of-band swap target: a bar that disappeared when the last tag went would
+  take its own id with it and could never come back.
+*/}}
+<div class="active-filters">
+  {{- if $d.Chips }}
+  {{ template "filter-chips" dict "Chips" $d.Chips "Query" .Query }}
+  {{/*
+    "+ filter", not "+ Add filter" — the client's 18 August wording, and the
+    shorter label sits better in a bar that is already carrying six tags.
+  */}}
+  <a class="chip chip--add" href="#" @click.prevent="$dispatch('open-filters')">
+    {{ template "icon" "plus" }} filter
+  </a>
+  {{/*
+    And the same red cross the listings page uses, doing the same job here:
+    "after that make the same red delete cross to erase all the selected filters
+    at once." Taking six tags off one at a time was the only way to start again
+    from this bar.
+
+    It keeps the view, so clearing the filters on the map leaves you on the map;
+    and it keeps its accessible name and its title, because a cross on its own
+    says nothing to a screen reader.
+  */}}
+  <a class="clear-filters" href="/search?view={{ $d.View }}"
+     title="Clear all filters" aria-label="Clear all filters">
+    {{ template "icon" "close" }}
+  </a>
+  {{- end -}}
+</div>
+{{ end }}
+
+
+{{/*
+  Map-mode fragment.
+
+  The results list is the primary swap; the header above it rides along as an
+  out-of-band swap so the tags, the badge and the count keep up with it.
+*/}}
+{{ define "map-results-fragment" }}
+{{ template "map-results-region" . }}
+{{ template "map-results-top-oob" . }}
+{{ end }}
+
+
 {{/* Map-mode results list, swapped by the same HTMX endpoint. */}}
 {{ define "map-results-region" }}
 {{ $d := .Data }}
 {{/*
-  The layout class is bound rather than baked in, so switching between List and
-  Grid never re-requests this fragment — which is what keeps the map viewport
-  and the open popup intact across a switch.
+  No layout class here.
+
+  Switching between List and Grid is a class on .map-shell — see the
+  `is-grid-mode` binding in pages/search-map-split.html — and the grid rules
+  read it from there. Nothing re-requests on a switch, so the map viewport and
+  any open marker popup survive it, which was already the point.
+
+  It used to be bound on this element instead. That put an Alpine binding on the
+  one element HTMX replaces, and after a filter change the incoming element came
+  back without the class: the toolbar still said Grid and the results were laid
+  out as a list. Binding on an ancestor that is never swapped cannot drift.
 */}}
-<div id="results" class="map-results__list results-fade"
-     :class="{ 'is-grid': listMode === 'grid' }">
+<div id="results" class="map-results__list results-fade">
+  {{/* The same broker ads the grid shows, in the column's own narrow variant —
+       and in the same order of business: advertising first, then the listings.
+       Each carries the locate button its property neighbours carry, so a card
+       can find its own pin among the others. */}}
+  {{ range $d.Brokers }}
+    {{ template "broker-card" dict "Broker" . "Variant" "map" }}
+  {{ end }}
   {{ if eq $d.Result.Total 0 }}
+    {{ if not $d.Brokers }}
     {{ template "empty-state" dict
        "Icon" "map-pin"
        "Title" "Nothing in this area"
        "Text" "Move the map or relax a filter to see more properties."
        "ActionHref" "/search?view=map"
        "ActionLabel" "Reset filters" }}
+    {{ end }}
   {{ else }}
     {{ range $d.Result.Items }}
       {{ template "property-card" dict "Property" . "Variant" "map"
@@ -146,14 +377,56 @@
 {{ end }}
 
 
-{{/* Mock confirmation after saving a search. */}}
+{{/*
+  Confirmation after saving a search, in two sizes.
+
+  Both name the search they stored — the row on /saved-searches is titled the
+  same way — because "saved" on its own does not say *what* was saved when the
+  reader has been changing filters for a minute.
+*/}}
 {{ define "save-search-success" }}
 <div class="alert alert--success" role="status" style="margin-bottom:var(--sp-4)">
   {{ template "icon" "check-circle" }}
   <div>
-    <p class="alert__title">Search saved</p>
+    <p class="alert__title">Saved: {{ .Saved.Name }}</p>
     <p>We'll email you when new properties match. Manage it in
       <a href="/saved-searches" class="strong">saved searches</a>.</p>
   </div>
 </div>
+{{ end }}
+
+{{/* The filter panel's own footer is 40px tall, so its confirmation is a line
+     rather than a panel — and it carries the link to where the search went. */}}
+{{ define "save-search-line" }}
+<p class="save-search-line" role="status">
+  {{ template "icon" "check-circle" }}
+  <span>Saved to <a href="/saved-searches">saved searches</a></span>
+</p>
+{{ end }}
+
+
+{{/*
+  The removable tag bar shared by the results header and the map view.
+
+  Args (dict):
+    Chips  []data.ActiveChip
+    Query  the current query string, so removing one tag preserves the rest
+
+  A chip with an empty Key is not removable. That is how the filter marks the
+  last remaining deal type: dropping it would leave no deal type at all, which
+  the parser reads as "Sell", so the tag would look like it had done nothing.
+*/}}
+{{ define "filter-chips" }}
+{{ $q := .Query }}
+{{ range .Chips }}
+{{ if .Key }}
+<span class="chip">
+  {{ .Label }}
+  <a class="chip__remove" href="/search{{ queryDrop $q .Key .Value }}"
+     aria-label="Remove filter {{ .Label }}">{{ template "icon" "close" }}</a>
+</span>
+{{ else }}
+<span class="chip chip--fixed">{{ .Label }}</span>
+{{ end }}
+{{ end }}
 {{ end }}

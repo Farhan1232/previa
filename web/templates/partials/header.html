@@ -15,6 +15,31 @@
         the client asked for them out of the header bar.
       */}}
       <nav class="header__nav" aria-label="Main">
+        {{/*
+          Listings — the client's 17 August note, and deliberately the first item
+          in the bar: "in the header before 'Articles' make button 'Listings'
+          which redirects to the main listings page where the big filter-menu
+          is." That page is /search, the results screen with the filter sidebar.
+
+          It marks itself current for every state of that screen — an unfiltered
+          search, one narrowed to sale or to rent, and a listing opened from it,
+          all of which the search handler labels with one of these three keys.
+        */}}
+        <a class="header__link" href="/search"
+           {{ if or (eq .Nav "search") (eq .Nav "buy") (eq .Nav "rent") }}aria-current="page"{{ end }}>Listings</a>
+        {{/*
+          Map — the client's 18 August note, and deliberately the item straight
+          after Listings: "in the header after Listings add section 'Map' so
+          this is the map page."
+
+          It is the same search, opened on the split map view, so it carries the
+          same filters and the same results; only the presentation differs. The
+          two entries never light up together, because the search handler labels
+          the map views "map" and everything else "search" — an entry that
+          stayed dark on the page it names would be worse than no entry at all.
+        */}}
+        <a class="header__link" href="/search?view=map"
+           {{ if eq .Nav "map" }}aria-current="page"{{ end }}>Map</a>
         <a class="header__link" href="/articles"
            {{ if eq .Nav "articles" }}aria-current="page"{{ end }}>Articles</a>
         <a class="header__link" href="/brokers"
@@ -109,7 +134,13 @@
             <div class="dropdown dropdown--right" x-show="open" x-cloak
                  x-transition.opacity.duration.150ms @click.outside="close()">
               <div class="menu" role="menu">
-                <p class="menu__label">{{ .User.Name }}</p>
+                {{/* The company beside the name, wherever the name appears —
+                     the client's "if he does it, then this is displayed in the
+                     frontend next to he's name". Optional, so a private seller
+                     who left it empty sees exactly what they saw before. */}}
+                <p class="menu__label">
+                  {{ .User.Name }}{{ if .User.Company }} <span class="subtle">· {{ .User.Company }}</span>{{ end }}
+                </p>
                 <a class="menu__item" role="menuitem" href="/dashboard">{{ template "icon" "grid" }} Dashboard</a>
                 <a class="menu__item" role="menuitem" href="/my-listings">{{ template "icon" "home" }} My listings</a>
                 <a class="menu__item" role="menuitem" href="/favourites">{{ template "icon" "heart" }} Favourites</a>
@@ -117,7 +148,16 @@
                 <a class="menu__item" role="menuitem" href="/billing">{{ template "icon" "card" }} Billing</a>
                 <div class="menu__divider"></div>
                 <a class="menu__item" role="menuitem" href="/settings">{{ template "icon" "settings" }} Settings</a>
+                {{/*
+                  Administrators only. "So this admin panel is the website
+                  backend? All user's do not have access there" — it is, and
+                  they do not: an ordinary account never sees this entry, and
+                  never reaches /admin either, because requireAdmin answers the
+                  route with the 404 page. Two checks, one rule — User.IsAdmin.
+                */}}
+                {{ if .User.IsAdmin }}
                 <a class="menu__item" role="menuitem" href="/admin">{{ template "icon" "shield" }} Admin panel</a>
+                {{ end }}
                 <a class="menu__item" role="menuitem" href="/logout">{{ template "icon" "logout" }} Log out</a>
               </div>
             </div>
@@ -159,12 +199,23 @@
     context can clip it.
   */}}
   <template x-teleport="body">
-    <button type="button" class="menu-trigger floating-menu" x-show="pastHeader" x-cloak
-            x-transition.opacity.duration.200ms
-            @click="openMenu()" :aria-expanded="menuOpen"
-            aria-controls="mobile-drawer" aria-label="Open navigation menu">
-      {{ template "icon" "sidebar-menu" }}
-    </button>
+    {{/*
+      Wrapped in a shell that is the header's own box — same width, same
+      centring, same inside gutter — so the button lands on the website's right
+      edge instead of the monitor's: "make that it stays always inside the
+      page, so it is always under the header right side."
+
+      The shell is always in the document and the button inside it is what
+      fades in, so nothing is measured or positioned while it is hidden.
+    */}}
+    <div class="floating-menu-shell">
+      <button type="button" class="menu-trigger floating-menu" x-show="pastHeader" x-cloak
+              x-transition.opacity.duration.200ms
+              @click="openMenu()" :aria-expanded="menuOpen"
+              aria-controls="mobile-drawer" aria-label="Open navigation menu">
+        {{ template "icon" "sidebar-menu" }}
+      </button>
+    </div>
   </template>
 
   {{/* Mobile off-canvas drawer — overlays the page, traps focus, Escape closes */}}
@@ -173,8 +224,25 @@
       <div class="drawer-backdrop" x-show="menuOpen" x-transition.opacity.duration.200ms
            @click="closeMenu()" aria-hidden="true"></div>
 
+      {{/*
+        x-trap, not x-trap.noscroll.
+
+        The .noscroll modifier puts `overflow: hidden` on <html>, which stops
+        the document being a scroll container — and every `position: sticky`
+        element on the page underneath then falls back to its static position.
+        On the search results that is the filter panel: opening this drawer
+        while scrolled down sent it 800px above the viewport, which is what the
+        client saw. "When in main listing page and open the sidebar menu on the
+        right, then the menu on the left disappears — make that it will not
+        disappear. In the layout no changes needed if right sidebar menu opens."
+
+        Dropping the modifier keeps the page behind scrollable, which is the
+        smaller cost: this drawer is fixed and does not move with the page, and
+        the modifier also added a scrollbar-width padding to <html> — a layout
+        change of exactly the kind the client's second sentence rules out.
+      */}}
       <div class="drawer" id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu"
-           x-show="menuOpen" x-trap.noscroll="menuOpen"
+           x-show="menuOpen" x-trap="menuOpen"
            x-transition:enter="drawer-enter" x-transition:enter-start="drawer-enter-start"
            x-transition:leave="drawer-leave" x-transition:leave-end="drawer-leave-end"
            @keydown.escape.window="closeMenu()">
@@ -212,7 +280,9 @@
         */}}
         <div class="drawer__body">
           {{ if .User.ID }}
-          <p class="drawer__label">{{ .User.Name }}</p>
+          <p class="drawer__label">
+            {{ .User.Name }}{{ if .User.Company }} <span class="subtle">· {{ .User.Company }}</span>{{ end }}
+          </p>
           <nav class="drawer__nav" aria-label="Account">
             <a class="drawer__link" href="/dashboard">{{ template "icon" "grid" }} Dashboard</a>
             <a class="drawer__link" href="/my-listings">{{ template "icon" "home" }} My listings</a>
@@ -233,6 +303,13 @@
           <div class="drawer__divider"></div>
 
           <nav class="drawer__nav" aria-label="Browse">
+            {{/* The header's nav bar is hidden at this width, so Listings has to
+                 appear here too or the phone loses the link the client just
+                 asked for. Same position as in the bar: first, above Articles. */}}
+            <a class="drawer__link" href="/search">{{ template "icon" "search" }} Listings</a>
+            {{/* Map keeps its place beside Listings here too — the drawer is
+                 the nav bar at this width, so the two orders must agree. */}}
+            <a class="drawer__link" href="/search?view=map">{{ template "icon" "map" }} Map</a>
             <a class="drawer__link" href="/articles">{{ template "icon" "file" }} Articles</a>
             <a class="drawer__link" href="/brokers">{{ template "icon" "users" }} Brokers</a>
             <a class="drawer__link" href="/developments">{{ template "icon" "building" }} Developments</a>
@@ -268,18 +345,27 @@
               </div>
             </div>
 
-            {{/* Day/dark mode — the same store the header button drives, so the
-                 two controls can never disagree. */}}
-            <div class="drawer__row" x-data>
-              <span x-show="$store.theme.value !== 'dark'" x-cloak>{{ template "icon" "sun" }}</span>
-              <span x-show="$store.theme.value === 'dark'" x-cloak>{{ template "icon" "moon" }}</span>
-              <span class="drawer__row-label" id="drawer-theme-label">Day/dark mode</span>
-              <label class="switch">
-                <input type="checkbox" :checked="$store.theme.value === 'dark'"
-                       @change="$store.theme.toggle()" aria-labelledby="drawer-theme-label">
-                <span class="switch__track"><span class="switch__thumb"></span></span>
-              </label>
-            </div>
+            {{/*
+              Day/dark mode — the same store the header button drives, so the
+              two controls can never disagree.
+
+              The green pill switch that used to close this row was replaced,
+              at the client's request, by the header's own theme button, so the
+              same control appears in both places. It is a decorative span
+              rather than a nested button: the whole row is the control, which
+              is what makes clicking anywhere along it toggle the theme, and it
+              gives the row the same hover behaviour as Website language and
+              Notifications above and below it.
+            */}}
+            <button type="button" class="drawer__row" x-data @click="$store.theme.toggle()"
+                    :aria-label="$store.theme.value === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'">
+              {{ template "icon" "moon" }}
+              <span class="drawer__row-label">Day/dark mode</span>
+              <span class="icon-btn drawer__row-toggle" aria-hidden="true">
+                <span x-show="$store.theme.value !== 'dark'" x-cloak>{{ template "icon" "moon" }}</span>
+                <span x-show="$store.theme.value === 'dark'" x-cloak>{{ template "icon" "sun" }}</span>
+              </span>
+            </button>
 
             <a class="drawer__link" href="/notifications">
               {{ template "icon" "bell" }}

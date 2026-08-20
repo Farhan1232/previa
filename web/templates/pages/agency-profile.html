@@ -13,7 +13,16 @@
     </nav>
 
     <div class="profile-head">
-      <span class="avatar avatar--xl">{{ initials $a.Name }}</span>
+      {{/* The agency's own logo where it has one — the same file a broker's
+           listing carries at the foot of its seller box. The monogram is the
+           fallback for an agency that has not uploaded one. */}}
+      {{ if $a.Logo }}
+      <span class="seller-logo profile-head__logo">
+        <img src="{{ $a.Logo }}" alt="{{ $a.Name }}" width="200" height="56" decoding="async">
+      </span>
+      {{ else }}
+      <span class="avatar-tile avatar-tile--lg">{{ initials $a.Name }}</span>
+      {{ end }}
       <div class="profile-head__text">
         <h1 class="page-head__title">{{ $a.Name }}</h1>
         <p class="lede" style="margin:0">{{ template "icon" "map-pin" }} {{ $a.Address }}</p>
@@ -33,7 +42,7 @@
   </div>
 </div>
 
-<div class="container section">
+<div class="container section section--after-head">
   <div class="stack stack--lg">
     <section class="stack">
       <h2 class="display display--h3">About the agency</h2>
@@ -45,7 +54,7 @@
         <div class="section__head-text"><h2 class="section__title">Our brokers</h2></div>
       </div>
       <div class="grid grid--4">
-        {{ range $d.Brokers }}{{ template "broker-card" . }}{{ end }}
+        {{ range $d.Brokers }}{{ template "broker-card" dict "Broker" . }}{{ end }}
       </div>
     </section>
 

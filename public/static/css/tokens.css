@@ -49,9 +49,23 @@
   --error: #C43D3D;
   --error-bg: #FBEDED;
   --error-border: #EAB4B4;
+
+  /* The favourite heart, and only it. The client named the value and named it
+     for both themes at once — "make #FF0000 (in day and dark theme the same)" —
+     so it is declared here once and never redefined under [data-theme='dark'],
+     which is the whole point of it not being --error. */
+  --fav: #FF0000;
   --info: #2B6CB0;
   --info-bg: #EAF1F9;
   --info-border: #B0C8E3;
+
+  /* --- Links -----------------------------------------------------------
+     The blue the client asked for where a piece of text is a link and has to
+     announce itself as one without an underline — the address on a listing is
+     the first of them. A token of its own rather than a borrowed --info,
+     because that one is tuned for notice panels and moves with them. */
+  --link: #1F63B8;
+  --link-hover: #144C93;
 
   /* --- Accent tints ----------------------------------------------------- */
   --navy-tint: #E7EDF2;
@@ -65,6 +79,25 @@
   --focus-ring-teal: 0 0 0 3px rgba(47, 111, 104, 0.28);
   --focus-ring-gold: 0 0 0 3px rgba(195, 154, 91, 0.32);
   --focus-color: var(--navy);
+
+  /* A field being typed into.
+
+     "And around these fields, when start to type there, then the bold
+     borderline will come. Make this borderline green #008000 and thinner — it
+     stays green in day and dark mode."
+
+     The colour is the client's, literally. Thinner is the second half of the
+     note and the reason there are two tokens: the frame used to be a 1px
+     border plus a 3px halo around it, four pixels of colour, and it is a 1px
+     border plus a 1px ring now.
+
+     Deliberately declared once, outside both theme blocks, and deliberately
+     not --focus-color: the theme's focus colour flips navy → gold between day
+     and night, and this one may not flip with it. Everything else that takes a
+     ring — buttons, checkboxes, cards, links — still uses --focus-ring and
+     still follows the theme. */
+  --field-focus: #008000;
+  --field-focus-ring: 0 0 0 1px #008000;
 
   /* --- Typography ------------------------------------------------------- */
   --font-display: 'DM Serif Display', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
@@ -107,9 +140,26 @@
   --sp-12: 96px;
   --sp-13: 120px;
 
-  /* Section rhythm: 80–120px desktop, 48–64px mobile. */
-  --section-y: clamp(48px, 6vw, 96px);
-  --section-y-lg: clamp(56px, 8vw, 120px);
+  /*
+    Vertical rhythm between blocks, and — now that a coloured block is an inset
+    panel rather than a full-bleed band — the padding inside one.
+
+    Cut twice. First on the client's 18 August notes, made about two different
+    pages and meaning the same thing: "reduce the line spacing between all the
+    blocks in this page" (About) and "reduce the spacing between these menu
+    blocks compat together, so move all a bit up" (homepage). Then again on the
+    19 August note about the homepage: "then move it all more a bit up, more
+    compact together, the content blocks closer the it's title … then look that
+    the distance gaps between the blocks would be the same."
+
+    One step is what makes the gaps equal. Every block on the homepage now
+    takes exactly this padding above and below, so the distance between any two
+    of them is 2 × --section-y whichever pair you measure; the old ladder of
+    section, section--lg and the per-section overrides was what made some gaps
+    read wider than others.
+  */
+  --section-y: clamp(24px, 2.6vw, 40px);
+  --section-y-lg: clamp(30px, 3.4vw, 52px);
 
   /* --- Layout -----------------------------------------------------------
      Two nested limits, and they do different jobs.
@@ -128,14 +178,61 @@
   --container: 1280px;
   --container-narrow: 820px;
   --gutter: 32px;
+
+  /* The width of a page's content, as one number.
+
+     The header, the page head and the homepage banner are panels now, at the
+     client's request on 18 August — "cut the header the same width as the page
+     content, and make the below corners round", said about the double-header
+     pages, the listings page and the homepage banner in three consecutive
+     messages. A panel needs to know where the content it is matching ends, and
+     that is what this carries.
+
+     The formula is the footer's, character for character: the content box of
+     a .container, which is --container less its two gutters, clamped so the
+     panel keeps its margins on a phone. Pages laid out on the wide container
+     override it — see body:has(.container--wide) in layout.css — because their
+     content really is wider, and a header that stopped short of the results
+     grid under it would be answering the note with the wrong number. */
+  --page-width: min(100% - var(--gutter) * 2, calc(var(--container) - var(--gutter) * 2));
+
+  /* Ceiling for the homepage hero's search panel.
+     70% of the widest content box — (--container 1280) less its two desktop
+     gutters (32 each) is 1216, and 70% of that is 851. A fixed length rather
+     than a percentage on purpose: the panel is meant to be at its largest on a
+     full screen and to shrink from there, so a ceiling is the only shape of
+     rule that cannot let it grow when the window narrows. It deliberately does
+     not read --gutter, which drops to 24 and then 16 at the responsive
+     breakpoints and would nudge the ceiling upward on smaller screens. */
+  --hero-search-max: 851px;
   --card-gap: 24px;
   --header-h: 72px;
+
+  /* Height of the search page's breadcrumb row. A token because two rules in
+     two files depend on the same number: the row sets its height from it, and
+     the advertising banner beside it reaches back up by exactly that much so
+     the two align at the top. */
+  --crumb-h: 22px;
 
   /* Width of one outer gutter once the shell has stopped growing: zero at
      1440px and below, (viewport − 1440) / 2 above it. Fixed-position controls
      that belong to the website rather than to the viewport — the floating menu
      button — offset themselves by this so they stay on the shell. */
   --shell-gutter: max(0px, calc((100vw - var(--site-shell-max-width)) / 2));
+
+  /*
+    The band the floating menu control occupies at the top of the viewport once
+    the header has scrolled away: its own offset, its 44px height, and a gap
+    under it.
+
+    Anything sticky that reaches the page's right edge has to start below this
+    or the two land on each other — which is new, and is the cost of the client
+    asking for the control to sit inside the page rather than out on the
+    monitor's edge: "make that it stays always inside the page, so it is always
+    under the header right side." The add-listing progress rail is the one
+    panel that does reach that edge.
+  */
+  --floating-menu-band: calc(max(var(--sp-4), env(safe-area-inset-top)) + 44px + var(--sp-3));
 
   /* The neutral ground the centred website sits on. Deliberately duller than
      --bg so the shell edge reads as the end of the site, not as a section. */
@@ -240,6 +337,11 @@
   --info: #6FA3DC;
   --info-bg: #11243A;
   --info-border: #2B4C74;
+
+  /* Lighter here: the light-theme blue on this navy reads as a bruise rather
+     than as a link. */
+  --link: #74AEF0;
+  --link-hover: #9BC7F6;
 
   --focus-ring: 0 0 0 3px rgba(209, 170, 104, 0.35);
   --focus-ring-teal: 0 0 0 3px rgba(90, 157, 148, 0.38);

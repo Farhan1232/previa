@@ -17,12 +17,17 @@
 
 {{ $shots := $p.Images }}
 {{/*
-  The carousel applies to the standard and compact cards only. The row variant
-  has no room for it, and the map variant sits inside the map's own Alpine
-  scope — nesting another x-data there would shadow it for no benefit, since
-  the pager and click zones are hidden on map cards anyway.
+  The carousel applies to every card except the map one.
+
+  The row variant — the list view — was excluded on the grounds that its 300px
+  of photograph had no room for a pager. The client asked for the green dots and
+  the picture switching there too, and at 300 × 225 the capsule sits as
+  comfortably as it does on a grid card, so the only exclusion left is the map
+  variant: those cards sit inside the map's own Alpine scope, and nesting
+  another x-data there would shadow it for no benefit, since the pager and the
+  click zones are hidden on map cards anyway.
 */}}
-{{ $multi := and (gt (len $shots) 1) (ne $v "row") (ne $v "map") }}
+{{ $multi := and (gt (len $shots) 1) (ne $v "map") }}
 <article class="pcard{{ if $v }} pcard--{{ $v }}{{ end }}{{ if $p.IsFeatured }} pcard--featured{{ end }}"
          {{ if $multi }}x-data="previaCardGallery({{ len $shots }})"{{ end }}
          data-property-id="{{ $p.ID }}"
@@ -128,6 +133,19 @@
       {{ if $p.IsFeatured }}
       <span class="badge badge--featured">{{ template "icon" "sparkle" }} Featured</span>
       {{ end }}
+      {{/*
+        Direct from the owner — the label the client asked for: "sometimes it
+        is important to note that the property owner itself is selling it".
+
+        Given its own colour rather than reusing the featured gold or the
+        verified green, because it is neither a paid placement nor a check
+        Previa has performed; it is a fact about who is on the other end. It
+        keeps its place on the map card too, where "New build" is dropped for
+        room — on a 132px thumbnail this is the more useful of the two.
+      */}}
+      {{ if $p.DirectFromOwner }}
+      <span class="badge badge--owner">{{ template "icon" "key" }} Direct from the owner</span>
+      {{ end }}
       {{ if and $p.IsNewDevelopment (ne $v "map") }}
       <span class="badge badge--neutral">New build</span>
       {{ end }}
@@ -174,7 +192,7 @@
 
   <div class="pcard__body">
     <p class="pcard__price numeric">
-      {{ money $p.Price }}{{ if $p.IsRental }}<span class="pcard__price-period">/month</span>{{ end }}
+      {{ money $p.Price }}{{ with $p.PricePeriod }}<span class="pcard__price-period">/{{ . }}</span>{{ end }}
     </p>
 
     <h3 class="pcard__title">
@@ -212,6 +230,50 @@
       {{ if $p.PricePerM2 }}<span class="numeric">{{ pricePerM2 $p }}</span>{{ end }}
     </div>
     {{ end }}
+
+    {{/*
+      How far this listing is from the place that was searched.
+
+      "In the Listings page the same if the user has entered the location to
+      googlemaps then all the ads displayed have on bottom the distance and
+      distance number is red." So: the word in ordinary ink and the figure in
+      red — the same line the broker cards carry, from the same component,
+      because it is the same fact.
+
+      At the bottom of what the card says, below the seller line and above the
+      messenger buttons: those are actions, and a fact printed under them would
+      read as a caption on the buttons rather than as part of the listing. On a
+      map card there is no seller line, so this is simply the last thing on it.
+
+      And the sentence that follows the client's is the important one: "the
+      order of the real-estate ads here is not automatically according to
+      nearest distance. The order stays like it is set up in the 'sort by'
+      menu." Nothing here touches the order. The distance is measured after the
+      sort, in data.Mock.Search, precisely so it cannot.
+
+      Empty unless a location resolved to a point, so a search with no place in
+      it looks exactly as it did.
+    */}}
+    {{ with $p.DistanceLabel }}
+    <p class="distance-line">
+      <span class="distance-line__label">distance</span>
+      <strong class="distance-line__value numeric">{{ . }}</strong>
+    </p>
+    {{ end }}
+
+    {{ if ne $v "map" }}
+    {{/*
+      The seller's messenger apps, as links straight into a chat with them.
+      Live on the card itself — the client's point was that a buyer should be
+      able to start the conversation from the front page without opening the
+      listing first.
+
+      .prevent is not needed: these are ordinary links, and the card's own
+      click handler is on the media area, not on the body.
+    */}}
+    {{ template "messenger-links" dict
+        "Messengers" $p.Messengers "Phone" $p.ContactPhone "Size" "sm" }}
+    {{ end }}
   </div>
 </article>
 {{ end }}
@@ -245,16 +307,47 @@
 {{/*
   Broker card.
 
-  Structured so a row of cards stays visually even: fixed-height identity
-  block, then metadata, then a footer pinned to the bottom with the contact
-  details and both actions.
+  Structured so a row of cards stays visually even: the photograph, then a
+  fixed-height identity block, then metadata, then a footer pinned to the
+  bottom with the contact details and both actions.
+
+  The photograph is the card's full width at a 4:5 portrait crop, which is the
+  client's 17 August note on the promoted strip: "in the frontpage where are
+  the ad banners of the brokers (a payd service), make the broker profile
+  picture the same size (only with rounded corners) as in kinnisvara24". Their
+  reference shows a broker's photograph filling the top of the card rather than
+  an 88px medallion above it — which is what a paid placement is buying, and
+  what makes a face recognisable at a glance.
+
+  "Only with rounded corners" is the one departure from the reference, whose
+  photographs are square-cornered: the top two follow the card's own radius,
+  the bottom two are square because the card continues underneath them.
+
+  Args (dict):
+    Broker   models.Broker   (required)
+    Variant  ""|"map"        "map" is the narrow column beside the search map
+
+  A dict rather than the broker itself, which is what it took until the search
+  page started rendering these: the map column needs a second argument, and
+  hasField only reads a dict.
 */}}
 {{ define "broker-card" }}
-{{ $b := . }}
-<article class="bcard">
-  <img class="bcard__avatar" src="{{ $b.Photo }}" alt="{{ $b.Name }}"
-       srcset="{{ srcset $b.Photo 176 352 }}" sizes="88px"
-       width="88" height="88" loading="lazy" decoding="async">
+{{ $b := .Broker }}
+{{ $v := "" }}{{ if hasField . "Variant" }}{{ $v = .Variant }}{{ end }}
+{{ $map := eq $v "map" }}
+<article class="bcard{{ if $v }} bcard--{{ $v }}{{ end }}">
+  <div class="bcard__media">
+    <img class="bcard__photo" src="{{ $b.Photo }}" alt="{{ $b.Name }}"
+         srcset="{{ srcset $b.Photo 400 800 }}"
+         sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 280px"
+         width="400" height="500" loading="lazy" decoding="async">
+    {{/*
+      The listing count over the photograph, as the reference has it. It is
+      the number a buyer scanning a row of brokers actually compares, and it
+      takes no vertical space up here.
+    */}}
+    <span class="bcard__count numeric">{{ pluralize $b.ActiveListings "listing" "listings" }}</span>
+  </div>
 
   <div class="bcard__identity">
     <h3 class="bcard__name">
@@ -266,20 +359,41 @@
     <p class="bcard__location">
       {{ template "icon" "map-pin" }} <span>{{ $b.City }}</span>
     </p>
+
+    {{/*
+      How far away this broker is.
+
+      "So on every broker profile now come the 'distance' like it is in
+      sexydate page." The reference the client sent puts the word first in
+      ordinary ink and the number after it in red, and that is what this is:
+      the label stays quiet, the figure is the thing being compared.
+
+      Rendered only when a place was actually searched — a radius search sets
+      it, the market strip does not — so a card that cannot honestly state a
+      distance simply does not carry the line. Nothing about the ordering is
+      implied by it: on the broker page the nearest is genuinely first, on the
+      search page the sort menu still decides.
+    */}}
+    {{ with $b.DistanceLabel }}
+    <p class="distance-line">
+      <span class="distance-line__label">distance</span>
+      <strong class="distance-line__value numeric">{{ . }}</strong>
+    </p>
+    {{ end }}
   </div>
 
-  <div class="bcard__meta numeric">
-    <span class="bcard__rating" aria-label="Rated {{ $b.Rating }} out of 5 from {{ $b.Reviews }} reviews">
-      {{ template "icon" "star" }} {{ $b.Rating }}
-      <span class="subtle">({{ $b.Reviews }})</span>
-    </span>
-    <span>{{ pluralize $b.ActiveListings "listing" "listings" }}</span>
-  </div>
+  {{/*
+    No rating row, and no Promoted label.
 
-  {{ if $b.IsPromoted }}
-  <span class="badge badge--featured">{{ template "icon" "sparkle" }} Promoted</span>
-  {{ end }}
+    "Under the seller's profile remove the stars and evaluations, and remove
+    the 'Promoted' label." The reason the client gave for the ratings on the
+    broker page applies here too — "there is no way we can verify it" — and the
+    paid placement is still doing its job without announcing itself: a broker
+    who has bought a market is in that market's strip, and one who has bought
+    the map is on it.
 
+    The listing count that used to share this row is on the photograph.
+  */}}
   <div class="bcard__foot">
     <div class="bcard__contact">
       <a href="mailto:{{ $b.Email }}">
@@ -294,6 +408,26 @@
       <a class="btn btn--primary btn--sm" href="mailto:{{ $b.Email }}">Contact</a>
     </div>
   </div>
+
+  {{/*
+    On the search map's results column the card also has to find itself on the
+    map, exactly as a listing's does — the client's "the system with the
+    brokers is the same as with the real estate". Same control, same place on
+    the card, calling the map component's own locate for a broker id.
+  */}}
+  {{ if $map }}
+  <div class="pcard__locate bcard__locate">
+    <button type="button" class="pcard__locate-btn"
+            @click.prevent.stop="locateBroker('{{ $b.ID }}')"
+            aria-label="Show {{ $b.Name }} on the map">
+      {{ template "icon" "map-pin" }}
+    </button>
+    <span class="pcard__market" aria-label="{{ $b.CountryCode }}">
+      {{ template "flag" $b.CountryCode }}
+      <span>{{ $b.CountryCode }}</span>
+    </span>
+  </div>
+  {{ end }}
 </article>
 {{ end }}
 

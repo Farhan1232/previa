@@ -12,6 +12,9 @@
 # Vercel
 .vercel
 
+# Byte-code from the generator scripts in docs/
+__pycache__/
+
 # Editor / OS noise
 .DS_Store
 *.swp

@@ -68,26 +68,55 @@
         links. That is what makes them carry the entered values: each sends the
         same three fields and differs only by the extra parameter it adds, so
         the resulting URL is complete, shareable and survives Back.
-          Search properties → /search?deal=…&location=…&property_type=…
-          Advanced filters  → …&filters=open   (sidebar expanded on arrival)
+          search properties → /search?deal=…&location=…&property_type=…
+          advanced filters  → …&filters=open   (sidebar expanded on arrival)
           Search on map     → …&view=map
       */}}
       <form class="searchbox" action="/search" method="get" role="search"
             aria-label="Property search">
 
         <div class="searchbox__body searchbox__body--three">
-          <div class="field">
-            <label class="field__label" for="hero-deal">Deal type</label>
-            {{/*
-              Exactly the three options, with Sell selected on arrival — the
-              same state the search sidebar opens in, so the homepage and the
-              results page never disagree about what is being searched.
-            */}}
-            <select class="select" id="hero-deal" name="deal">
-              {{ range $i, $dt := dealTypes }}
-              <option value="{{ $dt.Value }}" {{ if eq $i 0 }}selected{{ end }}>{{ $dt.Label }}</option>
-              {{ end }}
-            </select>
+          {{/*
+            Deal type — several at once.
+
+            It was a native <select>, so it could only ask for one. The client
+            asked for the same multiple choice the property type beside it
+            already offers, and for the same reason: Rent and Short rent are
+            usually looked at together. It is now the same control — a trigger
+            reporting the current choice, and a panel of checkboxes that submit
+            as a repeated `deal` parameter, which is exactly what the results
+            page and the filter sidebar already read.
+
+            The checkboxes inside are the sidebar's own segmented control, so
+            the two surfaces cannot drift apart in look or in behaviour.
+
+            Sell is ticked on arrival, the state the sidebar opens in. Unticking
+            everything is allowed and searches Sell, which is what the parser
+            falls back to — so the trigger keeps saying "Sell" rather than
+            claiming a filter that is not being applied.
+          */}}
+          <div class="field type-picker deal-picker" x-data="previaDealPicker()"
+               @keydown.escape.stop="open = false">
+            <span class="field__label" id="hero-deal-label">Deal type</span>
+            <button type="button" class="select type-picker__btn" id="hero-deal"
+                    @click="open = !open" :aria-expanded="open"
+                    aria-haspopup="true" aria-labelledby="hero-deal-label hero-deal-summary">
+              <span id="hero-deal-summary" x-text="summary">Sell</span>
+            </button>
+
+            <div class="type-picker__panel deal-picker__panel" x-show="open" x-cloak
+                 @click.outside="open = false">
+              <div class="segmented segmented--full segmented--deal" role="group"
+                   aria-label="Deal type">
+                {{ range $i, $dt := dealTypes }}
+                <label class="segmented__item">
+                  <input type="checkbox" name="deal" value="{{ $dt.Value }}"
+                         {{ if eq $i 0 }}checked{{ end }}>
+                  <span>{{ $dt.Label }}</span>
+                </label>
+                {{ end }}
+              </div>
+            </div>
           </div>
 
           {{ template "location-field" dict
@@ -127,15 +156,17 @@
             named identically whether or not they are drawn.
           */}}
           <button class="btn btn--primary searchbox__submit" type="submit"
-                  aria-label="Search properties">
+                  aria-label="search properties">
             {{ template "icon" "search" }}
-            <span class="searchbox__submit-label">Search properties</span>
+            <span class="searchbox__submit-label">search properties</span>
           </button>
         </div>
 
         <div class="searchbox__footer">
+          {{/* Lowercase, matching "search on map" beside it and "add listing"
+               in the header — the client's house style for these actions. */}}
           <button class="btn btn--ghost btn--sm" type="submit" name="filters" value="open">
-            {{ template "icon" "sliders" }} Advanced filters
+            {{ template "icon" "sliders" }} advanced filters
           </button>
           {{/*
             Search on map.
@@ -205,26 +236,154 @@
   </div>
 </section>
 
+{{/*
+  The "Browse by property type" tile grid that used to sit here was removed at
+  the client's request. The categories are still reachable — the hero's Property
+  type picker and the search sidebar both offer the full catalogue — so nothing
+  replaces it and Featured properties now runs straight into Recently added.
+*/}}
+
 {{/* ---------------------------------------------------------------
-     Browse by property type
+     Recently added
      --------------------------------------------------------------- */}}
 <section class="section section--band">
   <div class="container">
     <div class="section__head">
-      <div class="section__head-text">
-        <h2 class="section__title">Browse by property type</h2>
-        <p class="section__subtitle">Jump straight to the category you're looking for.</p>
+      <div class="section__head-text section__head-text--tight">
+        <p class="overline">Fresh to market</p>
+        <h2 class="section__title">Recently added</h2>
+        <p class="section__subtitle">The newest listings across all Previa markets.</p>
       </div>
+      <a class="section__link" href="/search?sort=newest">
+        See the newest {{ template "icon" "arrow-right" }}
+      </a>
     </div>
 
-    <div class="type-grid">
-      {{ range $d.Types }}
-      <a class="type-tile" href="/search?property_type={{ .Type }}">
-        <span class="type-tile__icon" aria-hidden="true">{{ template "icon" .Icon }}</span>
-        <span class="type-tile__name">{{ .Label }}</span>
-        <span class="type-tile__count numeric">{{ .Count }} listings</span>
-      </a>
+    {{/*
+      The same grid and the same card as Featured properties above, at the
+      client's request: "then the recently added preview icon size make the
+      same as featured properties". The compact variant and the four-across
+      grid were what made these cards a different size, so both are gone —
+      five across on a wide screen, exactly like the row above it.
+    */}}
+    <div class="grid grid--properties">
+      {{ range $d.Recent }}
+        {{ template "property-card" dict "Property" .
+                    "Favourite" (index $d.Favourites .ID) }}
       {{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Brokers advertising in the active market
+
+     Every card here is a placement a broker bought for this country: "in the
+     frontpage the broker section, there the broker can buy an ad that under
+     this country (when the user has chosen his market on the frontpage banner)
+     his ad is active."
+
+     So the strip follows the market picked on the banner above, and a market
+     nobody has bought shows nothing at all rather than being filled out with
+     brokers from elsewhere — they did not pay to reach this reader, and a paid
+     strip that quietly includes people who did not pay is not a paid strip.
+     The directory is one link away either way.
+
+     Plain rather than banded: the page alternates tone section by section, and
+     the client's 19 August running order — banner, featured, recently added,
+     brokers, new developments, articles, popular locations, why Previa, what
+     people say — puts this one between two bands.
+     --------------------------------------------------------------- */}}
+{{ if $d.Brokers }}
+<section class="section">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text section__head-text--tight">
+        <p class="overline">{{ .Country.Name }}</p>
+        <h2 class="section__title">Brokers to work with in {{ .Country.Name }}</h2>
+        <p class="section__subtitle">
+          Brokers advertising in this market. To search every broker by where
+          they are, use the map on the broker page.
+        </p>
+      </div>
+      <a class="section__link" href="/brokers">
+        All brokers {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    <div class="broker-strip">
+      {{ range $d.Brokers }}{{ template "broker-card" dict "Broker" . }}{{ end }}
+    </div>
+
+    {{/* Where a broker buys one of these. The client described the purchase
+         from this section — "in the frontpage the broker section, there the
+         broker can buy an ad" — so the way in is here, next to what is being
+         sold, rather than only on the profile that sells it. */}}
+    <p class="broker-strip__sell">
+      {{ template "icon" "sparkle" }}
+      <span>
+        A broker in {{ .Country.Name }}?
+        <a href="/settings">Advertise your profile here</a> —
+        {{ money ($d.BrokerAdPlan.PerDay .Country.Code) }} per day in this market.
+      </span>
+    </p>
+  </div>
+</section>
+{{ end }}
+
+{{/* ---------------------------------------------------------------
+     New developments
+     --------------------------------------------------------------- */}}
+<section class="section section--band">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text section__head-text--tight">
+        <p class="overline">Buy new</p>
+        <h2 class="section__title">New developments</h2>
+        <p class="section__subtitle">
+          Off-plan and newly completed projects, direct from the developer.
+        </p>
+      </div>
+      <a class="section__link" href="/developments">
+        All developments {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    <div class="grid grid--3">
+      {{ range $d.Developments }}{{ template "development-card" . }}{{ end }}
+    </div>
+  </div>
+</section>
+
+{{/* ---------------------------------------------------------------
+     Articles
+     --------------------------------------------------------------- */}}
+<section class="section">
+  <div class="container">
+    <div class="section__head">
+      <div class="section__head-text section__head-text--tight">
+        <p class="overline">Advice</p>
+        <h2 class="section__title">Articles &amp; real-estate advice</h2>
+        <p class="section__subtitle">Practical guidance written by working brokers.</p>
+      </div>
+      <a class="section__link" href="/articles">
+        All articles {{ template "icon" "arrow-right" }}
+      </a>
+    </div>
+
+    {{/*
+      The article index's own grid, at the client's request: "in the frontpage
+      the articles section the article previews make the same style and size as
+      they are in article page. So in the frontpage as well 5 pcs in one row and
+      two rows of them."
+
+      .grid--articles carries the index's column width and the tighter card
+      padding and type scale that go with it, so a homepage card and an index
+      card are the same object. Ten articles is what fills the two rows — see
+      HomeData.Articles in pkg/handlers/public.go.
+    */}}
+    <div class="grid grid--articles">
+      {{ range $d.Articles }}{{ template "article-card" . }}{{ end }}
     </div>
   </div>
 </section>
@@ -232,10 +391,10 @@
 {{/* ---------------------------------------------------------------
      Popular locations
      --------------------------------------------------------------- */}}
-<section class="section">
+<section class="section section--band">
   <div class="container">
     <div class="section__head">
-      <div class="section__head-text">
+      <div class="section__head-text section__head-text--tight">
         <h2 class="section__title">Popular locations</h2>
         <p class="section__subtitle">The cities buyers and renters search most on Previa.</p>
       </div>
@@ -266,86 +425,12 @@
 </section>
 
 {{/* ---------------------------------------------------------------
-     Recently added
-     --------------------------------------------------------------- */}}
-<section class="section section--band">
-  <div class="container">
-    <div class="section__head">
-      <div class="section__head-text">
-        <p class="overline">Fresh to market</p>
-        <h2 class="section__title">Recently added</h2>
-        <p class="section__subtitle">The newest listings across all Previa markets.</p>
-      </div>
-      <a class="section__link" href="/search?sort=newest">
-        See the newest {{ template "icon" "arrow-right" }}
-      </a>
-    </div>
-
-    <div class="grid grid--4">
-      {{ range $d.Recent }}
-        {{ template "property-card" dict "Property" . "Variant" "compact"
-                    "Favourite" (index $d.Favourites .ID) }}
-      {{ end }}
-    </div>
-  </div>
-</section>
-
-{{/* ---------------------------------------------------------------
-     New developments
-     --------------------------------------------------------------- */}}
-<section class="section">
-  <div class="container">
-    <div class="section__head">
-      <div class="section__head-text">
-        <p class="overline">Buy new</p>
-        <h2 class="section__title">New developments</h2>
-        <p class="section__subtitle">
-          Off-plan and newly completed projects, direct from the developer.
-        </p>
-      </div>
-      <a class="section__link" href="/developments">
-        All developments {{ template "icon" "arrow-right" }}
-      </a>
-    </div>
-
-    <div class="grid grid--3">
-      {{ range $d.Developments }}{{ template "development-card" . }}{{ end }}
-    </div>
-  </div>
-</section>
-
-{{/* ---------------------------------------------------------------
-     Promoted brokers for the active country
-     --------------------------------------------------------------- */}}
-<section class="section section--band">
-  <div class="container">
-    <div class="section__head">
-      <div class="section__head-text">
-        <p class="overline">{{ .Country.Name }}</p>
-        <h2 class="section__title">Brokers to work with in {{ .Country.Name }}</h2>
-        <p class="section__subtitle">
-          Verified professionals with a track record in this market. Their placement
-          here is a promoted listing.
-        </p>
-      </div>
-      <a class="section__link" href="/brokers?country={{ .Country.Code }}">
-        All brokers {{ template "icon" "arrow-right" }}
-      </a>
-    </div>
-
-    <div class="broker-strip">
-      {{ range $d.Brokers }}{{ template "broker-card" . }}{{ end }}
-    </div>
-  </div>
-</section>
-
-{{/* ---------------------------------------------------------------
      Why Previa
      --------------------------------------------------------------- */}}
 <section class="section section--navy">
   <div class="container">
     <div class="section__head">
-      <div class="section__head-text">
+      <div class="section__head-text section__head-text--tight">
         <h2 class="section__title">Why people search on Previa</h2>
         <p class="section__subtitle">
           One platform for eight markets, built around the map and the people
@@ -397,7 +482,7 @@
 <section class="section">
   <div class="container">
     <div class="section__head">
-      <div class="section__head-text">
+      <div class="section__head-text section__head-text--tight">
         <h2 class="section__title">What people say</h2>
       </div>
     </div>
@@ -421,47 +506,9 @@
   </div>
 </section>
 
-{{/* ---------------------------------------------------------------
-     Articles
-     --------------------------------------------------------------- */}}
-<section class="section section--band">
-  <div class="container">
-    <div class="section__head">
-      <div class="section__head-text">
-        <p class="overline">Advice</p>
-        <h2 class="section__title">Articles &amp; real-estate advice</h2>
-        <p class="section__subtitle">Practical guidance written by working brokers.</p>
-      </div>
-      <a class="section__link" href="/articles">
-        All articles {{ template "icon" "arrow-right" }}
-      </a>
-    </div>
-
-    <div class="grid grid--3">
-      {{ range $d.Articles }}{{ template "article-card" . }}{{ end }}
-    </div>
-  </div>
-</section>
-
-{{/* ---------------------------------------------------------------
-     Final call to action
-     --------------------------------------------------------------- */}}
-<section class="section">
-  <div class="container">
-    <div class="cta-panel">
-      <div>
-        <h2 class="cta-panel__title">Have a property to sell or rent out?</h2>
-        <p class="cta-panel__text">
-          Publish in about fifteen minutes. Add your photos, place the pin on
-          the map, choose how precisely your address appears, and go live to
-          buyers across eight markets.
-        </p>
-      </div>
-      <div class="cta-panel__actions">
-        <a class="btn btn--gold btn--lg" href="/add-listing">add listing</a>
-        <a class="btn btn--on-image btn--lg" href="/pricing">See packages</a>
-      </div>
-    </div>
-  </div>
-</section>
+{{/*
+  The "Have a property to sell or rent out?" call-to-action panel that used to
+  close the homepage was removed at the client's request. Nothing replaces it —
+  the article grid above now runs straight into the footer.
+*/}}
 {{ end }}

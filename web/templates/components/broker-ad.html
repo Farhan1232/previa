@@ -1,0 +1,232 @@
+{{/*
+  Homepage broker ad — the placement a broker buys, per market and per day.
+
+  The client's design, 18 August:
+
+    "So with the brokers we have two locations now. The broker under his profile
+     can enter the country where he is active and the googlemaps location. In
+     the frontpage the broker section, there the broker can buy an ad that under
+     this country (when the user has chosen his market on the frontpage banner)
+     his ad is active. Then in the header is the 'Brokers' button, in this page
+     can search the brokers by googlemaps location."
+
+  And where it is bought from, 19 August:
+
+    "In the user account settings, where is the 'Choose every market you are
+     active in…' there after the title 'Contry' make a violet #8B008B button
+     'advertise' if click there then a popup will open with the options to
+     insert your broker ad into the broker section."
+
+  So this is two things now: a button beside the Country label, and the dialog
+  it opens. They are one component because the dialog's fields live inside the
+  profile form — the markets, the run length and the bill are submitted with
+  everything else on Save — and splitting them would put half of a form control
+  in one file and half in another.
+
+  Priced per market per day, which is the rest of the same message:
+
+    "In the backend there is option to set the price per day for each country.
+     For example in Germany 3 € per day, in Poland 1 € per day. So the broker
+     choosess the Germany and Poland for 10 days. So the system will calculate a
+     bill: Germany 3 € per day x 10 = 30 €; for Estonia 1 € per day x 10 = 10 €;
+     total: 40 €."
+
+  The bill below is that calculation, one line per market, in the client's own
+  layout. The rates come from models.BrokerAdPlan, which the admin panel edits.
+
+  Args (dict):
+    Plan      models.BrokerAdPlan
+    Ad        models.BrokerAd      what is running now, if anything
+    Countries []models.Country     the full market list for the picker
+    Active    []string             the markets this broker works in
+
+  Nothing is submitted this milestone, as with every other form on the site:
+  the fields are named for whichever backend takes over. See
+  docs/backend-integration-points.md.
+*/}}
+{{ define "broker-ad" }}
+{{ $plan := .Plan }}
+{{ $ad := .Ad }}
+<div class="broker-ad" x-data="previaBrokerAd({{ jsonValue $plan.Rates }},
+                                              {{ jsonValue $plan.DefaultPerDay.Amount }},
+                                              {{ jsonValue $plan.DefaultDays }})">
+
+  {{/*
+    The button, beside the Country label rather than under the field: "there
+    after the title 'Contry' make a violet #8B008B button 'advertise'". It is a
+    real button and not a link, because what it opens is part of this form.
+  */}}
+  <button type="button" class="btn btn--advertise btn--sm" @click="openDialog()"
+          :aria-expanded="dialog" aria-haspopup="dialog">
+    {{ template "icon" "sparkle" }} advertise
+  </button>
+
+  {{/*
+    The dialog.
+
+    x-show rather than x-if: the markets, the run length and the bill are form
+    fields, and a template that is destroyed when the dialog closes would drop
+    whatever the broker had chosen the moment they looked at something else.
+  */}}
+  <div class="modal-backdrop" x-show="dialog" x-cloak
+       x-transition.opacity.duration.150ms
+       @click.self="closeDialog()" @keydown.escape.window="closeDialog()">
+    <div class="modal modal--lg" role="dialog" aria-modal="true"
+         aria-labelledby="broker-ad-title" x-trap.noscroll="dialog">
+      <div class="modal__header">
+        <h2 class="modal__title" id="broker-ad-title">{{ $plan.Name }}</h2>
+        <button type="button" class="icon-btn" @click="closeDialog()"
+                aria-label="Close">{{ template "icon" "close" }}</button>
+      </div>
+
+      <div class="modal__body stack">
+        <p>{{ $plan.Info }}</p>
+
+        {{/*
+          Which markets. The same tag picker the profile's own country field
+          uses, so "where I work" and "where I advertise" are chosen the same
+          way and can be the same answer with one click — and multi-select,
+          because "one broker can choose more countries where he's ad is
+          diplayed … these come there as tags".
+        */}}
+        {{ template "tag-picker" dict
+            "Kind" "country" "Name" "broker_ad_countries" "ID" "ad-countries"
+            "Label" "Markets to advertise in"
+            "AddLabel" "Add market"
+            "EmptyLabel" "No market chosen"
+            "Hint" "Your profile shows on the homepage of each market you choose."
+            "Selected" .Active
+            "Countries" .Countries }}
+
+        {{/*
+          For how long. One number for every market — the client buys "the
+          Germany and Poland for 10 days", not a different length in each — with
+          the common lengths as one-click shortcuts beside it.
+        */}}
+        <div class="field">
+          <label class="field__label" for="broker-ad-days">Run for</label>
+          <div class="row row--tight">
+            <div class="days-field">
+              <input class="input numeric" id="broker-ad-days" name="broker_ad_days"
+                     type="number" min="1" max="365" step="1"
+                     x-model.number="days" @input="recalc()">
+              <span class="days-field__unit">days</span>
+            </div>
+            {{ range $plan.DayOptions }}
+            <button type="button" class="chip chip--action"
+                    :class="{ 'is-on': days === {{ . }} }"
+                    @click="days = {{ . }}; recalc()">{{ . }} days</button>
+            {{ end }}
+          </div>
+          <span class="field__hint">
+            Each market runs for this many days from the day you activate it.
+          </span>
+        </div>
+
+        {{/*
+          The bill, exactly as the client wrote it: a line per market saying the
+          rate, the number of days and what the two come to, then the total.
+        */}}
+        <div class="ad-bill" x-show="lines.length" x-cloak>
+          <p class="overline">Your bill</p>
+          <ul class="ad-bill__lines">
+            <template x-for="line in lines" :key="line.code">
+              <li class="ad-bill__line">
+                <span x-text="line.name"></span>
+                <span class="numeric">
+                  €<span x-text="line.rate"></span> per day ×
+                  <span x-text="days"></span> =
+                  <strong>€<span x-text="line.total"></span></strong>
+                </span>
+              </li>
+            </template>
+          </ul>
+          <p class="ad-bill__total">
+            <span>Total</span>
+            <strong class="numeric">€<span x-text="total"></span></strong>
+          </p>
+        </div>
+
+        <p class="promo__info" x-show="!lines.length" x-cloak>
+          {{ template "icon" "info" }}
+          <span>Choose at least one market for the ad to run in.</span>
+        </p>
+
+        {{/*
+          And what the placement actually shows, which is the profile itself
+          rather than a copy of it taken at the moment it was paid for: "this is
+          the broker user-profile what is displayed there and if he updates his
+          profile by changing photo or phone, then this will be updated in this
+          ad immediately."
+
+          Nothing in models.BrokerAd stores a photograph, a name or a number for
+          exactly that reason — there is no copy that could go stale. Saying so
+          here is what stops a broker buying a second ad to "refresh" the first.
+        */}}
+        <p class="field__hint broker-ad__live">
+          {{ template "icon" "info" }}
+          <span>
+            The ad shows your profile as it is now — change your photograph,
+            phone number or company and
+            every ad you are running updates immediately.
+            Each market is paid for separately, so buying Germany today and
+            Poland next week gives you two runs, not one. Periods are counted
+            in UTC.
+          </span>
+        </p>
+      </div>
+
+      <div class="modal__footer">
+        <button type="button" class="btn btn--secondary" @click="closeDialog()">Cancel</button>
+        {{/* The switch the form submits. Hidden rather than a checkbox in the
+             dialog: confirming here is what turns the placement on, so the two
+             must not be able to disagree. */}}
+        <input type="hidden" name="broker_ad" :value="on ? '1' : ''">
+        <button type="button" class="btn btn--primary" @click="confirm()" :disabled="!lines.length">
+          <span x-show="!lines.length">Choose a market</span>
+          <span x-show="lines.length" x-cloak>Pay €<span x-text="total"></span> and publish</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}
+
+
+{{/*
+  What is running now — one line per market, under the field the button sits on
+  rather than beside it, because each is a sentence and a heading row is not
+  where sentences go.
+
+  One line per market because each was bought on its own day and expires on its
+  own. The client's case, spelled out: "at first he wants that his profile is
+  displayed in the German market for 30 days, then he activates it with payment,
+  and then he can activate his ad under France market as well for 30 days with
+  new payment." Two purchases, two countdowns. A single "running in Germany,
+  France — 18 days left" would be wrong about at least one of them.
+
+  Each says when it ends as well as how long is left, in UTC: "if the user has
+  activated paid ad then under he's account he sees the end time/date of the
+  periode. As our website is global we use UTC time."
+
+  Args (dict):
+    Ad  models.BrokerAd
+*/}}
+{{ define "broker-ad-runs" }}
+{{ $ad := .Ad }}
+{{ if $ad.IsLive now }}
+<ul class="broker-ad__runs">
+  {{ range $ad.LiveRuns now }}
+  <li class="broker-ad__status">
+    {{ template "icon" "sparkle" }}
+    <span>
+      Running in <strong>{{ countryName .Country }}</strong>
+      — {{ .DaysLeft now }}
+      {{ if eq (.DaysLeft now) 1 }}day{{ else }}days{{ end }} left
+      <span class="subtle">· ends {{ utc .EndsAt }}</span>
+    </span>
+  </li>
+  {{ end }}
+</ul>
+{{ end }}
+{{ end }}
